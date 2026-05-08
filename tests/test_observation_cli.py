@@ -95,5 +95,9 @@ def test_observe_non_repo_path_is_still_an_observation(tmp_path: Path):
     schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
     validate_instance(observation, schema, Path("generated-observation.json"))
 
-    assert observation["observed_state"]["is_git_repo"] is False
+    state = observation["observed_state"]
+    assert state["is_git_repo"] is False
+    assert state["git_metadata_present"] is False
+    assert isinstance(state["git_worktree_check_exit_code"], int)
+    assert "git_worktree_check_stderr" in state
     assert observation["source_refs"] == ["git.rev_parse.worktree"]

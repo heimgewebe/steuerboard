@@ -39,8 +39,11 @@ def _git_stdout_or_none(path: Path, *args: str) -> str | None:
     return result.stdout
 
 
-def _is_git_repo(path: Path) -> bool:
-    result = _run_git(path, "rev-parse", "--is-inside-work-tree")
+def _worktree_check(path: Path) -> GitResult:
+    return _run_git(path, "rev-parse", "--is-inside-work-tree")
+
+
+def _is_successful_worktree_check(result: GitResult) -> bool:
     return result.returncode == 0 and result.stdout == "true"
 
 
@@ -98,7 +101,8 @@ def _observation_id(path: Path) -> str:
 
 def observe_repo(path: Path) -> dict[str, Any]:
     resolved = path.expanduser().resolve()
-    is_repo = _is_git_repo(resolved)
+    worktree_check = _worktree_check(resolved)
+    is_repo = _is_successful_worktree_check(worktree_check)
 
     if not is_repo:
         return {
@@ -108,6 +112,10 @@ def observe_repo(path: Path) -> dict[str, Any]:
             "observed_state": {
                 "path": str(resolved),
                 "is_git_repo": False,
+                "git_metadata_present": (resolved / ".git").exists(),
+                "git_worktree_check_exit_code": worktree_check.returncode,
+                "git_worktree_check_stdout": worktree_check.stdout,
+                "git_worktree_check_stderr": worktree_check.stderr,
                 "git_status_exit_code": None,
             },
         }
@@ -140,6 +148,8 @@ def observe_repo(path: Path) -> dict[str, Any]:
     observed_state: dict[str, Any] = {
         "path": str(resolved),
         "is_git_repo": True,
+        "git_metadata_present": (resolved / ".git").exists(),
+        "git_worktree_check_exit_code": worktree_check.returncode,
         "current_branch": current_branch,
         "head_sha": head_sha,
         "dirty": status_result.stdout != "",
