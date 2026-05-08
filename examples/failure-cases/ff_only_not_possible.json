@@ -1,0 +1,31 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "ff_only_not_possible",
+  "title": "Fast-forward only not possible",
+  "trigger": "The local default branch and its upstream have diverged, so a fast-forward pull would fail.",
+  "expected_observation": [
+    "branch is default branch",
+    "ahead count is greater than zero",
+    "behind count is greater than zero"
+  ],
+  "risk": "Automated pull would require merge/rebase decisions that steuerboard must not invent.",
+  "expected_assessment": [
+    "ff_only_not_possible",
+    "diverged_branch"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "automatic_merge",
+    "automatic_rebase"
+  ],
+  "safe_actions": [
+    "show_divergence",
+    "fetch_only_plan"
+  ],
+  "required_evidence": [
+    "ahead/behind counts",
+    "HEAD SHA",
+    "upstream SHA",
+    "fresh remote refs"
+  ]
+}

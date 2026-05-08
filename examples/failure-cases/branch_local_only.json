@@ -1,0 +1,30 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "branch_local_only",
+  "title": "Branch exists only locally",
+  "trigger": "The current branch has no corresponding remote branch and no upstream.",
+  "expected_observation": [
+    "current branch is known",
+    "branch has no upstream",
+    "matching remote ref is absent"
+  ],
+  "risk": "Local-only work could be lost from operator attention if the tool switches away too eagerly.",
+  "expected_assessment": [
+    "branch_local_only",
+    "no_upstream"
+  ],
+  "blocked_actions": [
+    "git.switch_main",
+    "branch_delete",
+    "git.pull"
+  ],
+  "safe_actions": [
+    "show_branch_status",
+    "show_diff_against_default"
+  ],
+  "required_evidence": [
+    "current branch",
+    "upstream lookup",
+    "remote refs freshness"
+  ]
+}

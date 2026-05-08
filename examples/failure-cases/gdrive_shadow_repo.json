@@ -1,0 +1,28 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "gdrive_shadow_repo",
+  "title": "Cloud-synced shadow clone",
+  "trigger": "A repository appears below a synced-drive example path such as ${HOME}/GDrive/repos.",
+  "expected_observation": [
+    "path matches a synced-drive scope rule",
+    "repo metadata is readable"
+  ],
+  "risk": "Cloud sync may corrupt Git state or replicate private evidence.",
+  "expected_assessment": [
+    "scope_gdrive",
+    "scope_shadow"
+  ],
+  "blocked_actions": [
+    "git.fetch_all_prune",
+    "git.pull",
+    "git.switch"
+  ],
+  "safe_actions": [
+    "explain_scope",
+    "show_status_read_only"
+  ],
+  "required_evidence": [
+    "local scope config",
+    "path classification evidence"
+  ]
+}

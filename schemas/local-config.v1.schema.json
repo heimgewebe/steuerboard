@@ -1,0 +1,64 @@
+{
+  "title": "Local Config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "host",
+    "paths",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "local-config.v1"
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canonical_repo_roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "excluded_repo_roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow_mutating_actions": {
+          "type": "boolean"
+        },
+        "allow_branch_switch": {
+          "type": "boolean"
+        },
+        "allow_network_fetch": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/local-config.v1.schema.json"
+}

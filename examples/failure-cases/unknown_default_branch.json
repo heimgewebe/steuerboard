@@ -1,0 +1,29 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "unknown_default_branch",
+  "title": "Unknown default branch",
+  "trigger": "The local repo or remote metadata does not provide a trustworthy default branch.",
+  "expected_observation": [
+    "default branch candidate is absent",
+    "remote HEAD is missing or stale"
+  ],
+  "risk": "Default-branch gates cannot decide whether a branch is safe to switch to or pull from.",
+  "expected_assessment": [
+    "default_branch_unknown",
+    "source_stale_for_action"
+  ],
+  "blocked_actions": [
+    "git.switch_main",
+    "git.pull_main_ff_only",
+    "default_branch_assumed_action"
+  ],
+  "safe_actions": [
+    "fetch_only_plan",
+    "show_remote_head_hint"
+  ],
+  "required_evidence": [
+    "remote HEAD source",
+    "configured default branch source",
+    "freshness timestamp"
+  ]
+}

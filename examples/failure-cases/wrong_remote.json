@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "wrong_remote",
+  "title": "Wrong remote",
+  "trigger": "The configured origin URL does not match the expected canonical remote.",
+  "expected_observation": [
+    "remote_url is present",
+    "remote_url differs from source-of-truth expected URL"
+  ],
+  "risk": "Fetch or pull would talk to the wrong remote.",
+  "expected_assessment": [
+    "remote_mismatch"
+  ],
+  "blocked_actions": [
+    "git.fetch_all_prune",
+    "git.pull",
+    "git.push"
+  ],
+  "safe_actions": [
+    "show_remote_diff",
+    "explain_expected_remote"
+  ],
+  "required_evidence": [
+    "observed remote URL",
+    "canonical remote source ref"
+  ]
+}

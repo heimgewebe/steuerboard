@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "feature_branch_merged",
+  "title": "Feature branch merged",
+  "trigger": "Repo is on a non-default branch with evidence that the branch is merged.",
+  "expected_observation": [
+    "current branch differs from default branch",
+    "merge evidence exists"
+  ],
+  "risk": "Action may be plannable, but still requires clean tree and fresh default branch.",
+  "expected_assessment": [
+    "clean_feature_branch",
+    "branch_merged"
+  ],
+  "blocked_actions": [
+    "direct_pull_without_switch_plan"
+  ],
+  "safe_actions": [
+    "plan_switch_main",
+    "show_merge_evidence"
+  ],
+  "required_evidence": [
+    "merge evidence",
+    "clean worktree",
+    "fresh origin default branch"
+  ]
+}

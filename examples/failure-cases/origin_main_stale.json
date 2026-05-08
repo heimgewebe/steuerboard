@@ -1,0 +1,29 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "origin_main_stale",
+  "title": "Origin main stale",
+  "trigger": "The local origin/main ref is older than the freshness policy allows.",
+  "expected_observation": [
+    "origin/main ref exists",
+    "last fetch or ref freshness exceeds policy window"
+  ],
+  "risk": "Plans based on origin/main may authorize actions against stale remote knowledge.",
+  "expected_assessment": [
+    "stale_source",
+    "source_stale_for_action"
+  ],
+  "blocked_actions": [
+    "git.switch_main",
+    "git.pull_main_ff_only",
+    "branch_lifecycle_decision"
+  ],
+  "safe_actions": [
+    "plan_fetch_all_prune",
+    "show_staleness"
+  ],
+  "required_evidence": [
+    "origin/main timestamp",
+    "freshness policy",
+    "last fetch evidence"
+  ]
+}

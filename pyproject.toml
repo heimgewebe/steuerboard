@@ -1,0 +1,21 @@
+[project]
+name = "steuerboard"
+version = "0.0.0"
+description = "Documentation, schemas, and validation scaffolding for steuerboard Phase 0b."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "jsonschema>=4.22",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100

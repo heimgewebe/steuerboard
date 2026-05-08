@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "detached_head",
+  "title": "Detached HEAD",
+  "trigger": "Repository is not on a named branch.",
+  "expected_observation": [
+    "current branch command returns empty",
+    "HEAD SHA is available"
+  ],
+  "risk": "Branch-based decisions are unsafe.",
+  "expected_assessment": [
+    "detached_head"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "git.switch_without_plan",
+    "branch_delete"
+  ],
+  "safe_actions": [
+    "show_head",
+    "create_explanation_only"
+  ],
+  "required_evidence": [
+    "HEAD SHA",
+    "branch command result"
+  ]
+}

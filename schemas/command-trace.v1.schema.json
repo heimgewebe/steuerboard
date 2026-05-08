@@ -1,0 +1,43 @@
+{
+  "title": "Command Trace v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trace_id",
+    "command",
+    "exit_code",
+    "redacted"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "command-trace.v1"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "command": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "stdout_excerpt": {
+      "type": "string"
+    },
+    "stderr_excerpt": {
+      "type": "string"
+    },
+    "redacted": {
+      "type": "boolean"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/command-trace.v1.schema.json"
+}

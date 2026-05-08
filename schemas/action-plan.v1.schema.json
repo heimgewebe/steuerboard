@@ -1,0 +1,68 @@
+{
+  "title": "Action Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "action",
+    "decision",
+    "would_run",
+    "would_mutate"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "action-plan.v1"
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo_id": {
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "allowed",
+        "blocked",
+        "warn"
+      ]
+    },
+    "would_run": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "would_mutate": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_because": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "safe_alternatives": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/action-plan.v1.schema.json"
+}

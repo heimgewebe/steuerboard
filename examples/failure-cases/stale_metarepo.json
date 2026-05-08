@@ -1,0 +1,26 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "stale_metarepo",
+  "title": "Stale metarepo source",
+  "trigger": "The local metarepo inventory source is older than the freshness policy allows.",
+  "expected_observation": [
+    "source timestamp exceeds freshness threshold"
+  ],
+  "risk": "Fleet membership may be outdated.",
+  "expected_assessment": [
+    "stale_source"
+  ],
+  "blocked_actions": [
+    "scope_based_mutation",
+    "fleet_wide_action"
+  ],
+  "safe_actions": [
+    "explain_staleness",
+    "refresh_source_plan"
+  ],
+  "required_evidence": [
+    "source path",
+    "last modified timestamp",
+    "freshness policy"
+  ]
+}

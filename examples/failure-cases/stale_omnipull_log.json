@@ -1,0 +1,26 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "stale_omnipull_log",
+  "title": "Stale omnipull log",
+  "trigger": "The latest available omnipull report is older than the freshness policy allows.",
+  "expected_observation": [
+    "omnipull report exists",
+    "report timestamp exceeds policy threshold"
+  ],
+  "risk": "Skip reasons may describe an old state rather than current local state.",
+  "expected_assessment": [
+    "stale_source"
+  ],
+  "blocked_actions": [
+    "act_on_omnipull_skip",
+    "pull_based_on_report"
+  ],
+  "safe_actions": [
+    "show_report_with_stale_badge"
+  ],
+  "required_evidence": [
+    "report timestamp",
+    "freshness policy",
+    "run id"
+  ]
+}
