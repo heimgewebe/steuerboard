@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -17,12 +18,16 @@ class GitResult:
 
 
 def _run_git(path: Path, *args: str) -> GitResult:
+    env = os.environ.copy()
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+
     completed = subprocess.run(
         ["git", "-C", str(path), *args],
         check=False,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
     return GitResult(
         args=args,

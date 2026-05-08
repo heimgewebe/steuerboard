@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from scripts.validate_examples import SCHEMAS_DIR, load_json, validate_instance
+from steuerboard import observation as observation_module
 from steuerboard.observation import observe_repo
 
 
@@ -102,3 +103,25 @@ def test_observe_non_repo_path_is_still_an_observation(tmp_path: Path):
     assert isinstance(state["git_worktree_check_exit_code"], int)
     assert "git_worktree_check_stderr" in state
     assert observation["source_refs"] == ["git.rev_parse.worktree"]
+
+
+def test_git_runner_disables_optional_locks(monkeypatch, tmp_path: Path):
+    captured = {}
+
+    class Completed:
+        returncode = 0
+        stdout = "true\n"
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["env"] = kwargs["env"]
+        return Completed()
+
+    monkeypatch.setattr(observation_module.subprocess, "run", fake_run)
+
+    result = observation_module._run_git(tmp_path, "rev-parse", "--is-inside-work-tree")
+
+    assert result.returncode == 0
+    assert captured["command"][:3] == ["git", "-C", str(tmp_path)]
+    assert captured["env"]["GIT_OPTIONAL_LOCKS"] == "0"
