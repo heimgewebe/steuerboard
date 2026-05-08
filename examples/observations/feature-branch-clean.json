@@ -1,0 +1,24 @@
+{
+  "schema_version": "repo-observation.v1",
+  "observation_id": "obs-example-feature-branch-clean",
+  "repo_id": "heimgewebe/steuerboard",
+  "source_refs": [
+    "git.current_branch",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.remote.origin.url"
+  ],
+  "observed_state": {
+    "path": "/home/alex/repos/steuerboard",
+    "is_git_repo": true,
+    "current_branch": "docs/runtime-note",
+    "head_sha": "0000000000000000000000000000000000000000",
+    "dirty": false,
+    "upstream": "origin/docs/runtime-note",
+    "ahead": 0,
+    "behind": 0,
+    "remote_url": "git@github.com:heimgewebe/steuerboard.git",
+    "default_branch_candidate": "main",
+    "git_status_exit_code": 0
+  }
+}

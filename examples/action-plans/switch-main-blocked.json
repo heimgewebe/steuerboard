@@ -1,0 +1,25 @@
+{
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-example-switch-main-blocked",
+  "action": "git.switch_main",
+  "repo_id": "heimgewebe/steuerboard",
+  "decision": "blocked",
+  "would_run": [
+    "git switch main"
+  ],
+  "would_mutate": [
+    "current_branch"
+  ],
+  "blocked_because": [
+    "branch_merge_status_unknown",
+    "origin_main_freshness_unknown"
+  ],
+  "required_evidence": [
+    "branch_contains_origin_main_or_pr_merged",
+    "fresh_origin_main"
+  ],
+  "safe_alternatives": [
+    "show_diff_against_default",
+    "fetch_only_plan"
+  ]
+}

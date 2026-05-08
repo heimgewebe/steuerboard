@@ -1,0 +1,19 @@
+{
+  "schema_version": "action-capability.v1",
+  "action": "git.fetch_all_prune",
+  "description": "Fetch origin and prune deleted refs without mutating the worktree.",
+  "mutates_worktree": false,
+  "mutates_refs": true,
+  "mutates_remote": false,
+  "risk_level": "low",
+  "allowed_in_phase": 8,
+  "preflight_checks": [
+    "repo_exists",
+    "scope_canonical",
+    "remote_reachable"
+  ],
+  "post_checks": [
+    "fetch_exit_zero",
+    "command_trace_written"
+  ]
+}

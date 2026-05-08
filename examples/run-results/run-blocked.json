@@ -1,0 +1,11 @@
+{
+  "schema_version": "run-result.v1",
+  "run_id": "run-example-blocked",
+  "status": "blocked",
+  "started_at": "2026-05-08T19:15:00Z",
+  "finished_at": "2026-05-08T19:15:01Z",
+  "redaction_verified": true,
+  "evidence_paths": [
+    "examples/evidence/command-trace-redacted.json"
+  ]
+}

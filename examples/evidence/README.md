@@ -1,3 +1,3 @@
 # Evidence Examples
 
-Reserved for redacted evidence examples. No private evidence dumps or secrets belong here.
+Contains redacted evidence-shape examples only. No private evidence dumps or secrets belong here.

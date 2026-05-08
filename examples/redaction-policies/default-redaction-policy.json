@@ -1,0 +1,19 @@
+{
+  "schema_version": "redaction-policy.v1",
+  "policy_id": "default-redaction-policy",
+  "max_stdout_bytes": 4096,
+  "max_stderr_bytes": 4096,
+  "allow_full_diffs": false,
+  "rules": [
+    {
+      "name": "token_like_value",
+      "pattern_hint": "token-like or credential-like value",
+      "replacement": "[REDACTED]"
+    },
+    {
+      "name": "absolute_private_home_path",
+      "pattern_hint": "/home/alex/...",
+      "replacement": "$HOME/..."
+    }
+  ]
+}

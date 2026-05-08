@@ -1,4 +1,9 @@
-from scripts.validate_examples import _is_date_time, validate_examples, validate_schemas
+from scripts.validate_examples import (
+    EXAMPLES_DIR,
+    _is_date_time,
+    validate_examples,
+    validate_schemas,
+)
 
 REQUIRED_FAILURE_CASES = {
     "backup_repo_accidentally_used.json",
@@ -26,6 +31,19 @@ REQUIRED_FAILURE_CASES = {
     "wrong_remote.json",
 }
 
+REQUIRED_SCHEMA_EXAMPLES = {
+    "action-capabilities/git-fetch-all-prune.json",
+    "action-plans/switch-main-blocked.json",
+    "assessments/feature-branch-clean-blocked.json",
+    "evidence/command-trace-redacted.json",
+    "local-configs/heim-pc.json",
+    "observations/feature-branch-clean.json",
+    "redaction-policies/default-redaction-policy.json",
+    "run-indexes/minimal-run-index.json",
+    "run-results/run-blocked.json",
+    "source-refs/git-current-branch.json",
+}
+
 
 def test_schemas_are_valid():
     validated = validate_schemas()
@@ -38,6 +56,12 @@ def test_examples_validate_against_schemas():
     validated_names = {path.name for path in validated}
     assert len(validated_names) >= len(REQUIRED_FAILURE_CASES)
     assert REQUIRED_FAILURE_CASES <= validated_names
+
+
+def test_non_failure_schema_examples_validate_against_schemas():
+    validated = validate_examples()
+    validated_rel = {path.relative_to(EXAMPLES_DIR).as_posix() for path in validated}
+    assert REQUIRED_SCHEMA_EXAMPLES <= validated_rel
 
 
 def test_fallback_date_time_check_requires_rfc3339_shape():
