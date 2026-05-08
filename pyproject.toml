@@ -3,7 +3,7 @@ name = "steuerboard"
 version = "0.0.0"
 description = "Documentation, schemas, and validation scaffolding for steuerboard Phase 0b."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
   "jsonschema>=4.22",
 ]
