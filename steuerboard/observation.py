@@ -112,14 +112,12 @@ def _redact_remote_url(remote_url: str | None) -> str | None:
     if not has_userinfo:
         return remote_url
 
-    # HTTPS userinfo can contain tokens. Password-bearing URLs are always unsafe.
-    if parts.scheme in {"http", "https"} or parts.password is not None:
-        netloc = _netloc_without_userinfo(remote_url)
-        if netloc is None:
-            return "[REDACTED_REMOTE_URL]"
-        return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+    netloc = _netloc_without_userinfo(remote_url)
+    if netloc is None:
+        return "[REDACTED_REMOTE_URL]"
 
-    return remote_url
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
 
 def _repo_id_from_remote(remote_url: str | None) -> str | None:
     if not remote_url:
@@ -129,6 +127,7 @@ def _repo_id_from_remote(remote_url: str | None) -> str | None:
     prefixes = (
         "git@github.com:",
         "ssh://git@github.com/",
+        "ssh://github.com/",
         "https://github.com/",
     )
 

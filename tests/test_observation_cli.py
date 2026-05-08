@@ -137,7 +137,7 @@ def test_observe_repo_redacts_https_remote_credentials(tmp_path: Path):
             "remote",
             "set-url",
             "origin",
-            "https://user:token@example.com/heimgewebe/example.git",
+            "https://user:token@github.com/heimgewebe/example.git",
         ],
         repo,
     )
@@ -145,6 +145,29 @@ def test_observe_repo_redacts_https_remote_credentials(tmp_path: Path):
     observation = observe_repo(repo)
     rendered = json.dumps(observation)
 
-    assert observation["observed_state"]["remote_url"] == "https://example.com/heimgewebe/example.git"
+    assert observation["observed_state"]["remote_url"] == "https://github.com/heimgewebe/example.git"
+    assert observation["repo_id"] == "heimgewebe/example"
     assert "token" not in rendered
     assert "user:token" not in rendered
+
+
+def test_observe_repo_redacts_url_userinfo_for_non_https_schemes(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(
+        [
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "ssh://token@github.com/heimgewebe/example.git",
+        ],
+        repo,
+    )
+
+    observation = observe_repo(repo)
+    rendered = json.dumps(observation)
+
+    assert observation["observed_state"]["remote_url"] == "ssh://github.com/heimgewebe/example.git"
+    assert observation["repo_id"] == "heimgewebe/example"
+    assert "token" not in rendered
