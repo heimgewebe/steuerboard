@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+# LEGACY REFERENCE ONLY. DO NOT EXECUTE.
+# Original command started with: #!/usr/bin/env bash
 set -Eeuo pipefail
 
 TS(){ date +"%Y-%m-%d %H:%M:%S"; }
