@@ -112,7 +112,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
             "observed_state": {
                 "path": str(resolved),
                 "is_git_repo": False,
-                "git_metadata_present": (resolved / ".git").exists(),
+                "git_metadata_present_at_observed_path": (resolved / ".git").exists(),
                 "git_worktree_check_exit_code": worktree_check.returncode,
                 "git_worktree_check_stdout": worktree_check.stdout,
                 "git_worktree_check_stderr": worktree_check.stderr,
@@ -132,6 +132,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
     ]
 
     status_result = _run_git(resolved, "status", "--porcelain")
+    git_toplevel = _git_stdout_or_none(resolved, "rev-parse", "--show-toplevel")
     current_branch = _git_stdout_or_none(resolved, "branch", "--show-current")
     head_sha = _git_stdout_or_none(resolved, "rev-parse", "HEAD")
     upstream = _git_stdout_or_none(
@@ -148,7 +149,8 @@ def observe_repo(path: Path) -> dict[str, Any]:
     observed_state: dict[str, Any] = {
         "path": str(resolved),
         "is_git_repo": True,
-        "git_metadata_present": (resolved / ".git").exists(),
+        "git_metadata_present_at_observed_path": (resolved / ".git").exists(),
+        "git_toplevel": git_toplevel,
         "git_worktree_check_exit_code": worktree_check.returncode,
         "current_branch": current_branch,
         "head_sha": head_sha,

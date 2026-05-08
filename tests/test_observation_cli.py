@@ -57,6 +57,7 @@ def test_observe_repo_returns_schema_valid_observation(tmp_path: Path):
     assert state["current_branch"] == "main"
     assert state["dirty"] is False
     assert state["remote_url"] == "git@github.com:heimgewebe/example.git"
+    assert state["git_toplevel"] == str(repo.resolve())
 
 
 def test_observe_repo_does_not_emit_assessment_or_decision_fields(tmp_path: Path):
@@ -97,7 +98,7 @@ def test_observe_non_repo_path_is_still_an_observation(tmp_path: Path):
 
     state = observation["observed_state"]
     assert state["is_git_repo"] is False
-    assert state["git_metadata_present"] is False
+    assert state["git_metadata_present_at_observed_path"] is False
     assert isinstance(state["git_worktree_check_exit_code"], int)
     assert "git_worktree_check_stderr" in state
     assert observation["source_refs"] == ["git.rev_parse.worktree"]
