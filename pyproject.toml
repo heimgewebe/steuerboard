@@ -8,6 +8,9 @@ dependencies = [
   "jsonschema>=4.22",
 ]
 
+[project.scripts]
+steuerboard = "steuerboard.cli:main"
+
 [project.optional-dependencies]
 test = [
   "pytest>=8",
