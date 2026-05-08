@@ -9,5 +9,5 @@ This map is descriptive, not normative. It records legacy behavior so steuerboar
 | non-default branch skip | `non_default_branch` |
 | origin mismatch | `wrong_remote` / `remote_mismatch` |
 | pull --ff-only failure | `ff_only_not_possible` |
-| repo cloned | future run-result + command-trace |
-| reset --hard | blocked/destructive action |
+| repo cloned | future gated clone action + action-plan + run-result + command-trace |
+| reset --hard | blocked/destructive action / legacy-only |
