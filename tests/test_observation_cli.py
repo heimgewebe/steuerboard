@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts.validate_examples import SCHEMAS_DIR, load_json, validate_instance
+from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
 from steuerboard import observation as observation_module
 from steuerboard.observation import observe_repo
 
@@ -82,6 +82,7 @@ def test_observe_repo_cli_emits_json(tmp_path: Path):
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        cwd=ROOT,
     )
 
     observation = json.loads(result.stdout)
@@ -125,3 +126,25 @@ def test_git_runner_disables_optional_locks(monkeypatch, tmp_path: Path):
     assert result.returncode == 0
     assert captured["command"][:3] == ["git", "-C", str(tmp_path)]
     assert captured["env"]["GIT_OPTIONAL_LOCKS"] == "0"
+
+
+def test_observe_repo_redacts_https_remote_credentials(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(
+        [
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "https://user:token@example.com/heimgewebe/example.git",
+        ],
+        repo,
+    )
+
+    observation = observe_repo(repo)
+    rendered = json.dumps(observation)
+
+    assert observation["observed_state"]["remote_url"] == "https://example.com/heimgewebe/example.git"
+    assert "token" not in rendered
+    assert "user:token" not in rendered

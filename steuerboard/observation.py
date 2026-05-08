@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,46 @@ def _default_branch_candidate(path: Path) -> str | None:
     return None
 
 
+
+def _netloc_without_userinfo(remote_url: str) -> str | None:
+    try:
+        parts = urlsplit(remote_url)
+        port = f":{parts.port}" if parts.port is not None else ""
+    except ValueError:
+        return None
+
+    if not parts.hostname:
+        return None
+
+    return f"{parts.hostname}{port}"
+
+
+def _redact_remote_url(remote_url: str | None) -> str | None:
+    if not remote_url:
+        return None
+
+    # SCP-like SSH remotes such as git@github.com:org/repo.git are not URL userinfo.
+    if "://" not in remote_url:
+        return remote_url
+
+    try:
+        parts = urlsplit(remote_url)
+    except ValueError:
+        return "[REDACTED_REMOTE_URL]"
+
+    has_userinfo = parts.username is not None or parts.password is not None
+    if not has_userinfo:
+        return remote_url
+
+    # HTTPS userinfo can contain tokens. Password-bearing URLs are always unsafe.
+    if parts.scheme in {"http", "https"} or parts.password is not None:
+        netloc = _netloc_without_userinfo(remote_url)
+        if netloc is None:
+            return "[REDACTED_REMOTE_URL]"
+        return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+    return remote_url
+
 def _repo_id_from_remote(remote_url: str | None) -> str | None:
     if not remote_url:
         return None
@@ -149,7 +190,8 @@ def observe_repo(path: Path) -> dict[str, Any]:
         "@{u}",
     )
     ahead, behind = _parse_ahead_behind(resolved)
-    remote_url = _git_stdout_or_none(resolved, "remote", "get-url", "origin")
+    raw_remote_url = _git_stdout_or_none(resolved, "remote", "get-url", "origin")
+    remote_url = _redact_remote_url(raw_remote_url)
     default_branch = _default_branch_candidate(resolved)
 
     observed_state: dict[str, Any] = {
