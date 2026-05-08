@@ -1,6 +1,6 @@
 # Omnipull Legacy Behavior Map
 
-This document maps the behavior of the legacy omnipull command to the new steuerboard model.
+This map is descriptive, not normative. It records legacy behavior so steuerboard can model, explain, or reject it. It does not authorize these behaviors as steuerboard actions.
 
 | Legacy-Verhalten | steuerboard-Modell |
 | :--- | :--- |
