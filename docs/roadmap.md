@@ -19,7 +19,7 @@ Create the falsification-first repository structure:
 - tests that run validation
 - schema files checked against Draft 2020-12 when `jsonschema` is available
 
-No productive scanner, CLI command surface, UI, backend, or action executor is part of this phase. Remaining hardening can add examples for non-failure-case schemas before Phase 1.
+No productive scanner, CLI command surface, UI, backend, or action executor is part of this phase. This phase also includes static examples for non-failure-case schemas before Phase 1.
 
 ## Phase 1 — Read-only Observation CLI
 

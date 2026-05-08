@@ -1,3 +1,3 @@
 # Observation Examples
 
-Reserved for future read-only observation examples. No real repo scans are stored in Phase 0b.
+Contains read-only observation-shape examples only. No real repo scans are stored in Phase 0b.

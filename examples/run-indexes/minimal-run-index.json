@@ -1,0 +1,9 @@
+{
+  "schema_version": "run-index.v1",
+  "runs": [
+    {
+      "run_id": "run-example-blocked",
+      "status": "blocked"
+    }
+  ]
+}

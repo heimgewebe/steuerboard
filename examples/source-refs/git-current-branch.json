@@ -1,0 +1,9 @@
+{
+  "schema_version": "source-ref.v1",
+  "source_id": "git.current_branch",
+  "authority": "observational",
+  "command": "git branch --show-current",
+  "freshness": "fresh",
+  "collected_at": "2026-05-08T19:15:00Z",
+  "usable_for_decision": true
+}

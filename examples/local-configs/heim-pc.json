@@ -1,0 +1,21 @@
+{
+  "schema_version": "local-config.v1",
+  "host": {
+    "name": "heim-pc"
+  },
+  "paths": {
+    "canonical_repo_roots": [
+      "/home/alex/repos"
+    ],
+    "excluded_repo_roots": [
+      "/home/alex/GDrive/repos",
+      "/home/alex/GDrive/backups",
+      "/home/alex/_rollout_wgx_baseline"
+    ]
+  },
+  "policy": {
+    "allow_mutating_actions": false,
+    "allow_branch_switch": false,
+    "allow_network_fetch": true
+  }
+}

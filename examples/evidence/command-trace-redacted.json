@@ -1,0 +1,13 @@
+{
+  "schema_version": "command-trace.v1",
+  "trace_id": "trace-example-status-redacted",
+  "command": [
+    "git",
+    "status",
+    "--porcelain"
+  ],
+  "exit_code": 0,
+  "stdout_excerpt": "",
+  "stderr_excerpt": "",
+  "redacted": true
+}

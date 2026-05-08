@@ -19,7 +19,17 @@ EXAMPLES_DIR = ROOT / "examples"
 SCHEMAS_DIR = ROOT / "schemas"
 
 SCHEMA_MAP = {
+    "action-capabilities": SCHEMAS_DIR / "action-capability.v1.schema.json",
+    "action-plans": SCHEMAS_DIR / "action-plan.v1.schema.json",
+    "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",
+    "evidence": SCHEMAS_DIR / "command-trace.v1.schema.json",
     "failure-cases": SCHEMAS_DIR / "falsification-case.v1.schema.json",
+    "local-configs": SCHEMAS_DIR / "local-config.v1.schema.json",
+    "observations": SCHEMAS_DIR / "repo-observation.v1.schema.json",
+    "redaction-policies": SCHEMAS_DIR / "redaction-policy.v1.schema.json",
+    "run-indexes": SCHEMAS_DIR / "run-index.v1.schema.json",
+    "run-results": SCHEMAS_DIR / "run-result.v1.schema.json",
+    "source-refs": SCHEMAS_DIR / "source-ref.v1.schema.json",
 }
 
 RFC3339_DATE_TIME_RE = re.compile(
