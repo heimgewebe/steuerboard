@@ -12,7 +12,8 @@
       "const": "redaction-policy.v1"
     },
     "policy_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "max_stdout_bytes": {
       "type": "integer",
@@ -36,7 +37,8 @@
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "pattern_hint": {
             "type": "string"
@@ -44,7 +46,8 @@
           "replacement": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
     }
   },

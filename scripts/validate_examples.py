@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,10 @@ SCHEMAS_DIR = ROOT / "schemas"
 SCHEMA_MAP = {
     "failure-cases": SCHEMAS_DIR / "falsification-case.v1.schema.json",
 }
+
+RFC3339_DATE_TIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 class ValidationError(Exception):
@@ -54,7 +59,7 @@ def _type_matches(value: Any, expected: str) -> bool:
 
 
 def _is_date_time(value: str) -> bool:
-    if not value.endswith("Z") and "+" not in value[10:] and "-" not in value[10:]:
+    if RFC3339_DATE_TIME_RE.fullmatch(value) is None:
         return False
     try:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -83,7 +88,6 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$.") ->
         if "minLength" in schema and len(instance) < schema["minLength"]:
             raise ValidationError(f"{path} is shorter than minLength {schema['minLength']}")
         if "pattern" in schema:
-            import re
             if re.search(schema["pattern"], instance) is None:
                 raise ValidationError(f"{path} does not match pattern {schema['pattern']!r}")
         if schema.get("format") == "date-time" and not _is_date_time(instance):
