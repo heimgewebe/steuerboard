@@ -6,7 +6,7 @@ This map is descriptive, not normative. It records legacy behavior so steuerboar
 | :--- | :--- |
 | dirty skip | `dirty_worktree` |
 | detached HEAD skip | `detached_head` |
-| non-default branch skip | `non_default_branch` skip reason; see `feature_branch_unmerged` / `feature_branch_merged` |
+| non-default branch skip | `non_default_branch` |
 | origin mismatch | `wrong_remote` / `remote_mismatch` |
 | pull --ff-only failure | `ff_only_not_possible` |
 | repo cloned | future gated clone action + action-plan + run-result + command-trace |
