@@ -1,0 +1,35 @@
+{
+  "title": "Repo Observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "source_refs",
+    "observed_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "repo-observation.v1"
+    },
+    "observation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo_id": {
+      "type": "string"
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "observed_state": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/repo-observation.v1.schema.json"
+}

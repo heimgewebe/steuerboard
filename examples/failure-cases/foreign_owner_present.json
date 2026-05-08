@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "foreign_owner_present",
+  "title": "Foreign owner present",
+  "trigger": "Repository files are owned by an unexpected local account or UID.",
+  "expected_observation": [
+    "filesystem owner differs from current user",
+    "git may or may not reject access"
+  ],
+  "risk": "Actions could fail or mutate files under the wrong owner.",
+  "expected_assessment": [
+    "ownership_problem"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "git.switch",
+    "git.clean"
+  ],
+  "safe_actions": [
+    "show_owner_summary_read_only"
+  ],
+  "required_evidence": [
+    "owner metadata",
+    "current user identity",
+    "scope policy"
+  ]
+}

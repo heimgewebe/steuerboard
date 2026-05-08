@@ -1,0 +1,26 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "dirty_submodule",
+  "title": "Dirty submodule",
+  "trigger": "A submodule has uncommitted or divergent state.",
+  "expected_observation": [
+    "submodule status indicates dirty or modified content"
+  ],
+  "risk": "Top-level clean state can hide nested local work.",
+  "expected_assessment": [
+    "dirty_submodule"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "git.switch",
+    "submodule_update"
+  ],
+  "safe_actions": [
+    "show_submodule_status_read_only"
+  ],
+  "required_evidence": [
+    "submodule status",
+    "top-level status",
+    "redacted path evidence"
+  ]
+}

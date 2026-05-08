@@ -1,0 +1,56 @@
+{
+  "title": "Action Capability v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action",
+    "risk_level",
+    "allowed_in_phase"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "action-capability.v1"
+    },
+    "action": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "mutates_worktree": {
+      "type": "boolean"
+    },
+    "mutates_refs": {
+      "type": "boolean"
+    },
+    "mutates_remote": {
+      "type": "boolean"
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "blocked"
+      ]
+    },
+    "allowed_in_phase": {
+      "type": "integer"
+    },
+    "preflight_checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "post_checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/action-capability.v1.schema.json"
+}

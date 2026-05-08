@@ -1,0 +1,30 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "duplicate_repo",
+  "title": "Duplicate repository clone",
+  "trigger": "The same repository identity is present in more than one local root.",
+  "expected_observation": [
+    "two paths claim the same repo_id",
+    "both paths contain a .git directory"
+  ],
+  "risk": "Operator may mutate or trust the wrong clone.",
+  "expected_assessment": [
+    "scope_shadow",
+    "duplicate_repo"
+  ],
+  "blocked_actions": [
+    "git.switch",
+    "git.pull",
+    "git.clean",
+    "branch.delete"
+  ],
+  "safe_actions": [
+    "show_inventory",
+    "compare_paths_read_only"
+  ],
+  "required_evidence": [
+    "canonical path source",
+    "remote URL for each clone",
+    "filesystem scope classification"
+  ]
+}

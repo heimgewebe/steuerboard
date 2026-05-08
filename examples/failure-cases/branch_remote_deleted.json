@@ -1,0 +1,29 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "branch_remote_deleted",
+  "title": "Remote branch deleted",
+  "trigger": "The current branch tracks a remote branch that no longer exists after a fresh remote-ref update.",
+  "expected_observation": [
+    "upstream configured",
+    "fresh remote refs do not contain upstream branch"
+  ],
+  "risk": "Branch lifecycle is ambiguous; automatic cleanup or switching could hide unmerged work.",
+  "expected_assessment": [
+    "branch_remote_deleted",
+    "branch_lifecycle_unknown"
+  ],
+  "blocked_actions": [
+    "branch_delete",
+    "git.switch_main_without_lifecycle_check"
+  ],
+  "safe_actions": [
+    "show_branch_status",
+    "show_diff_against_default",
+    "fetch_only_plan"
+  ],
+  "required_evidence": [
+    "upstream config",
+    "fresh remote refs",
+    "merge-base evidence"
+  ]
+}

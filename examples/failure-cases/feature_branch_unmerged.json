@@ -1,0 +1,28 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "feature_branch_unmerged",
+  "title": "Feature branch unmerged",
+  "trigger": "Repo is on a non-default branch and merge status is unknown or unmerged.",
+  "expected_observation": [
+    "current branch differs from default branch",
+    "branch lifecycle evidence is missing"
+  ],
+  "risk": "Switching away could strand or hide unmerged work.",
+  "expected_assessment": [
+    "clean_feature_branch",
+    "branch_merge_status_unknown"
+  ],
+  "blocked_actions": [
+    "git.switch_main",
+    "git.pull_main_ff_only"
+  ],
+  "safe_actions": [
+    "fetch_only",
+    "show_diff_against_default"
+  ],
+  "required_evidence": [
+    "current branch",
+    "default branch",
+    "merge-base or PR evidence"
+  ]
+}

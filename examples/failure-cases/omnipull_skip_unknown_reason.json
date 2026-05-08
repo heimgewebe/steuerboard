@@ -1,0 +1,29 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "omnipull_skip_unknown_reason",
+  "title": "Omnipull skip unknown reason",
+  "trigger": "An omnipull report indicates a repository was skipped without a recognized skip reason.",
+  "expected_observation": [
+    "omnipull report exists",
+    "repo entry has skipped status",
+    "skip reason is absent or not in shared vocabulary"
+  ],
+  "risk": "Operators cannot tell whether the skip was safe, stale, or caused by an unmodeled hazard.",
+  "expected_assessment": [
+    "omnipull_skip_unknown_reason",
+    "evidence_missing"
+  ],
+  "blocked_actions": [
+    "act_on_skip_report",
+    "auto_remediate_skip"
+  ],
+  "safe_actions": [
+    "show_raw_report_summary",
+    "request_structured_reason"
+  ],
+  "required_evidence": [
+    "omnipull run id",
+    "repo report excerpt",
+    "shared vocabulary version"
+  ]
+}

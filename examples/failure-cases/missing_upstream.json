@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "missing_upstream",
+  "title": "Missing upstream",
+  "trigger": "Current branch has no upstream tracking branch.",
+  "expected_observation": [
+    "current branch is known",
+    "upstream lookup fails"
+  ],
+  "risk": "Ahead/behind and fast-forward assumptions are incomplete.",
+  "expected_assessment": [
+    "no_upstream"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "pull_main_ff_only"
+  ],
+  "safe_actions": [
+    "show_branch_status",
+    "fetch_only_plan"
+  ],
+  "required_evidence": [
+    "current branch",
+    "upstream command exit",
+    "remote refs freshness"
+  ]
+}

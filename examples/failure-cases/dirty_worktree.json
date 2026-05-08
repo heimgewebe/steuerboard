@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "dirty_worktree",
+  "title": "Dirty worktree",
+  "trigger": "Working tree contains uncommitted changes.",
+  "expected_observation": [
+    "git status porcelain has entries"
+  ],
+  "risk": "Switching or pulling may overwrite or conflict with local work.",
+  "expected_assessment": [
+    "dirty_worktree"
+  ],
+  "blocked_actions": [
+    "git.switch",
+    "git.pull",
+    "git.reset",
+    "git.clean"
+  ],
+  "safe_actions": [
+    "show_status_read_only",
+    "show_diff_summary"
+  ],
+  "required_evidence": [
+    "status porcelain excerpt",
+    "redaction check for paths"
+  ]
+}

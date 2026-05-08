@@ -1,0 +1,52 @@
+{
+  "title": "Source Reference v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_id",
+    "authority",
+    "freshness",
+    "usable_for_decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "source-ref.v1"
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority": {
+      "enum": [
+        "canonical",
+        "observational",
+        "derived",
+        "decision"
+      ]
+    },
+    "command": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "freshness": {
+      "enum": [
+        "fresh",
+        "stale",
+        "unknown",
+        "unavailable"
+      ]
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "usable_for_decision": {
+      "type": "boolean"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/source-ref.v1.schema.json"
+}

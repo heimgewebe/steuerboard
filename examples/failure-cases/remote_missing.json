@@ -1,0 +1,26 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "remote_missing",
+  "title": "Remote missing",
+  "trigger": "A repository has no origin remote configured.",
+  "expected_observation": [
+    "git remote get-url origin fails",
+    "local repository otherwise exists"
+  ],
+  "risk": "Remote freshness and synchronization cannot be established.",
+  "expected_assessment": [
+    "remote_missing"
+  ],
+  "blocked_actions": [
+    "git.fetch_all_prune",
+    "git.pull",
+    "git.push"
+  ],
+  "safe_actions": [
+    "show_local_status_read_only"
+  ],
+  "required_evidence": [
+    "remote command trace",
+    "repo identity evidence"
+  ]
+}

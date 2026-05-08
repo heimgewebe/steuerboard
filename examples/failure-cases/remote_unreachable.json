@@ -1,0 +1,28 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "remote_unreachable",
+  "title": "Remote unreachable",
+  "trigger": "The configured remote cannot be reached during a freshness check.",
+  "expected_observation": [
+    "remote URL exists",
+    "network check or fetch dry plan cannot prove reachability"
+  ],
+  "risk": "Local state may be valid, but remote freshness is unavailable.",
+  "expected_assessment": [
+    "remote_unreachable",
+    "source_unavailable"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "switch_then_pull"
+  ],
+  "safe_actions": [
+    "retry_later",
+    "show_cached_status"
+  ],
+  "required_evidence": [
+    "remote URL",
+    "network/fetch exit code",
+    "timestamp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "dubious_ownership",
+  "title": "Dubious Git ownership",
+  "trigger": "Git reports a dubious ownership or safe.directory problem for the repo.",
+  "expected_observation": [
+    "git command exits non-zero with ownership safety message"
+  ],
+  "risk": "Git output cannot be trusted enough for action planning.",
+  "expected_assessment": [
+    "ownership_problem"
+  ],
+  "blocked_actions": [
+    "git.fetch_all_prune",
+    "git.pull",
+    "git.switch"
+  ],
+  "safe_actions": [
+    "show_ownership_help",
+    "record_blocked_observation"
+  ],
+  "required_evidence": [
+    "command exit code",
+    "stderr excerpt after redaction",
+    "filesystem owner summary"
+  ]
+}

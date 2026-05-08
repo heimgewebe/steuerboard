@@ -1,0 +1,28 @@
+{
+  "schema_version": "falsification-case.v1",
+  "id": "backup_repo_accidentally_used",
+  "title": "Backup repository accidentally used",
+  "trigger": "A backup or archive path is opened as if it were the working clone.",
+  "expected_observation": [
+    "path matches backup naming or excluded root",
+    "remote may still point to canonical origin"
+  ],
+  "risk": "Backup content can be mutated and later mistaken for canonical work.",
+  "expected_assessment": [
+    "scope_backup"
+  ],
+  "blocked_actions": [
+    "git.pull",
+    "git.switch",
+    "git.clean",
+    "branch.delete"
+  ],
+  "safe_actions": [
+    "show_scope_reason",
+    "open_canonical_path_hint"
+  ],
+  "required_evidence": [
+    "local scope config",
+    "canonical clone inventory"
+  ]
+}
