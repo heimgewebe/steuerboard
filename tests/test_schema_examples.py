@@ -60,7 +60,11 @@ def test_examples_validate_against_schemas():
 
 def test_non_failure_schema_examples_validate_against_schemas():
     validated = validate_examples()
-    validated_rel = {path.relative_to(EXAMPLES_DIR).as_posix() for path in validated}
+    validated_rel = {
+        path.relative_to(EXAMPLES_DIR).as_posix()
+        for path in validated
+        if not path.relative_to(EXAMPLES_DIR).as_posix().startswith("failure-cases/")
+    }
     assert REQUIRED_SCHEMA_EXAMPLES <= validated_rel
 
 
