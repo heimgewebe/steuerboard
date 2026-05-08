@@ -129,6 +129,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
         "git.rev_parse.worktree",
         "git.current_branch",
         "git.rev_parse.head",
+        "git.rev_parse.toplevel",
         "git.status.porcelain",
         "git.upstream",
         "git.ahead_behind",
