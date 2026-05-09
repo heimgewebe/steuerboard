@@ -303,6 +303,8 @@ def test_stop_case_clean_main(tmp_path: Path):
 def test_stop_case_dirty_main(tmp_path: Path):
     repo = tmp_path / "repo"
     _init_repo(repo)
+    # Dirty state: both tracked modified and untracked files.
+    (repo / "README.md").write_text("# Example\nmodified\n", encoding="utf-8")
     (repo / "untracked.txt").write_text("uncommitted change\n", encoding="utf-8")
 
     observation = observe_repo(repo)

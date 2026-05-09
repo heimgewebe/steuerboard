@@ -36,7 +36,7 @@ The CLI observes only. It must not assess, decide, plan actions, fetch, switch b
 Stop cases now covered by explicit tests:
 
 1. clean main — tracking origin/main, clean worktree, ahead/behind == 0
-2. dirty main — untracked/modified files present
+2. dirty main — tracked modified + untracked files present
 3. feature branch — non-default branch, no upstream tracking
 4. missing upstream — local branch with no remote tracking ref configured, ahead/behind/upstream all None
 5. detached HEAD — `current_branch` is `None`, `head_sha` is present
