@@ -23,9 +23,9 @@ No productive scanner, CLI command surface, UI, backend, or action executor is p
 
 ## Phase 1 — Read-only Observation CLI
 
-Status: started.
+Status: stop-case coverage expanded.
 
-Phase 1 now includes a minimal single-repo read-only observation CLI:
+Phase 1 includes a minimal single-repo read-only observation CLI:
 
 ```bash
 python -m steuerboard observe repo <path> --json
@@ -33,4 +33,17 @@ python -m steuerboard observe repo <path> --json
 
 The CLI observes only. It must not assess, decide, plan actions, fetch, switch branches, pull, or mutate repositories.
 
-Remaining Phase 1 stop cases still need explicit test coverage before Phase 2 begins.
+Stop cases now covered by explicit tests:
+
+1. clean main — tracking origin/main, clean worktree, ahead/behind == 0
+2. dirty main — tracked modified + untracked files present
+3. feature branch — non-default branch, no upstream tracking
+4. missing upstream — local branch with no remote tracking ref configured, ahead/behind/upstream all None
+5. detached HEAD — `current_branch` is `None`, `head_sha` is present
+6. remote missing — no origin configured, `remote_url` is `None`
+7. wrong remote / remote identity observable — non-GitHub remote URL observable without assessment
+8. empty/unborn repo — `git init` with no commits; `head_sha` is `None`
+
+Open stop case (not yet covered by automated tests):
+
+- **dubious ownership** — git's `safe.directory` guard fires when the repo is owned by a different user. Triggering this portably requires either root access to change file ownership or manipulation of the global git config, which would affect the host environment. This case is left as a manual verification item until a safe portable approach is available.
