@@ -35,6 +35,8 @@ def _init_repo(path: Path) -> None:
     _run(["git", "init", "-b", "main"], path)
     _run(["git", "config", "user.email", "test@example.invalid"], path)
     _run(["git", "config", "user.name", "Test User"], path)
+    # Disable commit signing so tests work regardless of host git config.
+    _run(["git", "config", "commit.gpgsign", "false"], path)
     _run(["git", "remote", "add", "origin", "git@github.com:heimgewebe/example.git"], path)
 
     (path / "README.md").write_text("# Example\n", encoding="utf-8")
@@ -242,3 +244,161 @@ def test_observe_repo_redacts_non_git_scp_like_user(tmp_path: Path):
         "[REDACTED_USER]@github.com:heimgewebe/example.git"
     )
     assert "token@github.com" not in rendered
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 stop-case coverage
+# ---------------------------------------------------------------------------
+
+def _assert_stop_case_invariants(observation: dict, schema: dict, path: "Path") -> dict:
+    """Check the invariants every stop-case observation must satisfy."""
+    validate_instance(observation, schema, path)
+    state = observation["observed_state"]
+    assert FORBIDDEN_OBSERVATION_KEYS.isdisjoint(observation)
+    assert FORBIDDEN_OBSERVATION_KEYS.isdisjoint(state)
+    return state
+
+
+def test_stop_case_clean_main(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-clean-main.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["current_branch"] == "main"
+    assert state["dirty"] is False
+    assert state["upstream"] is None
+    assert state["ahead"] is None
+    assert state["behind"] is None
+    assert state["git_status_exit_code"] == 0
+    assert state["default_branch_candidate"] == "main"
+
+
+def test_stop_case_dirty_main(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    (repo / "untracked.txt").write_text("uncommitted change\n", encoding="utf-8")
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-dirty-main.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["current_branch"] == "main"
+    assert state["dirty"] is True
+    assert state["git_status_exit_code"] == 0
+
+
+def test_stop_case_feature_branch(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(["git", "checkout", "-b", "feature/test"], repo)
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-feature-branch.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["current_branch"] == "feature/test"
+    assert state["dirty"] is False
+    assert state["upstream"] is None
+    assert state["ahead"] is None
+    assert state["behind"] is None
+    assert state["git_status_exit_code"] == 0
+
+
+def test_stop_case_missing_upstream(tmp_path: Path):
+    # _init_repo creates a local branch with no upstream tracking branch set.
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-missing-upstream.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["current_branch"] == "main"
+    assert state["upstream"] is None
+    assert state["ahead"] is None
+    assert state["behind"] is None
+
+
+def test_stop_case_detached_head(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(["git", "checkout", "--detach", "HEAD"], repo)
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-detached-head.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["current_branch"] is None
+    assert state["head_sha"] is not None
+    assert state["upstream"] is None
+    assert state["git_status_exit_code"] == 0
+
+
+def test_stop_case_remote_missing(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(["git", "remote", "remove", "origin"], repo)
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-remote-missing.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["remote_url"] is None
+    assert "repo_id" not in observation
+    assert state["git_status_exit_code"] == 0
+
+
+def test_stop_case_wrong_remote_identity_observable(tmp_path: Path):
+    # Remote identity (host + path) must be observable even when it does not
+    # match a known GitHub pattern. No assessment of whether this is "wrong".
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(
+        ["git", "remote", "set-url", "origin", "git@gitlab.com:some/other-project.git"],
+        repo,
+    )
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-wrong-remote.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["remote_url"] == "git@gitlab.com:some/other-project.git"
+    # Non-GitHub remote: no repo_id extracted, but identity is observable.
+    assert "repo_id" not in observation
+    assert state["git_status_exit_code"] == 0
+
+
+def test_stop_case_empty_unborn_repo(tmp_path: Path):
+    # Repo initialised but with no commits yet (unborn HEAD).
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _run(["git", "init", "-b", "main"], repo)
+    _run(["git", "config", "user.email", "test@example.invalid"], repo)
+    _run(["git", "config", "user.name", "Test User"], repo)
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-unborn-repo.json"))
+
+    assert state["is_git_repo"] is True
+    assert state["current_branch"] == "main"
+    assert state["head_sha"] is None
+    assert state["dirty"] is False
+    assert state["upstream"] is None
+    assert state["git_status_exit_code"] == 0
+
+
+# dubious-ownership (git's safe.directory guard) is not tested here because
+# triggering it portably requires changing file ownership (needs root) or
+# manipulating git global config in a way that would affect the host.
+# Tracked in docs/roadmap.md as an open Phase 1 stop case.
