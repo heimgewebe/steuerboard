@@ -35,10 +35,10 @@ The CLI observes only. It must not assess, decide, plan actions, fetch, switch b
 
 Stop cases now covered by explicit tests:
 
-1. clean main — local branch, no upstream, clean worktree
+1. clean main — tracking origin/main, clean worktree, ahead/behind == 0
 2. dirty main — untracked/modified files present
-3. feature branch — non-default branch, no upstream
-4. missing upstream — branch with no remote tracking ref configured
+3. feature branch — non-default branch, no upstream tracking
+4. missing upstream — local branch with no remote tracking ref configured, ahead/behind/upstream all None
 5. detached HEAD — `current_branch` is `None`, `head_sha` is present
 6. remote missing — no origin configured, `remote_url` is `None`
 7. wrong remote / remote identity observable — non-GitHub remote URL observable without assessment

@@ -44,6 +44,27 @@ def _init_repo(path: Path) -> None:
     _run(["git", "commit", "-m", "init"], path)
 
 
+def _init_repo_with_upstream(path: Path, upstream_path: Path) -> None:
+    # Create a bare remote repository.
+    upstream_path.mkdir()
+    _run(["git", "init", "--bare"], upstream_path)
+
+    # Create working repository with commit.
+    path.mkdir()
+    _run(["git", "init", "-b", "main"], path)
+    _run(["git", "config", "user.email", "test@example.invalid"], path)
+    _run(["git", "config", "user.name", "Test User"], path)
+    _run(["git", "config", "commit.gpgsign", "false"], path)
+    _run(["git", "remote", "add", "origin", str(upstream_path)], path)
+
+    (path / "README.md").write_text("# Example\n", encoding="utf-8")
+    _run(["git", "add", "README.md"], path)
+    _run(["git", "commit", "-m", "init"], path)
+
+    # Push main to origin and set upstream tracking.
+    _run(["git", "push", "-u", "origin", "main"], path)
+
+
 def test_observe_repo_returns_schema_valid_observation(tmp_path: Path):
     repo = tmp_path / "repo"
     _init_repo(repo)
@@ -260,8 +281,10 @@ def _assert_stop_case_invariants(observation: dict, schema: dict, path: "Path") 
 
 
 def test_stop_case_clean_main(tmp_path: Path):
+    # clean main: upstream tracking configured, ahead/behind == 0.
     repo = tmp_path / "repo"
-    _init_repo(repo)
+    upstream = tmp_path / "upstream.git"
+    _init_repo_with_upstream(repo, upstream)
 
     observation = observe_repo(repo)
     schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
@@ -270,9 +293,9 @@ def test_stop_case_clean_main(tmp_path: Path):
     assert state["is_git_repo"] is True
     assert state["current_branch"] == "main"
     assert state["dirty"] is False
-    assert state["upstream"] is None
-    assert state["ahead"] is None
-    assert state["behind"] is None
+    assert state["upstream"] == "origin/main"
+    assert state["ahead"] == 0
+    assert state["behind"] == 0
     assert state["git_status_exit_code"] == 0
     assert state["default_branch_candidate"] == "main"
 
@@ -311,7 +334,8 @@ def test_stop_case_feature_branch(tmp_path: Path):
 
 
 def test_stop_case_missing_upstream(tmp_path: Path):
-    # _init_repo creates a local branch with no upstream tracking branch set.
+    # missing upstream: local branch, no upstream tracking configured.
+    # _init_repo creates this state: it does not push or set upstream tracking.
     repo = tmp_path / "repo"
     _init_repo(repo)
 
