@@ -195,3 +195,27 @@ def test_observe_repo_strips_remote_query_and_fragment(tmp_path: Path):
     assert "secret" not in rendered
     assert "token=secret" not in rendered
     assert "#frag" not in rendered
+
+
+def test_observe_repo_strips_scp_like_remote_query_and_fragment(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(
+        [
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "git@github.com:heimgewebe/example.git?token=secret#frag",
+        ],
+        repo,
+    )
+
+    observation = observe_repo(repo)
+    rendered = json.dumps(observation)
+
+    assert observation["observed_state"]["remote_url"] == "git@github.com:heimgewebe/example.git"
+    assert observation["repo_id"] == "heimgewebe/example"
+    assert "secret" not in rendered
+    assert "token=secret" not in rendered
+    assert "#frag" not in rendered

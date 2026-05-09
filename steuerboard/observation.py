@@ -95,13 +95,18 @@ def _netloc_without_userinfo(remote_url: str) -> str | None:
     return f"{parts.hostname}{port}"
 
 
+def _strip_query_fragment(value: str) -> str:
+    return value.split("#", 1)[0].split("?", 1)[0]
+
+
 def _redact_remote_url(remote_url: str | None) -> str | None:
     if not remote_url:
         return None
 
     # SCP-like SSH remotes such as git@github.com:org/repo.git are not URL userinfo.
+    # Query and fragment data are still stripped because they can carry secrets.
     if "://" not in remote_url:
-        return remote_url
+        return _strip_query_fragment(remote_url)
 
     try:
         parts = urlsplit(remote_url)
