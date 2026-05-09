@@ -23,6 +23,14 @@ No productive scanner, CLI command surface, UI, backend, or action executor is p
 
 ## Phase 1 — Read-only Observation CLI
 
-Status: future work, not part of this commit.
+Status: started.
 
-Phase 1 may add `steuerboard observe --json`, but only after the Phase 0b examples and schemas validate. The CLI must observe only and must not assess, decide, or mutate.
+Phase 1 now includes a minimal single-repo read-only observation CLI:
+
+```bash
+python -m steuerboard observe repo <path> --json
+```
+
+The CLI observes only. It must not assess, decide, plan actions, fetch, switch branches, pull, or mutate repositories.
+
+Remaining Phase 1 stop cases still need explicit test coverage before Phase 2 begins.
