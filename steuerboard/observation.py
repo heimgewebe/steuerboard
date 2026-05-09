@@ -99,14 +99,28 @@ def _strip_query_fragment(value: str) -> str:
     return value.split("#", 1)[0].split("?", 1)[0]
 
 
+def _redact_scp_like_remote(remote_url: str) -> str:
+    stripped = _strip_query_fragment(remote_url)
+
+    if "@" not in stripped:
+        return stripped
+
+    user, rest = stripped.split("@", 1)
+    if user == "git":
+        return stripped
+
+    return f"[REDACTED_USER]@{rest}"
+
+
 def _redact_remote_url(remote_url: str | None) -> str | None:
     if not remote_url:
         return None
 
     # SCP-like SSH remotes such as git@github.com:org/repo.git are not URL userinfo.
     # Query and fragment data are still stripped because they can carry secrets.
+    # Non-git SSH usernames are redacted because auth identities can be sensitive.
     if "://" not in remote_url:
-        return _strip_query_fragment(remote_url)
+        return _redact_scp_like_remote(remote_url)
 
     try:
         parts = urlsplit(remote_url)
