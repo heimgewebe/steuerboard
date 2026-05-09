@@ -171,3 +171,27 @@ def test_observe_repo_redacts_url_userinfo_for_non_https_schemes(tmp_path: Path)
     assert observation["observed_state"]["remote_url"] == "ssh://github.com/heimgewebe/example.git"
     assert observation["repo_id"] == "heimgewebe/example"
     assert "token" not in rendered
+
+
+def test_observe_repo_strips_remote_query_and_fragment(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _run(
+        [
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "https://github.com/heimgewebe/example.git?token=secret#frag",
+        ],
+        repo,
+    )
+
+    observation = observe_repo(repo)
+    rendered = json.dumps(observation)
+
+    assert observation["observed_state"]["remote_url"] == "https://github.com/heimgewebe/example.git"
+    assert observation["repo_id"] == "heimgewebe/example"
+    assert "secret" not in rendered
+    assert "token=secret" not in rendered
+    assert "#frag" not in rendered

@@ -108,15 +108,12 @@ def _redact_remote_url(remote_url: str | None) -> str | None:
     except ValueError:
         return "[REDACTED_REMOTE_URL]"
 
-    has_userinfo = parts.username is not None or parts.password is not None
-    if not has_userinfo:
-        return remote_url
-
     netloc = _netloc_without_userinfo(remote_url)
     if netloc is None:
         return "[REDACTED_REMOTE_URL]"
 
-    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+    # Remote identity does not need query or fragment data. Both can carry secrets.
+    return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
 
 
 def _repo_id_from_remote(remote_url: str | None) -> str | None:
@@ -189,7 +186,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
         "@{u}",
     )
     ahead, behind = _parse_ahead_behind(resolved)
-    raw_remote_url = _git_stdout_or_none(resolved, "remote", "get-url", "origin")
+    raw_remote_url = _git_stdout_or_none(resolved, "config", "--get", "remote.origin.url")
     remote_url = _redact_remote_url(raw_remote_url)
     default_branch = _default_branch_candidate(resolved)
 
