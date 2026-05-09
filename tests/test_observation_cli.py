@@ -220,6 +220,7 @@ def test_observe_repo_strips_scp_like_remote_query_and_fragment(tmp_path: Path):
     assert "token=secret" not in rendered
     assert "#frag" not in rendered
 
+
 def test_observe_repo_redacts_non_git_scp_like_user(tmp_path: Path):
     repo = tmp_path / "repo"
     _init_repo(repo)
@@ -237,5 +238,7 @@ def test_observe_repo_redacts_non_git_scp_like_user(tmp_path: Path):
     observation = observe_repo(repo)
     rendered = json.dumps(observation)
 
-    assert observation["observed_state"]["remote_url"] == "[REDACTED_USER]@github.com:heimgewebe/example.git"
+    assert observation["observed_state"]["remote_url"] == (
+        "[REDACTED_USER]@github.com:heimgewebe/example.git"
+    )
     assert "token@github.com" not in rendered

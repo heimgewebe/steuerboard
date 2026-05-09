@@ -81,7 +81,6 @@ def _default_branch_candidate(path: Path) -> str | None:
     return None
 
 
-
 def _netloc_without_userinfo(remote_url: str) -> str | None:
     try:
         parts = urlsplit(remote_url)
