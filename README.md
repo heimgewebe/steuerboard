@@ -9,12 +9,14 @@ steuerboard is a local diagnostics and planning surface for workstation reposito
 - [Roadmap](docs/roadmap.md)
 - [Falsification cases](docs/falsification-cases.md)
 
-## Phase 0b scope
+## Current scope
 
-This repository currently contains only documentation, JSON Schemas, examples, and example validation. It intentionally does **not** contain a productive scanner, CLI command surface, backend, UI, or mutating action executor.
+This repository contains documentation, JSON Schemas, examples, example validation, and a minimal Phase 1 read-only observation CLI.
+
+It intentionally does **not** contain a productive fleet scanner, backend, UI, assessment engine, planner, evidence archival system, or mutating action executor.
 
 Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
-The first executable code in this repository validates examples against schemas so the plan can be checked before implementation starts.
+Executable code currently covers schema/example validation and read-only single-repo observation. It must not assess, decide, plan actions, switch branches, pull, fetch, or mutate repositories.
