@@ -1,12 +1,15 @@
 [project]
 name = "steuerboard"
 version = "0.0.0"
-description = "Documentation, schemas, and validation scaffolding for steuerboard Phase 0b."
+description = "Documentation, schemas, validation scaffolding, and read-only observation tooling for steuerboard."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
   "jsonschema>=4.22",
 ]
+
+[project.scripts]
+steuerboard = "steuerboard.cli:main"
 
 [project.optional-dependencies]
 test = [

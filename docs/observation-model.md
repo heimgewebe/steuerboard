@@ -19,4 +19,6 @@ Future observations may include:
 
 ## Boundary
 
-Phase 0b includes only a minimal schema placeholder. The read-only observation CLI belongs to Phase 1 and is not implemented here.
+Phase 1 starts with a minimal read-only observation CLI for a single repository path.
+
+The observation layer must not emit assessment, decision, safe-action, or risk fields. Those belong to later layers.
