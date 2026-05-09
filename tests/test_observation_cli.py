@@ -271,7 +271,7 @@ def test_observe_repo_redacts_non_git_scp_like_user(tmp_path: Path):
 # Phase 1 stop-case coverage
 # ---------------------------------------------------------------------------
 
-def _assert_stop_case_invariants(observation: dict, schema: dict, path: "Path") -> dict:
+def _assert_stop_case_invariants(observation: dict, schema: dict, path: Path) -> dict:
     """Check the invariants every stop-case observation must satisfy."""
     validate_instance(observation, schema, path)
     state = observation["observed_state"]
