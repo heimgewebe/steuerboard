@@ -10,7 +10,7 @@ from .observation import observe_repo
 
 
 def _assessment_id(path: Path) -> str:
-    now = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+    now = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S%fZ")
     digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:12]
     return f"assess-{now}-{digest}"
 
@@ -21,18 +21,21 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
     No Git mutation, no network operation, no branch switch, no fetch.
     Assessment status is deterministic from Observation + Scope; runtime IDs remain time-dependent.
     """
-    resolved = path.expanduser().resolve()
+    scope_path = path.expanduser()
+    observation_path = scope_path.resolve()
 
     # --- Observe (read-only git probes only) ---
-    observation = observe_repo(resolved)
+    observation = observe_repo(observation_path)
     obs_state = observation["observed_state"]
 
     # --- Scope classification (may be unavailable if no config exists) ---
     try:
-        scope_explanation = explain_scope(resolved, config_path=config_path)
+        scope_explanation = explain_scope(scope_path, config_path=config_path)
         scope: str = scope_explanation["scope"]
         scope_source_refs: list[str] = scope_explanation["source_refs"]
     except FileNotFoundError:
+        if config_path is not None:
+            raise
         scope = "scope_unknown"
         scope_source_refs = ["local_config.unavailable"]
 
@@ -57,7 +60,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
         confidence = 1.0
 
     elif scope != "scope_canonical":
-        # Non-canonical scope: backup, gdrive, shadow, excluded, unknown.
+        # Non-canonical scope: backup, gdrive, excluded, unknown.
         # Also collect dirty_worktree if observed — scope already blocks, but
         # derived_status is a list and should be complete.
         derived_status.append(scope)
@@ -123,7 +126,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
 
     return {
         "schema_version": "repo-assessment.v1",
-        "assessment_id": _assessment_id(resolved),
+        "assessment_id": _assessment_id(scope_path),
         "observation_ref": observation["observation_id"],
         "derived_status": derived_status,
         "source_refs": source_refs,

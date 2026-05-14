@@ -6,7 +6,8 @@
     "not_git_repo"
   ],
   "source_refs": [
-    "git.rev_parse.worktree"
+    "git.rev_parse.worktree",
+    "local_config.unavailable"
   ],
   "decision_state": "action_blocked",
   "risk_level": "medium",

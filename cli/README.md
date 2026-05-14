@@ -38,7 +38,7 @@ authorisation.
 Status codes emitted in `derived_status`:
 
 - `not_git_repo` — path is not a Git repository
-- `scope_backup`, `scope_gdrive`, `scope_shadow`, `scope_excluded`, `scope_unknown` — non-canonical scope
+- `scope_backup`, `scope_gdrive`, `scope_excluded`, `scope_unknown` — non-canonical scope
 - `dirty_worktree` — uncommitted local changes (also collected alongside scope codes if both observed)
 - `detached_head` — HEAD is detached
 - `default_branch_unknown` — default branch not determinable

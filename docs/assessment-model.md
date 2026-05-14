@@ -50,7 +50,7 @@ Required:
 
 Optional (added in Phase 3):
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`
-- `skip_reasons` — normalised reason codes matching `derived_status` entries
+- `skip_reasons` — normalised reason codes mirroring blocking/defer-style `derived_status` entries only; may be empty for non-blocking outcomes such as `clean_default_current`
 - `confidence` — number 0..1, confidence in derived_status
 - `missing_evidence` — list of evidence items that would change the assessment
 - `rule_refs` — optional references to rules that produced this assessment

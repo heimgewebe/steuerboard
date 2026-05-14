@@ -85,79 +85,114 @@ def _is_date_time(value: str) -> bool:
     return True
 
 
-def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$.") -> None:
-    """Validate the small JSON Schema subset used by this repository.
+def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> None:
+    """Small fallback validator for the schema subset used by this repository.
 
-    The project declares Draft 2020-12 schemas. If the external `jsonschema`
-    package is installed, `validate_instance` uses it. This fallback keeps Phase
-    0b self-checking in minimal environments while covering the keywords used by
-    the committed schemas.
+    This is intentionally not a full JSON Schema implementation. It enforces the
+    contract primitives used by repo examples when the external jsonschema
+    package is unavailable.
     """
-    any_of = schema.get("anyOf")
-    if isinstance(any_of, list):
+    import re
+
+    def type_matches(value: Any, expected: str) -> bool:
+        if expected == "object":
+            return isinstance(value, dict)
+        if expected == "array":
+            return isinstance(value, list)
+        if expected == "string":
+            return isinstance(value, str)
+        if expected == "integer":
+            return isinstance(value, int) and not isinstance(value, bool)
+        if expected == "number":
+            return isinstance(value, (int, float)) and not isinstance(value, bool)
+        if expected == "boolean":
+            return isinstance(value, bool)
+        if expected == "null":
+            return value is None
+        raise ValidationError(f"{path}: unsupported schema type {expected!r}")
+
+    if "anyOf" in schema:
         errors: list[str] = []
-        for index, candidate in enumerate(any_of):
-            if not isinstance(candidate, dict):
-                errors.append(f"anyOf[{index}] is not a schema object")
-                continue
+        for index, subschema in enumerate(schema["anyOf"]):
             try:
-                minimal_validate(instance, candidate, path)
+                minimal_validate(instance, subschema, path)
+                return
             except ValidationError as exc:
-                errors.append(str(exc))
-            else:
-                break
-        else:
-            raise ValidationError(f"{path} did not match any anyOf schema: {'; '.join(errors)}")
+                errors.append(f"anyOf[{index}]: {exc}")
+        raise ValidationError(f"{path}: does not match anyOf ({'; '.join(errors)})")
+
+    if "oneOf" in schema:
+        matches = 0
+        errors: list[str] = []
+        for index, subschema in enumerate(schema["oneOf"]):
+            try:
+                minimal_validate(instance, subschema, path)
+                matches += 1
+            except ValidationError as exc:
+                errors.append(f"oneOf[{index}]: {exc}")
+        if matches != 1:
+            raise ValidationError(f"{path}: expected exactly one oneOf match, got {matches}; {'; '.join(errors)}")
+
+    if "allOf" in schema:
+        for index, subschema in enumerate(schema["allOf"]):
+            minimal_validate(instance, subschema, f"{path}.allOf[{index}]")
 
     if "const" in schema and instance != schema["const"]:
-        raise ValidationError(f"{path} expected const {schema['const']!r}, got {instance!r}")
+        raise ValidationError(f"{path}: expected const {schema['const']!r}, got {instance!r}")
+
     if "enum" in schema and instance not in schema["enum"]:
-        raise ValidationError(f"{path} expected one of {schema['enum']!r}, got {instance!r}")
+        raise ValidationError(f"{path}: {instance!r} is not one of {schema['enum']!r}")
+
     expected_type = schema.get("type")
-    if isinstance(expected_type, str):
-        if not _type_matches(instance, expected_type):
-            raise ValidationError(f"{path} expected type {expected_type}, got {type(instance).__name__}")
-    elif isinstance(expected_type, list):
-        if not any(isinstance(item, str) and _type_matches(instance, item) for item in expected_type):
-            raise ValidationError(
-                f"{path} expected one of types {expected_type}, got {type(instance).__name__}"
-            )
+    if expected_type is not None:
+        expected_types = expected_type if isinstance(expected_type, list) else [expected_type]
+        if not any(type_matches(instance, item) for item in expected_types):
+            raise ValidationError(f"{path}: expected type {expected_type!r}")
 
     if isinstance(instance, str):
         if "minLength" in schema and len(instance) < schema["minLength"]:
-            raise ValidationError(f"{path} is shorter than minLength {schema['minLength']}")
-        if "pattern" in schema:
-            if re.search(schema["pattern"], instance) is None:
-                raise ValidationError(f"{path} does not match pattern {schema['pattern']!r}")
-        if schema.get("format") == "date-time" and not _is_date_time(instance):
-            raise ValidationError(f"{path} is not a valid date-time")
+            raise ValidationError(f"{path}: string is shorter than minLength {schema['minLength']!r}")
+        if "maxLength" in schema and len(instance) > schema["maxLength"]:
+            raise ValidationError(f"{path}: string is longer than maxLength {schema['maxLength']!r}")
+        if "pattern" in schema and re.search(schema["pattern"], instance) is None:
+            raise ValidationError(f"{path}: string does not match pattern {schema['pattern']!r}")
 
-    if isinstance(instance, int) and "minimum" in schema and instance < schema["minimum"]:
-        raise ValidationError(f"{path} is smaller than minimum {schema['minimum']}")
-
-    if isinstance(instance, list):
-        if "minItems" in schema and len(instance) < schema["minItems"]:
-            raise ValidationError(f"{path} has fewer items than minItems {schema['minItems']}")
-        item_schema = schema.get("items")
-        if isinstance(item_schema, dict):
-            for index, item in enumerate(instance):
-                minimal_validate(item, item_schema, f"{path}[{index}]")
+    if isinstance(instance, (int, float)) and not isinstance(instance, bool):
+        if "minimum" in schema and instance < schema["minimum"]:
+            raise ValidationError(f"{path}: {instance!r} is less than minimum {schema['minimum']!r}")
+        if "maximum" in schema and instance > schema["maximum"]:
+            raise ValidationError(f"{path}: {instance!r} is greater than maximum {schema['maximum']!r}")
 
     if isinstance(instance, dict):
-        required = schema.get("required", [])
-        for key in required:
+        for key in schema.get("required", []):
             if key not in instance:
-                raise ValidationError(f"{path} missing required property {key!r}")
+                raise ValidationError(f"{path}: missing required property {key!r}")
+
         properties = schema.get("properties", {})
+        for key, subschema in properties.items():
+            if key in instance:
+                minimal_validate(instance[key], subschema, f"{path}.{key}")
+
         if schema.get("additionalProperties") is False:
             extra = set(instance) - set(properties)
             if extra:
-                raise ValidationError(f"{path} has additional properties {sorted(extra)!r}")
-        for key, value in instance.items():
-            child_schema = properties.get(key)
-            if isinstance(child_schema, dict):
-                minimal_validate(value, child_schema, f"{path}{key}.")
+                raise ValidationError(f"{path}: unexpected additional properties {sorted(extra)!r}")
 
+    if isinstance(instance, list):
+        if "minItems" in schema and len(instance) < schema["minItems"]:
+            raise ValidationError(f"{path}: array has fewer than minItems {schema['minItems']!r}")
+        if "maxItems" in schema and len(instance) > schema["maxItems"]:
+            raise ValidationError(f"{path}: array has more than maxItems {schema['maxItems']!r}")
+        if schema.get("uniqueItems") is True:
+            seen = set()
+            for item in instance:
+                marker = repr(item)
+                if marker in seen:
+                    raise ValidationError(f"{path}: array items are not unique")
+                seen.add(marker)
+        if "items" in schema:
+            for index, item in enumerate(instance):
+                minimal_validate(item, schema["items"], f"{path}[{index}]")
 
 def validate_schema(schema: dict[str, Any], schema_path: Path) -> None:
     if not _is_jsonschema_available():
