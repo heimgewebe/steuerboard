@@ -36,8 +36,25 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def _default_config_path() -> Path:
+def _user_config_path() -> Path:
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+    config_home = Path(xdg_config_home).expanduser() if xdg_config_home else Path.home() / ".config"
+    return config_home / "steuerboard" / "local-config.json"
+
+
+def _checkout_example_config_path() -> Path:
     return _repo_root() / "examples" / "local-configs" / "heim-pc.json"
+
+
+def _default_config_candidates() -> tuple[Path, ...]:
+    return (_user_config_path(), _checkout_example_config_path())
+
+
+def _default_config_path() -> Path:
+    for candidate in _default_config_candidates():
+        if candidate.exists():
+            return candidate
+    return _user_config_path()
 
 
 def _rfc3339_now() -> str:
@@ -49,7 +66,14 @@ def _inventory_id() -> str:
 
 
 def _load_local_config(config_path: Path | None) -> LocalConfig:
-    path = config_path or _default_config_path()
+    path = config_path.expanduser().absolute() if config_path else _default_config_path()
+    if not path.exists():
+        candidates = ", ".join(str(candidate) for candidate in _default_config_candidates())
+        raise FileNotFoundError(
+            "local-config.v1 JSON not found; pass --config or create one of: "
+            f"{candidates}"
+        )
+
     data = json.loads(path.read_text(encoding="utf-8"))
 
     host_name = data["host"]["name"]
@@ -156,6 +180,18 @@ def _find_git_repos_under(root: Path, excluded_roots: tuple[Path, ...]) -> list[
     return found
 
 
+def _shadow_primary_rank(repo: dict[str, Any]) -> tuple[int, str]:
+    scope_rank = {
+        "scope_canonical": 0,
+        "scope_unknown": 1,
+        "scope_shadow": 2,
+        "scope_excluded": 3,
+        "scope_gdrive": 4,
+        "scope_backup": 5,
+    }
+    return scope_rank.get(repo["scope"], 99), repo["path"]
+
+
 def _mark_shadow_duplicates(repos: list[dict[str, Any]]) -> None:
     by_toplevel: dict[str, list[dict[str, Any]]] = {}
     for repo in repos:
@@ -163,15 +199,16 @@ def _mark_shadow_duplicates(repos: list[dict[str, Any]]) -> None:
             continue
         by_toplevel.setdefault(repo["git_toplevel"], []).append(repo)
 
+    unsafe_primary_scopes = {"scope_excluded", "scope_gdrive", "scope_backup"}
+
     for duplicates in by_toplevel.values():
-        if len(duplicates) < 2:
+        eligible = [repo for repo in duplicates if repo["scope"] not in unsafe_primary_scopes]
+        if len(eligible) < 2:
             continue
 
-        duplicates.sort(key=lambda item: item["path"])
-        primary = duplicates[0]
-        for repo in duplicates[1:]:
-            if repo["scope"] in {"scope_excluded", "scope_gdrive", "scope_backup"}:
-                continue
+        eligible.sort(key=_shadow_primary_rank)
+        primary = eligible[0]
+        for repo in eligible[1:]:
             repo["scope"] = "scope_shadow"
             repo["scope_reason"] = f"duplicate git_toplevel with {primary['path']}"
 

@@ -34,7 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inventory_parser.add_argument(
         "--config",
-        help="Path to local-config.v1 JSON (defaults to examples/local-configs/heim-pc.json).",
+        help=(
+            "Path to local-config.v1 JSON. Defaults to "
+            "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
+        ),
     )
     inventory_parser.add_argument(
         "--json",
@@ -57,7 +60,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "inventory":
         config_path = Path(args.config) if args.config else None
-        inventory = build_inventory(config_path=config_path)
+        try:
+            inventory = build_inventory(config_path=config_path)
+        except FileNotFoundError as exc:
+            parser.error(str(exc))
         print(json.dumps(inventory, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
