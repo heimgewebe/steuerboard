@@ -27,7 +27,97 @@
     },
     "observed_state": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "is_git_repo",
+        "git_status_exit_code"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "is_git_repo": {
+          "type": "boolean"
+        },
+        "git_metadata_present_at_observed_path": {
+          "type": "boolean"
+        },
+        "git_toplevel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "git_worktree_check_exit_code": {
+          "type": "integer"
+        },
+        "git_worktree_check_stdout": {
+          "type": "string"
+        },
+        "git_worktree_check_stderr": {
+          "type": "string"
+        },
+        "current_branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_sha": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "upstream": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ahead": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "behind": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "remote_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default_branch_candidate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "git_status_exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
