@@ -531,3 +531,8 @@ def test_provenance_rejects_unknown_falsification_ref(monkeypatch: pytest.Monkey
 
     with pytest.raises(ValueError, match="Unknown falsification_ref"):
         attach_assessment_provenance(["dirty_worktree"])
+
+
+def test_provenance_rejects_empty_derived_status():
+    with pytest.raises(ValueError, match="derived_status must not be empty"):
+        attach_assessment_provenance([])

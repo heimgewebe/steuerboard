@@ -125,6 +125,9 @@ def _validate_falsification_refs(refs: list[str]) -> list[str]:
 
 
 def attach_assessment_provenance(derived_status: list[str]) -> dict[str, list[str]]:
+    if not derived_status:
+        raise ValueError("derived_status must not be empty")
+
     rule_refs: list[str] = []
     freshness_refs: list[str] = []
     falsification_refs: list[str] = []
