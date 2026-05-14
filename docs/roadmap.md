@@ -88,7 +88,9 @@ PR #11 plant keine Aktionen. PR #11 führt keine Aktionen aus.
 python -m steuerboard assess repo <path> --json
 ```
 
-New fields in `repo-assessment.v1`:
+- `decision_state` is a **contractual enum** in the schema: `action_blocked`, `evidence_missing`, `assessment_clear`. Free strings are rejected.
+- `clean_default_current` means current branch matches observed `default_branch_candidate`. The observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` (strong) or local heuristic. This is always marked via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`.
+- `derived_status` is a proper list: non-canonical scope and `dirty_worktree` are both collected when observed together.
 
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`
 - `skip_reasons` — normalised reason codes why action is blocked or deferred

@@ -39,10 +39,12 @@ Status codes emitted in `derived_status`:
 
 - `not_git_repo` — path is not a Git repository
 - `scope_backup`, `scope_gdrive`, `scope_shadow`, `scope_excluded`, `scope_unknown` — non-canonical scope
-- `dirty_worktree` — uncommitted local changes
+- `dirty_worktree` — uncommitted local changes (also collected alongside scope codes if both observed)
 - `detached_head` — HEAD is detached
 - `default_branch_unknown` — default branch not determinable
 - `non_default_branch` — clean, on a non-default branch; `missing_evidence` is set
-- `clean_default_current` — canonical, clean, confirmed on default branch
+- `clean_default_current` — current branch matches observed `default_branch_candidate`; always has `missing_evidence: ["default_branch_source"]` since the observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` or local heuristic
+
+`decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
 
 Boundary: read-only, no mutation, no fetch, no network, no action planning.

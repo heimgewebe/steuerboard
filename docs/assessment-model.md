@@ -22,10 +22,21 @@ Assessment is strictly read-only. An assessment:
 `decision_state` is an Assessment-Ergebnis, not an Action-Freigabe. It answers
 "what does the assessment conclude?", not "what is the system allowed to do?".
 
-Values:
+`decision_state` is a **contractual enum** in the schema — free strings are rejected:
 - `action_blocked` — assessment concludes an action would be unsafe or inapplicable
 - `evidence_missing` — assessment cannot conclude without additional evidence
-- `assessment_clear` — assessment concludes the canonical, clean, on-default-branch state
+- `assessment_clear` — current branch matches observed default_branch_candidate, canonical, clean
+
+### Epistemic boundary: `clean_default_current`
+
+`clean_default_current` means the current branch matches the observed
+`default_branch_candidate`. It does **not** mean the default branch is confirmed.
+The observation does not expose whether `default_branch_candidate` came from
+`refs/remotes/origin/HEAD` (strong) or local heuristic fallback
+(`refs/heads/main|master|trunk`). This gap is always marked:
+
+- `missing_evidence: ["default_branch_source"]`
+- `confidence: 0.8` (not 1.0 or 0.9)
 
 ## Fields (repo-assessment.v1)
 

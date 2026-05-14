@@ -57,9 +57,14 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
         confidence = 1.0
 
     elif scope != "scope_canonical":
-        # Non-canonical scope: backup, gdrive, shadow, excluded, unknown
+        # Non-canonical scope: backup, gdrive, shadow, excluded, unknown.
+        # Also collect dirty_worktree if observed — scope already blocks, but
+        # derived_status is a list and should be complete.
         derived_status.append(scope)
         skip_reasons.append(scope)
+        if obs_state.get("dirty", False):
+            derived_status.append("dirty_worktree")
+            skip_reasons.append("dirty_worktree")
         risk_level = "medium"
         decision_state = "action_blocked"
         confidence = 1.0
@@ -105,11 +110,16 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
             confidence = 0.9
 
         else:
-            # Canonical, clean, on the default branch
+            # Current branch matches observed default_branch_candidate.
+            # The observation does not expose whether the candidate came from
+            # refs/remotes/origin/HEAD (strong) or local heuristic fallback
+            # (refs/heads/main|master|trunk). Mark as missing_evidence so
+            # downstream consumers know the source quality is unverified.
             derived_status.append("clean_default_current")
+            missing_evidence.append("default_branch_source")
             risk_level = "low"
             decision_state = "assessment_clear"
-            confidence = 0.9
+            confidence = 0.8
 
     return {
         "schema_version": "repo-assessment.v1",

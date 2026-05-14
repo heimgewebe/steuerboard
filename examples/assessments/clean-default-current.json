@@ -22,6 +22,8 @@
   "decision_state": "assessment_clear",
   "risk_level": "low",
   "skip_reasons": [],
-  "confidence": 0.9,
-  "missing_evidence": []
+  "confidence": 0.8,
+  "missing_evidence": [
+    "default_branch_source"
+  ]
 }

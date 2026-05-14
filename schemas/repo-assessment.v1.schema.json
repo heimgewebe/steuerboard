@@ -36,8 +36,8 @@
     },
     "decision_state": {
       "type": "string",
-      "minLength": 1,
-      "description": "Assessment outcome — not an action authorisation. Values: evidence_missing, action_blocked, assessment_clear."
+      "enum": ["action_blocked", "evidence_missing", "assessment_clear"],
+      "description": "Assessment outcome — not an action authorisation. Contractually enforced enum: action_blocked, evidence_missing, assessment_clear."
     },
     "missing_evidence": {
       "type": "array",
