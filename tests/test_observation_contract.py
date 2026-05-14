@@ -69,3 +69,49 @@ def test_observation_schema_rejects_assessment_fields():
 
     with pytest.raises(ValidationError):
         validate_instance(invalid, schema, Path("invalid-observation.json"))
+
+def test_observation_schema_accepts_sha1_and_sha256_head_sha():
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+
+    base_observation = {
+        "schema_version": "repo-observation.v1",
+        "observation_id": "obs-valid-head-sha",
+        "source_refs": ["git.rev_parse.head"],
+        "observed_state": {
+            "path": "/tmp/repo",
+            "is_git_repo": True,
+            "git_status_exit_code": 0,
+        },
+    }
+
+    for head_sha in (
+        "1" * 40,
+        "2" * 64,
+        None,
+    ):
+        observation = {
+            **base_observation,
+            "observed_state": {
+                **base_observation["observed_state"],
+                "head_sha": head_sha,
+            },
+        }
+        validate_instance(observation, schema, Path("valid-head-sha-observation.json"))
+
+
+def test_observation_schema_rejects_invalid_head_sha_length():
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    invalid = {
+        "schema_version": "repo-observation.v1",
+        "observation_id": "obs-invalid-head-sha",
+        "source_refs": ["git.rev_parse.head"],
+        "observed_state": {
+            "path": "/tmp/repo",
+            "is_git_repo": True,
+            "git_status_exit_code": 0,
+            "head_sha": "3" * 63,
+        },
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, schema, Path("invalid-head-sha-observation.json"))

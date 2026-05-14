@@ -92,19 +92,20 @@ def test_minimal_validator_rejects_wrong_nullable_type():
 def test_minimal_validator_supports_anyof_head_sha_shape():
     schema = {
         "anyOf": [
-            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
             {"type": "null"},
         ]
     }
 
     minimal_validate("1111111111111111111111111111111111111111", schema)
+    minimal_validate("2" * 64, schema)
     minimal_validate(None, schema)
 
 
 def test_minimal_validator_rejects_invalid_anyof_head_sha_shape():
     schema = {
         "anyOf": [
-            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
             {"type": "null"},
         ]
     }
