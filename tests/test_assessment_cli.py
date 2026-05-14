@@ -491,3 +491,77 @@ def test_minimal_validator_rejects_confidence_above_one():
     with pytest.raises(ValidationError):
         minimal_validate(invalid, schema)
 
+
+# ---------------------------------------------------------------------------
+# Review regressions: symlink scope, explicit config, ID uniqueness, branch edges
+# ---------------------------------------------------------------------------
+
+def test_assess_uses_unresolved_path_for_scope_classification(tmp_path: Path):
+    real_root = tmp_path / "real"
+    symlink_root = tmp_path / "repos-link"
+    repo = real_root / "project"
+    _init_repo(repo)
+    symlink_root.symlink_to(real_root, target_is_directory=True)
+
+    config_path = _write_local_config(tmp_path, [symlink_root], [])
+    assessment = assess_repo(symlink_root / "project", config_path=config_path)
+
+    assert "scope_unknown" not in assessment["derived_status"]
+    assert "clean_default_current" in assessment["derived_status"]
+
+
+def test_assess_explicit_missing_config_raises(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    with pytest.raises(FileNotFoundError):
+        assess_repo(repo, config_path=tmp_path / "missing-config.json")
+
+
+def test_assessment_id_is_unique_for_repeated_same_path_calls(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+
+    first = assess_repo(repo, config_path=config_path)
+    second = assess_repo(repo, config_path=config_path)
+
+    assert first["assessment_id"] != second["assessment_id"]
+
+
+def test_assess_detached_head_emits_detached_head(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout.strip()
+    _run(["git", "checkout", "--detach", head], repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "detached_head" in assessment["derived_status"]
+    assert "detached_head" in assessment["skip_reasons"]
+    assert assessment["decision_state"] == "action_blocked"
+
+
+def test_assess_default_branch_unknown_when_no_candidate(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    _run(["git", "branch", "-m", "dev"], repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "default_branch_unknown" in assessment["derived_status"]
+    assert "default_branch_unknown" in assessment["skip_reasons"]
+    assert assessment["decision_state"] == "evidence_missing"
+    assert "default_branch" in assessment["missing_evidence"]

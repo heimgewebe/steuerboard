@@ -125,3 +125,4 @@ Open epistemic gaps:
 - Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
 - Human-readable assessment explanations deferred to a later PR.
 - Assessment does not yet cross-reference freshness model or falsification cases by rule_refs.
+- `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.
