@@ -1,3 +1,5 @@
+import pytest
+
 from scripts.validate_examples import (
     EXAMPLES_DIR,
     _is_date_time,
@@ -82,8 +84,6 @@ def test_minimal_validator_supports_nullable_type_arrays():
 
 
 def test_minimal_validator_rejects_wrong_nullable_type():
-    import pytest
-
     with pytest.raises(ValidationError):
         minimal_validate(123, {"type": ["string", "null"]})
 
@@ -101,8 +101,6 @@ def test_minimal_validator_supports_anyof_head_sha_shape():
 
 
 def test_minimal_validator_rejects_invalid_anyof_head_sha_shape():
-    import pytest
-
     schema = {
         "anyOf": [
             {"type": "string", "pattern": "^[0-9a-f]{40}$"},

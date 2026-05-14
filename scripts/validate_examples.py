@@ -110,17 +110,6 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$.") ->
         raise ValidationError(f"{path} expected const {schema['const']!r}, got {instance!r}")
     if "enum" in schema and instance not in schema["enum"]:
         raise ValidationError(f"{path} expected one of {schema['enum']!r}, got {instance!r}")
-    if "anyOf" in schema:
-        any_errors: list[str] = []
-        for option in schema["anyOf"]:
-            try:
-                minimal_validate(instance, option, path)
-                break
-            except ValidationError as exc:
-                any_errors.append(str(exc))
-        else:
-            raise ValidationError(f"{path} did not match anyOf: {'; '.join(any_errors)}")
-
     expected_type = schema.get("type")
     if isinstance(expected_type, str):
         if not _type_matches(instance, expected_type):
