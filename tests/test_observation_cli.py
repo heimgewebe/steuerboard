@@ -72,7 +72,8 @@ def _init_repo_with_upstream(path: Path, upstream_path: Path) -> None:
     _run(["git", "add", "README.md"], path)
     _run(["git", "commit", "-m", "init"], path)
 
-    # Push main to origin and set upstream tracking.
+    # Test-only: allow pushing main inside the temporary fixture repo even when
+    # the developer machine has a global/pre-push policy that blocks main pushes.
     _run(
         ["git", "push", "-u", "origin", "main"],
         path,
