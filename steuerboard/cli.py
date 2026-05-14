@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     duplicates_parser.add_argument(
         "--config",
+        default=argparse.SUPPRESS,
         help=(
             "Path to local-config.v1 JSON. Defaults to "
             "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."

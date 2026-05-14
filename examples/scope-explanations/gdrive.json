@@ -9,14 +9,14 @@
     "filesystem.path",
     "git.rev_parse.worktree"
   ],
-  "input_path": "/home/alex/GDrive/repos/steuerboard",
-  "normalized_path": "/home/alex/GDrive/repos/steuerboard",
+  "input_path": "/home/alex/repos/GDrive-shadow/steuerboard",
+  "normalized_path": "/home/alex/repos/GDrive-shadow/steuerboard",
   "is_git_repo": false,
   "git_toplevel": null,
-  "scope": "scope_excluded",
-  "scope_reason": "under excluded_repo_roots",
+  "scope": "scope_gdrive",
+  "scope_reason": "path contains gdrive segment",
   "matched_policy": {
-    "kind": "excluded_repo_roots",
-    "value": "/home/alex/GDrive/repos"
+    "kind": "path_segment",
+    "value": "GDrive-shadow"
   }
 }

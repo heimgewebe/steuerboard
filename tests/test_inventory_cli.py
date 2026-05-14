@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
+from steuerboard.cli import build_parser
 from steuerboard.inventory import build_duplicates_report, build_inventory, explain_scope
 
 
@@ -284,6 +285,31 @@ def test_inventory_default_config_uses_xdg_config(monkeypatch, tmp_path: Path):
 
     assert inventory["host"] == "test-host"
     assert repo_entry["scope"] == "scope_canonical"
+
+
+def test_inventory_duplicates_preserves_parent_config_argument(tmp_path: Path):
+    parent_config = tmp_path / "parent-config.json"
+    child_config = tmp_path / "child-config.json"
+
+    parser = build_parser()
+
+    parent_args = parser.parse_args(
+        ["inventory", "--config", str(parent_config), "duplicates", "--json"]
+    )
+    assert parent_args.config == str(parent_config)
+
+    child_args = parser.parse_args(
+        [
+            "inventory",
+            "--config",
+            str(parent_config),
+            "duplicates",
+            "--config",
+            str(child_config),
+            "--json",
+        ]
+    )
+    assert child_args.config == str(child_config)
 
 
 def test_duplicates_report_has_no_groups_for_single_repo(tmp_path: Path):
