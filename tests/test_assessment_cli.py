@@ -75,6 +75,11 @@ def _assert_assessment_invariants(assessment: dict, schema: dict, label: Path) -
         f"Assessment contains forbidden action-plan field(s): "
         f"{FORBIDDEN_ASSESSMENT_KEYS & assessment.keys()}"
     )
+    assert isinstance(assessment.get("rule_refs"), list)
+    assert isinstance(assessment.get("freshness_refs"), list)
+    assert isinstance(assessment.get("falsification_refs"), list)
+    # Every derived status must be backed by at least one rule reference.
+    assert assessment["rule_refs"], "derived_status must always map to rule_refs"
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +146,9 @@ def test_assess_dirty_worktree_emits_dirty_worktree(tmp_path: Path):
     assert "dirty_worktree" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "action_blocked"
     assert assessment["risk_level"] == "medium"
+    assert "assessment.rule.dirty_worktree_blocks_action" in assessment["rule_refs"]
+    assert "failure-case.dirty_worktree" in assessment["falsification_refs"]
+    assert assessment["freshness_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +173,10 @@ def test_assess_feature_branch_emits_non_default_branch(tmp_path: Path):
     assert assessment["risk_level"] == "medium"
     assert "branch_contains_origin_main_or_pr_merged" in assessment["missing_evidence"]
     assert "fresh_origin_main" in assessment["missing_evidence"]
+    assert "assessment.rule.non_default_branch_requires_lifecycle_evidence" in assessment["rule_refs"]
+    assert "failure-case.feature_branch_unmerged" in assessment["falsification_refs"]
+    assert "freshness.remote_branch_lifecycle.not_observed_no_fetch" in assessment["freshness_refs"]
+    assert "freshness.remote_branch_lifecycle.fresh" not in assessment["freshness_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +197,7 @@ def test_assess_scope_backup_emits_scope_backup(tmp_path: Path):
     assert "scope_backup" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "action_blocked"
     assert assessment["risk_level"] == "medium"
+    assert "failure-case.backup_repo_accidentally_used" in assessment["falsification_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +261,7 @@ def test_assess_clean_canonical_default_branch_emits_clear(tmp_path: Path):
     # refs/remotes/origin/HEAD (strong) or heuristic fallback. The epistemic gap
     # is marked explicitly so downstream consumers know.
     assert "default_branch_source" in assessment["missing_evidence"]
+    assert "assessment.rule.clean_default_current_is_clear_but_default_source_unverified" in assessment["rule_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +463,7 @@ def test_assess_detached_head_emits_detached_head(tmp_path: Path):
     assert "detached_head" in assessment["derived_status"]
     assert "detached_head" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "action_blocked"
+    assert "failure-case.detached_head" in assessment["falsification_refs"]
 
 
 def test_assess_default_branch_unknown_when_no_candidate(tmp_path: Path):
@@ -473,6 +488,7 @@ def test_assess_default_branch_unknown_when_no_candidate(tmp_path: Path):
     assert "default_branch_unknown" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "evidence_missing"
     assert "default_branch" in assessment["missing_evidence"]
+    assert "failure-case.unknown_default_branch" in assessment["falsification_refs"]
 
 
 def test_minimal_validator_rejects_confidence_above_one():

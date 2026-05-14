@@ -53,9 +53,9 @@ Optional (added in Phase 3):
 - `skip_reasons` — normalised reason codes mirroring blocking/defer-style `derived_status` entries only; may be empty for non-blocking outcomes such as `clean_default_current`
 - `confidence` — number 0..1, confidence in derived_status
 - `missing_evidence` — list of evidence items that would change the assessment
-- `rule_refs` — optional references to rules that produced this assessment
-- `freshness_refs` — optional references to freshness model entries
-- `falsification_refs` — optional references to falsification cases
+- `rule_refs` — references to assessment rules supporting each derived status
+- `freshness_refs` — freshness references used by assessment; they do not claim remote freshness without fetch
+- `falsification_refs` — references to matching falsification cases when applicable (empty if no matching case exists)
 
 Explicitly excluded (never in this schema):
 - `action`, `plan_id`, `would_run`, `would_mutate`

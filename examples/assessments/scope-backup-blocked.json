@@ -25,5 +25,14 @@
     "scope_backup"
   ],
   "confidence": 1.0,
-  "missing_evidence": []
+  "missing_evidence": [],
+  "rule_refs": [
+    "assessment.rule.scope_backup_blocks_action"
+  ],
+  "freshness_refs": [
+    "freshness.local_scope_config.current_invocation"
+  ],
+  "falsification_refs": [
+    "failure-case.backup_repo_accidentally_used"
+  ]
 }

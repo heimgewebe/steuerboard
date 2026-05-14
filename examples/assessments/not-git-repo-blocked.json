@@ -17,5 +17,12 @@
     "not_git_repo"
   ],
   "confidence": 1.0,
-  "missing_evidence": []
+  "missing_evidence": [],
+  "rule_refs": [
+    "assessment.rule.not_git_repo_blocks_action"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_probe.current_invocation"
+  ],
+  "falsification_refs": []
 }

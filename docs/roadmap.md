@@ -98,6 +98,7 @@ python -m steuerboard assess repo <path> --json
 - `confidence` — 0..1 confidence in derived_status
 - `missing_evidence` — already present; expanded usage
 - optional: `rule_refs`, `freshness_refs`, `falsification_refs`
+- assessment provenance refs are now attached for emitted status codes (rule/freshness/falsification when applicable)
 
 Status cases implemented:
 
@@ -124,5 +125,5 @@ Open epistemic gaps:
 
 - Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
 - Human-readable assessment explanations deferred to a later PR.
-- Assessment does not yet cross-reference freshness model or falsification cases by rule_refs.
+- Assessment now cross-references rule_refs, freshness_refs, and falsification_refs (when applicable).
 - `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.

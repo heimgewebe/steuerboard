@@ -25,5 +25,13 @@
   "confidence": 0.8,
   "missing_evidence": [
     "default_branch_source"
-  ]
+  ],
+  "rule_refs": [
+    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_status.current_invocation",
+    "freshness.default_branch_source.unverified"
+  ],
+  "falsification_refs": []
 }

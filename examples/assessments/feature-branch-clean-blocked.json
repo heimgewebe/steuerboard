@@ -15,5 +15,17 @@
   "missing_evidence": [
     "branch_contains_origin_main_or_pr_merged",
     "fresh_origin_main"
+  ],
+  "rule_refs": [
+    "assessment.rule.clean_feature_branch_requires_lifecycle_evidence",
+    "assessment.rule.branch_merge_status_unknown_requires_evidence"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_branch.current_invocation",
+    "freshness.remote_branch_lifecycle.not_observed_no_fetch"
+  ],
+  "falsification_refs": [
+    "failure-case.feature_branch_unmerged",
+    "failure-case.origin_main_stale"
   ]
 }
