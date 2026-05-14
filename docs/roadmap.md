@@ -106,7 +106,7 @@ Status cases implemented:
 - `detached_head` — HEAD is not on any branch
 - `default_branch_unknown` — default branch not determinable from observation
 - `non_default_branch` — on a non-default branch, clean; missing_evidence set
-- `clean_default_current` — canonical, clean, on confirmed default branch
+- `clean_default_current` — canonical, clean, current branch matches observed `default_branch_candidate`; default-branch source remains unverified and is marked via `missing_evidence: ["default_branch_source"]`
 
 `decision_state` remains required and is an Assessment-Ergebnis, not an Action-Freigabe.
 Values: `action_blocked`, `evidence_missing`, `assessment_clear`.
@@ -121,8 +121,6 @@ Boundary for this slice:
 
 Open epistemic gaps:
 
-- `confidence` for `clean_default_current` uses 0.9 even when `default_branch_candidate` was
-  resolved via heuristic fallback rather than `refs/remotes/origin/HEAD`. A more precise
-  confidence model would distinguish these two sources.
+- Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
 - Human-readable assessment explanations deferred to a later PR.
 - Assessment does not yet cross-reference freshness model or falsification cases by rule_refs.
