@@ -97,7 +97,7 @@ python -m steuerboard assess repo <path> --json
 - `skip_reasons` — normalised reason codes why action is blocked or deferred
 - `confidence` — 0..1 confidence in derived_status
 - `missing_evidence` — already present; expanded usage
-- optional: `rule_refs`, `freshness_refs`, `falsification_refs`
+- schema-optional, emitted by `assess_repo`: `rule_refs`, `freshness_refs`, `falsification_refs`
 - assessment provenance refs are now attached for emitted status codes (rule/freshness/falsification when applicable)
 
 Status cases implemented:
