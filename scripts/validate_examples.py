@@ -54,7 +54,9 @@ def _is_jsonschema_available() -> bool:
     return importlib.util.find_spec("jsonschema") is not None
 
 
-def _type_matches(value: Any, expected: str) -> bool:
+def _type_matches(value: Any, expected: Any) -> bool:
+    if isinstance(expected, list):
+        return any(_type_matches(value, item) for item in expected)
     if expected == "object":
         return isinstance(value, dict)
     if expected == "array":
@@ -65,6 +67,8 @@ def _type_matches(value: Any, expected: str) -> bool:
         return isinstance(value, bool)
     if expected == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "null":
+        return value is None
     return True
 
 
@@ -86,13 +90,35 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$.") ->
     0b self-checking in minimal environments while covering the keywords used by
     the committed schemas.
     """
+    any_of = schema.get("anyOf")
+    if isinstance(any_of, list):
+        errors: list[str] = []
+        for index, candidate in enumerate(any_of):
+            if not isinstance(candidate, dict):
+                errors.append(f"anyOf[{index}] is not a schema object")
+                continue
+            try:
+                minimal_validate(instance, candidate, path)
+            except ValidationError as exc:
+                errors.append(str(exc))
+            else:
+                break
+        else:
+            raise ValidationError(f"{path} did not match any anyOf schema: {'; '.join(errors)}")
+
     if "const" in schema and instance != schema["const"]:
         raise ValidationError(f"{path} expected const {schema['const']!r}, got {instance!r}")
     if "enum" in schema and instance not in schema["enum"]:
         raise ValidationError(f"{path} expected one of {schema['enum']!r}, got {instance!r}")
     expected_type = schema.get("type")
-    if isinstance(expected_type, str) and not _type_matches(instance, expected_type):
-        raise ValidationError(f"{path} expected type {expected_type}, got {type(instance).__name__}")
+    if isinstance(expected_type, str):
+        if not _type_matches(instance, expected_type):
+            raise ValidationError(f"{path} expected type {expected_type}, got {type(instance).__name__}")
+    elif isinstance(expected_type, list):
+        if not any(isinstance(item, str) and _type_matches(instance, item) for item in expected_type):
+            raise ValidationError(
+                f"{path} expected one of types {expected_type}, got {type(instance).__name__}"
+            )
 
     if isinstance(instance, str):
         if "minLength" in schema and len(instance) < schema["minLength"]:

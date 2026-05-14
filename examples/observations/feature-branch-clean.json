@@ -12,13 +12,16 @@
     "path": "/home/alex/repos/steuerboard",
     "is_git_repo": true,
     "current_branch": "docs/runtime-note",
-    "head_sha": "0000000000000000000000000000000000000000",
+    "head_sha": "1111111111111111111111111111111111111111",
     "dirty": false,
     "upstream": "origin/docs/runtime-note",
     "ahead": 0,
     "behind": 0,
     "remote_url": "git@github.com:heimgewebe/steuerboard.git",
     "default_branch_candidate": "main",
-    "git_status_exit_code": 0
+    "git_status_exit_code": 0,
+    "git_metadata_present_at_observed_path": true,
+    "git_toplevel": "/home/alex/repos/steuerboard",
+    "git_worktree_check_exit_code": 0
   }
 }
