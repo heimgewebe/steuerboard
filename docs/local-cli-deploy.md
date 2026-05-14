@@ -92,9 +92,6 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
 not a productive repository action.
 
-The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
-not a productive repository action.
-
 This boundary follows the architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
