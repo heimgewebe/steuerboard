@@ -3,6 +3,8 @@ from scripts.validate_examples import (
     _is_date_time,
     validate_examples,
     validate_schemas,
+    minimal_validate,
+    ValidationError,
 )
 
 REQUIRED_FAILURE_CASES = {
@@ -73,3 +75,40 @@ def test_fallback_date_time_check_requires_rfc3339_shape():
     assert _is_date_time("2026-05-08T12:00:00.123+00:00")
     assert not _is_date_time("2026-05-08+00:00")
     assert not _is_date_time("2026-05-08 12:00:00+00:00")
+
+def test_minimal_validator_supports_nullable_type_arrays():
+    minimal_validate(None, {"type": ["string", "null"]})
+    minimal_validate("main", {"type": ["string", "null"]})
+
+
+def test_minimal_validator_rejects_wrong_nullable_type():
+    import pytest
+
+    with pytest.raises(ValidationError):
+        minimal_validate(123, {"type": ["string", "null"]})
+
+
+def test_minimal_validator_supports_anyof_head_sha_shape():
+    schema = {
+        "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"},
+        ]
+    }
+
+    minimal_validate("1111111111111111111111111111111111111111", schema)
+    minimal_validate(None, schema)
+
+
+def test_minimal_validator_rejects_invalid_anyof_head_sha_shape():
+    import pytest
+
+    schema = {
+        "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"},
+        ]
+    }
+
+    with pytest.raises(ValidationError):
+        minimal_validate("not-a-sha", schema)
