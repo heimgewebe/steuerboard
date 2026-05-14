@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from scripts.validate_examples import (
@@ -13,7 +11,11 @@ from scripts.validate_examples import (
     minimal_validate,
     ValidationError,
 )
-from steuerboard.assessment_rules import ASSESSMENT_PROVENANCE, EXISTING_FAILURE_CASE_IDS
+from steuerboard.assessment_rules import (
+    ASSESSMENT_PROVENANCE,
+    EXISTING_FAILURE_CASE_IDS,
+    attach_assessment_provenance,
+)
 
 REQUIRED_FAILURE_CASES = {
     "backup_repo_accidentally_used.json",
@@ -96,16 +98,22 @@ def test_assessment_examples_match_runtime_provenance_contract():
     for example_path in sorted((EXAMPLES_DIR / "assessments").glob("*.json")):
         assessment = load_json(example_path)
         validate_instance(assessment, schema, example_path)
+        expected = attach_assessment_provenance(assessment["derived_status"])
 
         for status in assessment["derived_status"]:
             assert status in ASSESSMENT_PROVENANCE, (
                 f"{example_path.name}: unknown derived_status {status!r}"
             )
-            expected_rule_refs = ASSESSMENT_PROVENANCE[status]["rule_refs"]
-            for ref in expected_rule_refs:
-                assert ref in assessment["rule_refs"], (
-                    f"{example_path.name}: missing rule_ref {ref!r} for status {status!r}"
-                )
+
+        assert assessment.get("rule_refs", []) == expected["rule_refs"], (
+            f"{example_path.name}: rule_refs drift from runtime provenance"
+        )
+        assert assessment.get("freshness_refs", []) == expected["freshness_refs"], (
+            f"{example_path.name}: freshness_refs drift from runtime provenance"
+        )
+        assert assessment.get("falsification_refs", []) == expected["falsification_refs"], (
+            f"{example_path.name}: falsification_refs drift from runtime provenance"
+        )
 
         for ref in assessment.get("falsification_refs", []):
             prefix = "failure-case."
@@ -120,9 +128,9 @@ def test_assessment_examples_match_runtime_provenance_contract():
 
 def test_existing_failure_case_ids_have_example_files():
     failure_cases_dir = EXAMPLES_DIR / "failure-cases"
-    for case_id in sorted(EXISTING_FAILURE_CASE_IDS):
-        path = failure_cases_dir / f"{case_id}.json"
-        assert path.exists(), f"missing failure-case example file: {path}"
+    expected = {f"{case_id}.json" for case_id in EXISTING_FAILURE_CASE_IDS}
+    actual = {path.name for path in failure_cases_dir.glob("*.json")}
+    assert actual == expected
 
 
 def test_fallback_date_time_check_requires_rfc3339_shape():
