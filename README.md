@@ -5,7 +5,7 @@ steuerboard is a local diagnostics and planning surface for workstation reposito
 ## Local deploy
 
 ```sh
-python -m pip install -e .[test]
+python -m pip install -e '.[test]'
 make deploy-check
 ```
 

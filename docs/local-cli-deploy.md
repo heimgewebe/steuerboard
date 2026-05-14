@@ -5,9 +5,8 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 
 ## What this proves
 
-Running `make deploy-check` proves:
+After installing with `python -m pip install -e '.[test]'`, running `make deploy-check` proves:
 
-- The package installs cleanly from a local checkout (`pip install -e .[test]`).
 - All five read-only CLI entrypoints start, parse arguments, and emit valid JSON:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
@@ -16,7 +15,9 @@ Running `make deploy-check` proves:
   - `steuerboard assess repo <path> --json`
 - All JSON Schemas validate against all checked-in examples (14 schemas, 45 examples).
 - The full test suite passes.
-- No command mutates the repository, fetches from a remote, or makes network requests.
+
+The smoke path invokes only read-only CLI commands and contains no fetch, pull, switch,
+reset, clean, or network command. It does not instrument system calls.
 
 ## What this does not prove
 
@@ -30,7 +31,7 @@ Running `make deploy-check` proves:
 ## Install
 
 ```sh
-python -m pip install -e .[test]
+python -m pip install -e '.[test]'
 ```
 
 This installs the package in editable mode and includes test dependencies (pytest).
