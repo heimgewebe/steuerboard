@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -21,10 +22,15 @@ def test_generated_observation_matches_hardened_schema(tmp_path: Path):
     repo = tmp_path / "repo"
     repo.mkdir()
 
-    import subprocess
-
     def run(cmd: list[str]) -> None:
-        subprocess.run(cmd, cwd=repo, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(
+            cmd,
+            cwd=repo,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     run(["git", "init", "-b", "main"])
     run(["git", "config", "user.email", "test@example.invalid"])

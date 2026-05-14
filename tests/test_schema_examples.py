@@ -78,6 +78,7 @@ def test_fallback_date_time_check_requires_rfc3339_shape():
     assert not _is_date_time("2026-05-08+00:00")
     assert not _is_date_time("2026-05-08 12:00:00+00:00")
 
+
 def test_minimal_validator_supports_nullable_type_arrays():
     minimal_validate(None, {"type": ["string", "null"]})
     minimal_validate("main", {"type": ["string", "null"]})
