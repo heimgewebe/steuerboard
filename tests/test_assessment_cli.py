@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
+from scripts.validate_examples import ROOT, SCHEMAS_DIR, ValidationError, load_json, validate_instance
 from steuerboard.assessment import assess_repo
 
 
@@ -320,8 +320,6 @@ def test_assess_output_has_required_schema_fields(tmp_path: Path):
 def test_schema_rejects_unknown_decision_state(tmp_path: Path):
     """decision_state is a contractual enum; unknown values must be rejected."""
     schema = _assessment_schema()
-    from scripts.validate_examples import ValidationError, validate_instance
-
     invalid = {
         "schema_version": "repo-assessment.v1",
         "assessment_id": "assess-example-test",
@@ -330,15 +328,13 @@ def test_schema_rejects_unknown_decision_state(tmp_path: Path):
         "source_refs": ["git.rev_parse.worktree"],
         "decision_state": "some_future_state_not_in_enum",
     }
-    with pytest.raises((ValidationError, Exception)):
+    with pytest.raises(ValidationError):
         validate_instance(invalid, schema, Path("invalid-decision-state.json"))
 
 
 def test_schema_accepts_all_valid_decision_states():
     """All three enum values must be accepted by the schema."""
     schema = _assessment_schema()
-    from scripts.validate_examples import validate_instance
-
     for state in ("action_blocked", "evidence_missing", "assessment_clear"):
         instance = {
             "schema_version": "repo-assessment.v1",

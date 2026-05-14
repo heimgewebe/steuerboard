@@ -23,7 +23,7 @@ The command emits `repo-inventory.v1` JSON with local scope classification (`sco
 The duplicates command emits `repo-duplicates.v1` JSON grouped by observed `git_toplevel`.
 The scope command emits `scope-explanation.v1` JSON for one path.
 
-These commands remain read-only and do not emit assessment, decision, planning, or action fields.
+The Phase 2 inventory and scope commands remain read-only and do not emit assessment, decision, planning, or action fields.
 
 Phase 3 introduces a minimal read-only assessment engine.
 

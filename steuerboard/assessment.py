@@ -19,7 +19,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
     """Derive a read-only assessment from observation and scope for one local repo.
 
     No Git mutation, no network operation, no branch switch, no fetch.
-    Deterministic from Observation + Scope.
+    Assessment status is deterministic from Observation + Scope; runtime IDs remain time-dependent.
     """
     resolved = path.expanduser().resolve()
 

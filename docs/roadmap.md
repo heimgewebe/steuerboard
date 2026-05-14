@@ -78,8 +78,9 @@ Boundary for this slice:
 Status: minimal slice started.
 
 Phase 3 introduces a read-only assessment engine for a single local repository.
-Assessments are derived deterministically from Phase 1 observations and Phase 2
-scope classifications. No action planning, no execution, no network access.
+Assessment status is derived deterministically from Phase 1 observations and Phase 2
+scope classifications. Runtime identifiers and observation timestamps are intentionally
+time-dependent. No action planning, no execution, no network access.
 
 PR #11 erzeugt Assessments. PR #11 erklärt diese noch nicht menschenlesbar.
 PR #11 plant keine Aktionen. PR #11 führt keine Aktionen aus.
