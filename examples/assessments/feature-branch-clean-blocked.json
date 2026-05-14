@@ -3,8 +3,7 @@
   "assessment_id": "assess-example-feature-branch-clean-blocked",
   "observation_ref": "obs-example-feature-branch-clean",
   "derived_status": [
-    "clean_feature_branch",
-    "branch_merge_status_unknown"
+    "non_default_branch"
   ],
   "source_refs": [
     "git.current_branch",
@@ -17,8 +16,7 @@
     "fresh_origin_main"
   ],
   "rule_refs": [
-    "assessment.rule.clean_feature_branch_requires_lifecycle_evidence",
-    "assessment.rule.branch_merge_status_unknown_requires_evidence"
+    "assessment.rule.non_default_branch_requires_lifecycle_evidence"
   ],
   "freshness_refs": [
     "freshness.local_git_branch.current_invocation",

@@ -48,7 +48,7 @@ Required:
 - `source_refs` — list of data sources used
 - `decision_state` — Assessment-Ergebnis (see above)
 
-Optional in schema, emitted by assess_repo since Phase 3.6:
+Optional in schema, emitted by assess_repo in this slice:
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`
 - `skip_reasons` — normalised reason codes mirroring blocking/defer-style `derived_status` entries only; may be empty for non-blocking outcomes such as `clean_default_current`
 - `confidence` — number 0..1, confidence in derived_status
