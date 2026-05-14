@@ -23,7 +23,7 @@ No productive scanner, CLI command surface, UI, backend, or action executor is p
 
 ## Phase 1 — Read-only Observation CLI
 
-Status: stop-case coverage expanded.
+Status: sealed.
 
 Phase 1 includes a minimal single-repo read-only observation CLI:
 
@@ -44,6 +44,25 @@ Stop cases now covered by explicit tests:
 7. wrong remote / remote identity observable — non-GitHub remote URL observable without assessment
 8. empty/unborn repo — `git init` with no commits; `head_sha` is `None`
 
-Open stop case (not yet covered by automated tests):
+Open stop case (manual verification item):
 
 - **dubious ownership** — git's `safe.directory` guard fires when the repo is owned by a different user. Triggering this portably requires either root access to change file ownership or manipulation of the global git config, which would affect the host environment. This case is left as a manual verification item until a safe portable approach is available.
+
+## Phase 2 — Inventory & Scope (minimal slice)
+
+Status: started.
+
+Phase 2 now includes a minimal read-only inventory CLI:
+
+```bash
+python -m steuerboard inventory --json
+```
+
+This slice reads local config roots, observes local Git repository paths, and classifies local scope (`scope_canonical`, `scope_shadow`, `scope_backup`, `scope_gdrive`, `scope_unknown`, `scope_excluded`).
+
+Boundary for this slice:
+
+- no assessment output
+- no decision or planning fields
+- no action execution
+- no Omnipull integration

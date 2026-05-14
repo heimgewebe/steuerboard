@@ -13,6 +13,15 @@ Local scope determines whether a repository path is eligible for assessment or f
 | `scope_unknown` | Path is not covered by configured policy. |
 | `scope_excluded` | Explicitly excluded by local config. |
 
-## Phase 0b boundary
+## Minimal inventory slice
 
-This document defines the vocabulary only. No code scans the local filesystem in this phase.
+Phase 2 starts with read-only local inventory classification.
+
+- `scope_excluded`: path under `excluded_repo_roots`
+- `scope_gdrive`: path contains a `GDrive` segment
+- `scope_backup`: path contains a segment including `backup`
+- `scope_canonical`: path under `canonical_repo_roots`
+- `scope_unknown`: outside configured roots
+- `scope_shadow`: duplicate `git_toplevel` observed via multiple local paths
+
+This is local path classification only. It does not assess risk, decide actions, or mutate repositories.

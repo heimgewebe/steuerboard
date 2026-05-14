@@ -24,6 +24,7 @@ SCHEMA_MAP = {
     "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",
     "evidence": SCHEMAS_DIR / "command-trace.v1.schema.json",
     "failure-cases": SCHEMAS_DIR / "falsification-case.v1.schema.json",
+    "inventories": SCHEMAS_DIR / "repo-inventory.v1.schema.json",
     "local-configs": SCHEMAS_DIR / "local-config.v1.schema.json",
     "observations": SCHEMAS_DIR / "repo-observation.v1.schema.json",
     "redaction-policies": SCHEMAS_DIR / "redaction-policy.v1.schema.json",
