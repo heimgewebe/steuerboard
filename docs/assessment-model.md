@@ -48,14 +48,14 @@ Required:
 - `source_refs` — list of data sources used
 - `decision_state` — Assessment-Ergebnis (see above)
 
-Optional (added in Phase 3):
+Optional in schema, emitted by assess_repo since Phase 3.6:
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`
 - `skip_reasons` — normalised reason codes mirroring blocking/defer-style `derived_status` entries only; may be empty for non-blocking outcomes such as `clean_default_current`
 - `confidence` — number 0..1, confidence in derived_status
 - `missing_evidence` — list of evidence items that would change the assessment
 - `rule_refs` — references to assessment rules supporting each derived status
 - `freshness_refs` — freshness references used by assessment; they do not claim remote freshness without fetch
-- `falsification_refs` — references to matching falsification cases when applicable (empty if no matching case exists)
+- `falsification_refs` — references to matching falsification cases when applicable; values are validated against known failure-case IDs and must not be silently dropped
 
 Explicitly excluded (never in this schema):
 - `action`, `plan_id`, `would_run`, `would_mutate`

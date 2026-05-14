@@ -9,6 +9,7 @@ import pytest
 
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, ValidationError, load_json, minimal_validate, validate_instance
 from steuerboard.assessment import assess_repo
+from steuerboard.assessment_rules import ASSESSMENT_PROVENANCE, attach_assessment_provenance
 
 
 FORBIDDEN_ASSESSMENT_KEYS = {
@@ -69,6 +70,15 @@ def _assessment_schema() -> dict:
     return load_json(SCHEMAS_DIR / "repo-assessment.v1.schema.json")
 
 
+def _assert_provenance_covers_all_statuses(assessment: dict) -> None:
+    for status in assessment["derived_status"]:
+        expected = ASSESSMENT_PROVENANCE[status]["rule_refs"]
+        for ref in expected:
+            assert ref in assessment["rule_refs"], (
+                f"Missing rule_ref {ref!r} for derived_status {status!r}"
+            )
+
+
 def _assert_assessment_invariants(assessment: dict, schema: dict, label: Path) -> None:
     validate_instance(assessment, schema, label)
     assert FORBIDDEN_ASSESSMENT_KEYS.isdisjoint(assessment), (
@@ -78,8 +88,7 @@ def _assert_assessment_invariants(assessment: dict, schema: dict, label: Path) -
     assert isinstance(assessment.get("rule_refs"), list)
     assert isinstance(assessment.get("freshness_refs"), list)
     assert isinstance(assessment.get("falsification_refs"), list)
-    # Every derived status must be backed by at least one rule reference.
-    assert assessment["rule_refs"], "derived_status must always map to rule_refs"
+    _assert_provenance_covers_all_statuses(assessment)
 
 
 # ---------------------------------------------------------------------------
@@ -505,3 +514,20 @@ def test_minimal_validator_rejects_confidence_above_one():
 
     with pytest.raises(ValidationError):
         minimal_validate(invalid, schema)
+
+
+def test_provenance_rejects_unknown_falsification_ref(monkeypatch: pytest.MonkeyPatch):
+    invalid_mapping = {
+        **ASSESSMENT_PROVENANCE,
+        "dirty_worktree": {
+            **ASSESSMENT_PROVENANCE["dirty_worktree"],
+            "falsification_refs": ["failure-case.not_a_real_case"],
+        },
+    }
+    monkeypatch.setattr(
+        "steuerboard.assessment_rules.ASSESSMENT_PROVENANCE",
+        invalid_mapping,
+    )
+
+    with pytest.raises(ValueError, match="Unknown falsification_ref"):
+        attach_assessment_provenance(["dirty_worktree"])

@@ -36,6 +36,9 @@ ASSESSMENT_PROVENANCE: dict[str, dict[str, list[str]]] = {
         "freshness_refs": ["freshness.local_git_probe.current_invocation"],
     },
     "scope_shadow": {
+        # scope_shadow is currently emitted by inventory/duplicates, not by
+        # single-path assess repo. Keep mapping for future duplicate-aware
+        # assessment surfaces.
         "rule_refs": ["assessment.rule.scope_shadow_blocks_action"],
         "falsification_refs": ["failure-case.duplicate_repo"],
         "freshness_refs": ["freshness.local_scope_config.current_invocation"],
@@ -110,16 +113,15 @@ def _dedupe_keep_order(items: list[str]) -> list[str]:
     return out
 
 
-def _filter_existing_falsification_refs(refs: list[str]) -> list[str]:
-    filtered: list[str] = []
+def _validate_falsification_refs(refs: list[str]) -> list[str]:
     for ref in refs:
         prefix = "failure-case."
         if not ref.startswith(prefix):
-            continue
+            raise ValueError(f"Invalid falsification_ref prefix: {ref!r}")
         case_id = ref[len(prefix) :]
-        if case_id in EXISTING_FAILURE_CASE_IDS:
-            filtered.append(ref)
-    return filtered
+        if case_id not in EXISTING_FAILURE_CASE_IDS:
+            raise ValueError(f"Unknown falsification_ref: {ref!r}")
+    return refs
 
 
 def attach_assessment_provenance(derived_status: list[str]) -> dict[str, list[str]]:
@@ -142,5 +144,7 @@ def attach_assessment_provenance(derived_status: list[str]) -> dict[str, list[st
     return {
         "rule_refs": _dedupe_keep_order(rule_refs),
         "freshness_refs": _dedupe_keep_order(freshness_refs),
-        "falsification_refs": _dedupe_keep_order(_filter_existing_falsification_refs(falsification_refs)),
+        "falsification_refs": _dedupe_keep_order(
+            _validate_falsification_refs(falsification_refs)
+        ),
     }
