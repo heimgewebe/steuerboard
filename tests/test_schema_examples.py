@@ -40,6 +40,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "action-plans/switch-main-blocked.json",
     "assessments/feature-branch-clean-blocked.json",
     "evidence/command-trace-redacted.json",
+    "inventories/minimal-inventory.json",
     "local-configs/heim-pc.json",
     "observations/feature-branch-clean.json",
     "redaction-policies/default-redaction-policy.json",
