@@ -69,13 +69,16 @@ inventory will return an empty result, which is still valid JSON and a passing s
 
 ## Boundary
 
-All commands in `make deploy-check` are **read-only**:
+The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 
-- No mutation of any repository.
+- No mutation of any target repository.
 - No `git fetch`, `git pull`, `git switch`, `git reset`, or `git clean`.
 - No network requests.
 - No action planning, no action authorization.
 - No branch switches.
+
+The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
+not a productive repository action.
 
 This boundary follows the architecture rule:
 
