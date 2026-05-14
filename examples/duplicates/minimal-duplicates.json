@@ -1,0 +1,30 @@
+{
+  "schema_version": "repo-duplicates.v1",
+  "duplicates_id": "dup-20260514-000000Z",
+  "observed_at": "2026-05-14T00:00:00Z",
+  "host": "heim-pc",
+  "source_refs": [
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.walk",
+    "git.rev_parse.worktree"
+  ],
+  "duplicate_groups": [
+    {
+      "duplicate_id": "dup-group-1",
+      "git_toplevel": "/home/alex/repos/steuerboard",
+      "repos": [
+        {
+          "path": "/home/alex/repos/steuerboard",
+          "scope": "scope_canonical",
+          "scope_reason": "under canonical_repo_roots"
+        },
+        {
+          "path": "/home/alex/repos/steuerboard-shadow",
+          "scope": "scope_shadow",
+          "scope_reason": "duplicate git_toplevel with /home/alex/repos/steuerboard"
+        }
+      ]
+    }
+  ]
+}

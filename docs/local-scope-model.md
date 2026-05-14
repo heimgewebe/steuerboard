@@ -25,3 +25,12 @@ Phase 2 starts with read-only local inventory classification.
 - `scope_shadow`: duplicate `git_toplevel` observed via multiple local paths
 
 This is local path classification only. It does not assess risk, decide actions, or mutate repositories.
+
+Phase 2 command surfaces:
+
+- `python -m steuerboard inventory --json`
+- `python -m steuerboard inventory duplicates --json`
+- `python -m steuerboard scope explain <path> --json`
+
+`inventory duplicates` groups only observed duplicate `git_toplevel` values.
+`scope explain` reports one-path classification with matched local policy evidence.

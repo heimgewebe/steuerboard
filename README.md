@@ -19,4 +19,11 @@ Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
-Executable code currently covers schema/example validation and read-only single-repo observation. It must not assess, decide, plan actions, switch branches, pull, fetch, or mutate repositories.
+Executable code currently covers schema/example validation and read-only observation/scope surfaces:
+
+- `python -m steuerboard observe repo <path> --json`
+- `python -m steuerboard inventory --json`
+- `python -m steuerboard inventory duplicates --json`
+- `python -m steuerboard scope explain <path> --json`
+
+These commands must not assess, decide, plan actions, switch branches, pull, fetch, or mutate repositories.
