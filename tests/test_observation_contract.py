@@ -70,6 +70,7 @@ def test_observation_schema_rejects_assessment_fields():
     with pytest.raises(ValidationError):
         validate_instance(invalid, schema, Path("invalid-observation.json"))
 
+
 def test_observation_schema_accepts_sha1_and_sha256_head_sha():
     schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
 
