@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,16 @@ FORBIDDEN_OBSERVATION_KEYS = {
 }
 
 
-def _run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run(
+    command: list[str],
+    cwd: Path,
+    env_overrides: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    env = None
+    if env_overrides:
+        env = os.environ.copy()
+        env.update(env_overrides)
+
     return subprocess.run(
         command,
         cwd=cwd,
@@ -27,6 +37,7 @@ def _run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
 
 
@@ -62,7 +73,11 @@ def _init_repo_with_upstream(path: Path, upstream_path: Path) -> None:
     _run(["git", "commit", "-m", "init"], path)
 
     # Push main to origin and set upstream tracking.
-    _run(["git", "push", "-u", "origin", "main"], path)
+    _run(
+        ["git", "push", "-u", "origin", "main"],
+        path,
+        env_overrides={"ALLOW_MAIN_PUSH": "1"},
+    )
 
 
 def test_observe_repo_returns_schema_valid_observation(tmp_path: Path):
