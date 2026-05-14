@@ -1,0 +1,29 @@
+{
+  "schema_version": "repo-assessment.v1",
+  "assessment_id": "assess-example-clean-default-current",
+  "observation_ref": "obs-example-clean-main",
+  "derived_status": [
+    "clean_default_current"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
+  ],
+  "decision_state": "assessment_clear",
+  "risk_level": "low",
+  "skip_reasons": [],
+  "confidence": 0.8,
+  "missing_evidence": [
+    "default_branch_source"
+  ]
+}

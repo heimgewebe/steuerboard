@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from .assessment import assess_repo
 from .inventory import build_duplicates_report, build_inventory, explain_scope
 from .observation import observe_repo
 
@@ -66,6 +67,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit repo-duplicates.v1 JSON.",
     )
 
+    assess_parser = subparsers.add_parser("assess", help="Read-only assessment commands.")
+    assess_subparsers = assess_parser.add_subparsers(dest="assess_command", required=True)
+
+    assess_repo_parser = assess_subparsers.add_parser(
+        "repo",
+        help="Derive a read-only assessment for one local repository.",
+    )
+    assess_repo_parser.add_argument("path", help="Repository path to assess.")
+    assess_repo_parser.add_argument(
+        "--config",
+        help=(
+            "Path to local-config.v1 JSON for scope classification. Defaults to "
+            "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
+        ),
+    )
+    assess_repo_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit repo-assessment.v1 JSON.",
+    )
+
     scope_parser = subparsers.add_parser("scope", help="Read-only scope explanation commands.")
     scope_subparsers = scope_parser.add_subparsers(dest="scope_command", required=True)
 
@@ -118,6 +141,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         except FileNotFoundError as exc:
             parser.error(str(exc))
         print(json.dumps(inventory, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "assess" and args.assess_command == "repo":
+        config_path = Path(args.config) if args.config else None
+        assessment = assess_repo(Path(args.path), config_path=config_path)
+        print(json.dumps(assessment, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "scope" and args.scope_command == "explain":

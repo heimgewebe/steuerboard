@@ -38,7 +38,12 @@ REQUIRED_FAILURE_CASES = {
 REQUIRED_SCHEMA_EXAMPLES = {
     "action-capabilities/git-fetch-all-prune.json",
     "action-plans/switch-main-blocked.json",
+    "assessments/clean-default-current.json",
+    "assessments/dirty-worktree-blocked.json",
     "assessments/feature-branch-clean-blocked.json",
+    "assessments/non-default-branch-evidence-missing.json",
+    "assessments/not-git-repo-blocked.json",
+    "assessments/scope-backup-blocked.json",
     "duplicates/minimal-duplicates.json",
     "evidence/command-trace-redacted.json",
     "inventories/minimal-inventory.json",

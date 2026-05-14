@@ -23,4 +23,28 @@ The command emits `repo-inventory.v1` JSON with local scope classification (`sco
 The duplicates command emits `repo-duplicates.v1` JSON grouped by observed `git_toplevel`.
 The scope command emits `scope-explanation.v1` JSON for one path.
 
-These commands remain read-only and do not emit assessment, decision, planning, or action fields.
+The Phase 2 inventory and scope commands remain read-only and do not emit assessment, decision, planning, or action fields.
+
+Phase 3 introduces a minimal read-only assessment engine.
+
+Command:
+
+    python -m steuerboard assess repo <path> --json [--config <path>]
+
+The command emits `repo-assessment.v1` JSON derived from observation and scope classification.
+It does not plan or execute actions. `decision_state` is an assessment outcome, not an action
+authorisation.
+
+Status codes emitted in `derived_status`:
+
+- `not_git_repo` — path is not a Git repository
+- `scope_backup`, `scope_gdrive`, `scope_excluded`, `scope_unknown` — non-canonical scope
+- `dirty_worktree` — uncommitted local changes (also collected alongside scope codes if both observed)
+- `detached_head` — HEAD is detached
+- `default_branch_unknown` — default branch not determinable
+- `non_default_branch` — clean, on a non-default branch; `missing_evidence` is set
+- `clean_default_current` — current branch matches observed `default_branch_candidate`; always has `missing_evidence: ["default_branch_source"]` since the observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` or local heuristic
+
+`decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
+
+Boundary: read-only, no mutation, no fetch, no network, no action planning.

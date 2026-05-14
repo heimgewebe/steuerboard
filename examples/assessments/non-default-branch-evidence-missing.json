@@ -1,0 +1,32 @@
+{
+  "schema_version": "repo-assessment.v1",
+  "assessment_id": "assess-example-non-default-branch-evidence-missing",
+  "observation_ref": "obs-example-feature-branch-clean",
+  "derived_status": [
+    "non_default_branch"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
+  ],
+  "decision_state": "evidence_missing",
+  "risk_level": "medium",
+  "skip_reasons": [
+    "non_default_branch"
+  ],
+  "confidence": 0.9,
+  "missing_evidence": [
+    "branch_contains_origin_main_or_pr_merged",
+    "fresh_origin_main"
+  ]
+}

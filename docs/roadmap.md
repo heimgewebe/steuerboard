@@ -72,3 +72,57 @@ Boundary for this slice:
 - no decision or planning fields
 - no action execution
 - no Omnipull integration
+
+## Phase 3 — Assessment Engine (minimal slice)
+
+Status: minimal slice started.
+
+Phase 3 introduces a read-only assessment engine for a single local repository.
+Assessment status is derived deterministically from Phase 1 observations and Phase 2
+scope classifications. Runtime identifiers and observation timestamps are intentionally
+time-dependent. No action planning, no execution, no network access.
+
+PR #11 erzeugt Assessments. PR #11 erklärt diese noch nicht menschenlesbar.
+PR #11 plant keine Aktionen. PR #11 führt keine Aktionen aus.
+
+```bash
+python -m steuerboard assess repo <path> --json
+```
+
+- `decision_state` is a **contractual enum** in the schema: `action_blocked`, `evidence_missing`, `assessment_clear`. Free strings are rejected.
+- `clean_default_current` means current branch matches observed `default_branch_candidate`. The observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` (strong) or local heuristic. This is always marked via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`.
+- `derived_status` is a proper list: non-canonical scope and `dirty_worktree` are both collected when observed together.
+
+- `risk_level` — enum `low`, `medium`, `high`, `unknown`
+- `skip_reasons` — normalised reason codes why action is blocked or deferred
+- `confidence` — 0..1 confidence in derived_status
+- `missing_evidence` — already present; expanded usage
+- optional: `rule_refs`, `freshness_refs`, `falsification_refs`
+
+Status cases implemented:
+
+- `not_git_repo` — path is not a Git repository
+- `scope_backup`, `scope_gdrive`, `scope_excluded`, `scope_unknown` — non-canonical scope
+- `dirty_worktree` — uncommitted local changes
+- `detached_head` — HEAD is not on any branch
+- `default_branch_unknown` — default branch not determinable from observation
+- `non_default_branch` — on a non-default branch, clean; missing_evidence set
+- `clean_default_current` — canonical, clean, current branch matches observed `default_branch_candidate`; default-branch source remains unverified and is marked via `missing_evidence: ["default_branch_source"]`
+
+`decision_state` remains required and is an Assessment-Ergebnis, not an Action-Freigabe.
+Values: `action_blocked`, `evidence_missing`, `assessment_clear`.
+
+Boundary for this slice:
+
+- read-only: no mutation, no fetch, no pull, no branch switch
+- no action planning fields (`action`, `plan_id`, `would_run`, `would_mutate`, `safe_actions`, `safe_alternatives`, `command_trace`, `run_result`)
+- no network operations
+- no free shell execution
+- no sudo
+
+Open epistemic gaps:
+
+- Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
+- Human-readable assessment explanations deferred to a later PR.
+- Assessment does not yet cross-reference freshness model or falsification cases by rule_refs.
+- `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.
