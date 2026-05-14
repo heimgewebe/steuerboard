@@ -2,6 +2,15 @@
 
 steuerboard is a local diagnostics and planning surface for workstation repository state, source freshness, omnipull reports, evidence snapshots, and gated local actions. It is not a canonical source of truth.
 
+## Local deploy
+
+```sh
+python -m pip install -e .[test]
+make deploy-check
+```
+
+See [docs/local-cli-deploy.md](docs/local-cli-deploy.md) for what this proves and what it does not.
+
 ## Planning anchors
 
 - [Masterplan](docs/masterplan.md)
