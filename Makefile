@@ -12,13 +12,16 @@ test:
 
 smoke:
 	@set -eu; \
+	tmp_files=""; \
+	cleanup() { rm -f $$tmp_files; }; \
+	trap cleanup EXIT INT TERM; \
 	json_smoke() { \
 		label="$$1"; shift; \
 		echo "--- smoke: $$label ---"; \
 		tmp="$$(mktemp)"; \
+		tmp_files="$$tmp_files $$tmp"; \
 		"$$@" > "$$tmp"; \
 		$(PYTHON) -m json.tool "$$tmp" > /dev/null; \
-		rm -f "$$tmp"; \
 	}; \
 	echo "--- smoke: --help ---"; \
 	$(CLI) --help > /dev/null; \
