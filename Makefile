@@ -21,7 +21,7 @@ smoke:
 	@echo "--- smoke: inventory duplicates ---"
 	$(PYTHON) -m steuerboard inventory duplicates --json --config $(EXAMPLE_CONFIG) | $(PYTHON) -m json.tool > /dev/null
 	@echo "--- smoke: assess repo . ---"
-	$(PYTHON) -m steuerboard assess repo . --json | $(PYTHON) -m json.tool > /dev/null
+	$(PYTHON) -m steuerboard assess repo . --json --config $(EXAMPLE_CONFIG) | $(PYTHON) -m json.tool > /dev/null
 	@echo "smoke: all entrypoints exited 0 and emitted valid JSON"
 
 deploy-check: validate test smoke

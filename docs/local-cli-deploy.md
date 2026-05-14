@@ -65,7 +65,7 @@ to `scope explain`, `inventory`, and `inventory duplicates`. This config is chec
 declares `/home/alex/repos` as canonical root. On other machines this path may not exist;
 inventory will return an empty result, which is still valid JSON and a passing smoke.
 
-`observe repo . --json` and `assess repo . --json` do not require a config.
+`observe repo . --json` does not require a config. `assess repo . --json --config ...` exercises the explicit scope-config path.
 
 ## Boundary
 
@@ -77,7 +77,7 @@ All commands in `make deploy-check` are **read-only**:
 - No action planning, no action authorization.
 - No branch switches.
 
-This is enforced by the architecture rule:
+This boundary follows the architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
