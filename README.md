@@ -11,19 +11,20 @@ steuerboard is a local diagnostics and planning surface for workstation reposito
 
 ## Current scope
 
-This repository contains documentation, JSON Schemas, examples, example validation, and a minimal Phase 1 read-only observation CLI.
+This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces.
 
-It intentionally does **not** contain a productive fleet scanner, backend, UI, assessment engine, planner, evidence archival system, or mutating action executor.
+It intentionally does **not** contain a productive fleet scanner, backend, UI, planner, evidence archival system, or mutating action executor.
 
 Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
-Executable code currently covers schema/example validation and read-only observation/scope surfaces:
+Executable code currently covers schema/example validation, read-only observation/scope surfaces, and a minimal read-only assessment engine:
 
 - `python -m steuerboard observe repo <path> --json`
 - `python -m steuerboard inventory --json`
 - `python -m steuerboard inventory duplicates --json`
 - `python -m steuerboard scope explain <path> --json`
+- `python -m steuerboard assess repo <path> --json`
 
-These commands must not assess, decide, plan actions, switch branches, pull, fetch, or mutate repositories.
+These commands are read-only. They must not plan actions, switch branches, pull, fetch, push, or mutate repositories. The `assess` command derives a structured assessment from observation and scope — it does not produce action plans or authorise actions.

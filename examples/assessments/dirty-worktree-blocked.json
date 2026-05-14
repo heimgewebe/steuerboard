@@ -1,0 +1,26 @@
+{
+  "schema_version": "repo-assessment.v1",
+  "assessment_id": "assess-example-dirty-worktree-blocked",
+  "observation_ref": "obs-example-dirty-worktree",
+  "derived_status": [
+    "dirty_worktree"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate"
+  ],
+  "decision_state": "action_blocked",
+  "risk_level": "medium",
+  "skip_reasons": [
+    "dirty_worktree"
+  ],
+  "confidence": 1.0,
+  "missing_evidence": []
+}

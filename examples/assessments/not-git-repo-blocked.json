@@ -1,0 +1,18 @@
+{
+  "schema_version": "repo-assessment.v1",
+  "assessment_id": "assess-example-not-git-repo-blocked",
+  "observation_ref": "obs-example-not-git-repo",
+  "derived_status": [
+    "not_git_repo"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree"
+  ],
+  "decision_state": "action_blocked",
+  "risk_level": "medium",
+  "skip_reasons": [
+    "not_git_repo"
+  ],
+  "confidence": 1.0,
+  "missing_evidence": []
+}

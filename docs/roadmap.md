@@ -72,3 +72,55 @@ Boundary for this slice:
 - no decision or planning fields
 - no action execution
 - no Omnipull integration
+
+## Phase 3 — Assessment Engine (minimal slice)
+
+Status: minimal slice started.
+
+Phase 3 introduces a read-only assessment engine for a single local repository.
+Assessments are derived deterministically from Phase 1 observations and Phase 2
+scope classifications. No action planning, no execution, no network access.
+
+PR #11 erzeugt Assessments. PR #11 erklärt diese noch nicht menschenlesbar.
+PR #11 plant keine Aktionen. PR #11 führt keine Aktionen aus.
+
+```bash
+python -m steuerboard assess repo <path> --json
+```
+
+New fields in `repo-assessment.v1`:
+
+- `risk_level` — enum `low`, `medium`, `high`, `unknown`
+- `skip_reasons` — normalised reason codes why action is blocked or deferred
+- `confidence` — 0..1 confidence in derived_status
+- `missing_evidence` — already present; expanded usage
+- optional: `rule_refs`, `freshness_refs`, `falsification_refs`
+
+Status cases implemented:
+
+- `not_git_repo` — path is not a Git repository
+- `scope_backup`, `scope_gdrive`, `scope_shadow`, `scope_excluded`, `scope_unknown` — non-canonical scope
+- `dirty_worktree` — uncommitted local changes
+- `detached_head` — HEAD is not on any branch
+- `default_branch_unknown` — default branch not determinable from observation
+- `non_default_branch` — on a non-default branch, clean; missing_evidence set
+- `clean_default_current` — canonical, clean, on confirmed default branch
+
+`decision_state` remains required and is an Assessment-Ergebnis, not an Action-Freigabe.
+Values: `action_blocked`, `evidence_missing`, `assessment_clear`.
+
+Boundary for this slice:
+
+- read-only: no mutation, no fetch, no pull, no branch switch
+- no action planning fields (`action`, `plan_id`, `would_run`, `would_mutate`, `safe_actions`, `safe_alternatives`, `command_trace`, `run_result`)
+- no network operations
+- no free shell execution
+- no sudo
+
+Open epistemic gaps:
+
+- `confidence` for `clean_default_current` uses 0.9 even when `default_branch_candidate` was
+  resolved via heuristic fallback rather than `refs/remotes/origin/HEAD`. A more precise
+  confidence model would distinguish these two sources.
+- Human-readable assessment explanations deferred to a later PR.
+- Assessment does not yet cross-reference freshness model or falsification cases by rule_refs.

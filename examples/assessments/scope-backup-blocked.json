@@ -1,0 +1,29 @@
+{
+  "schema_version": "repo-assessment.v1",
+  "assessment_id": "assess-example-scope-backup-blocked",
+  "observation_ref": "obs-example-scope-backup",
+  "derived_status": [
+    "scope_backup"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
+  ],
+  "decision_state": "action_blocked",
+  "risk_level": "medium",
+  "skip_reasons": [
+    "scope_backup"
+  ],
+  "confidence": 1.0,
+  "missing_evidence": []
+}
