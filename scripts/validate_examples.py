@@ -113,13 +113,16 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
 
     if "anyOf" in schema:
         errors: list[str] = []
+        matched_anyof = False
         for index, subschema in enumerate(schema["anyOf"]):
             try:
                 minimal_validate(instance, subschema, path)
-                return
+                matched_anyof = True
+                break
             except ValidationError as exc:
                 errors.append(f"anyOf[{index}]: {exc}")
-        raise ValidationError(f"{path}: does not match anyOf ({'; '.join(errors)})")
+        if not matched_anyof:
+            raise ValidationError(f"{path}: does not match anyOf ({'; '.join(errors)})")
 
     if "oneOf" in schema:
         matches = 0
