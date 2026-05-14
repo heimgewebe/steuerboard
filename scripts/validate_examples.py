@@ -156,6 +156,8 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
             raise ValidationError(f"{path}: string is longer than maxLength {schema['maxLength']!r}")
         if "pattern" in schema and re.search(schema["pattern"], instance) is None:
             raise ValidationError(f"{path}: string does not match pattern {schema['pattern']!r}")
+        if schema.get("format") == "date-time" and not _is_date_time(instance):
+            raise ValidationError(f"{path}: string is not a valid date-time")
 
     if isinstance(instance, (int, float)) and not isinstance(instance, bool):
         if "minimum" in schema and instance < schema["minimum"]:

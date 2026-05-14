@@ -7,7 +7,6 @@
   ],
   "source_refs": [
     "git.rev_parse.worktree",
-    "local_config.unavailable",
     "local_config.canonical_repo_roots",
     "local_config.excluded_repo_roots",
     "filesystem.path"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
+from time import time_ns
 from typing import Any
 
 from .inventory import explain_scope
@@ -11,7 +12,8 @@ from .observation import observe_repo
 
 def _assessment_id(path: Path) -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S%fZ")
-    digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:12]
+    entropy = time_ns()
+    digest = hashlib.sha256(f"{path}:{now}:{entropy}".encode("utf-8")).hexdigest()[:12]
     return f"assess-{now}-{digest}"
 
 
