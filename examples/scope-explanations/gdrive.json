@@ -1,0 +1,22 @@
+{
+  "schema_version": "scope-explanation.v1",
+  "explanation_id": "scope-20260514-000002Z",
+  "observed_at": "2026-05-14T00:00:00Z",
+  "host": "heim-pc",
+  "source_refs": [
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path",
+    "git.rev_parse.worktree"
+  ],
+  "input_path": "/home/alex/repos/GDrive-shadow/steuerboard",
+  "normalized_path": "/home/alex/repos/GDrive-shadow/steuerboard",
+  "is_git_repo": false,
+  "git_toplevel": null,
+  "scope": "scope_gdrive",
+  "scope_reason": "path contains gdrive segment",
+  "matched_policy": {
+    "kind": "path_segment",
+    "value": "GDrive-shadow"
+  }
+}

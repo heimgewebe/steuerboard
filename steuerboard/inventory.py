@@ -65,6 +65,14 @@ def _inventory_id() -> str:
     return f"inv-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%SZ')}"
 
 
+def _duplicates_id() -> str:
+    return f"dup-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%SZ')}"
+
+
+def _scope_explanation_id() -> str:
+    return f"scope-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%SZ')}"
+
+
 def _load_local_config(config_path: Path | None) -> LocalConfig:
     path = config_path.expanduser().absolute() if config_path else _default_config_path()
     if not path.exists():
@@ -130,7 +138,7 @@ def _is_excluded(path: Path, excluded_roots: tuple[Path, ...]) -> bool:
 
 
 def _is_gdrive(path: Path) -> bool:
-    return any(part.lower() == "gdrive" for part in path.parts)
+    return any("gdrive" in part.lower() for part in path.parts)
 
 
 def _is_backup(path: Path) -> bool:
@@ -147,6 +155,29 @@ def _classify_scope(path: Path, config: LocalConfig) -> tuple[str, str]:
     if any(_is_relative_to(path, root) for root in config.canonical_repo_roots):
         return "scope_canonical", "under canonical_repo_roots"
     return "scope_unknown", "outside configured roots"
+
+
+def _matched_policy(path: Path, config: LocalConfig) -> dict[str, str | None]:
+    for root in config.excluded_repo_roots:
+        if _is_relative_to(path, root):
+            return {"kind": "excluded_repo_roots", "value": str(root)}
+
+    # Prefer the nearest matching path segment. Parent directories can contain
+    # incidental words such as pytest test names; the input-local segment is the
+    # stronger explanation.
+    for part in reversed(path.parts):
+        if "gdrive" in part.lower():
+            return {"kind": "path_segment", "value": part}
+
+    for part in reversed(path.parts):
+        if "backup" in part.lower():
+            return {"kind": "path_segment", "value": part}
+
+    for root in config.canonical_repo_roots:
+        if _is_relative_to(path, root):
+            return {"kind": "canonical_repo_roots", "value": str(root)}
+
+    return {"kind": "none", "value": None}
 
 
 def _find_git_repos_under(root: Path, excluded_roots: tuple[Path, ...]) -> list[Path]:
@@ -274,4 +305,75 @@ def build_inventory(config_path: Path | None = None) -> dict[str, Any]:
         "observed_at": _rfc3339_now(),
         "host": config.host_name,
         "repos": repos,
+    }
+
+
+def build_duplicates_report(config_path: Path | None = None) -> dict[str, Any]:
+    inventory = build_inventory(config_path=config_path)
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for repo in inventory["repos"]:
+        git_toplevel = repo.get("git_toplevel")
+        if not repo["is_git_repo"] or not git_toplevel:
+            continue
+        grouped.setdefault(git_toplevel, []).append(repo)
+
+    duplicate_groups: list[dict[str, Any]] = []
+    group_index = 1
+    for git_toplevel in sorted(grouped):
+        repos = grouped[git_toplevel]
+        if len(repos) < 2:
+            continue
+
+        repos_sorted = sorted(repos, key=lambda item: item["path"])
+        duplicate_groups.append(
+            {
+                "duplicate_id": f"dup-group-{group_index}",
+                "git_toplevel": git_toplevel,
+                "repos": [
+                    {
+                        "path": repo["path"],
+                        "scope": repo["scope"],
+                        "scope_reason": repo["scope_reason"],
+                    }
+                    for repo in repos_sorted
+                ],
+            }
+        )
+        group_index += 1
+
+    return {
+        "schema_version": "repo-duplicates.v1",
+        "duplicates_id": _duplicates_id(),
+        "observed_at": _rfc3339_now(),
+        "host": inventory["host"],
+        "source_refs": inventory["source_refs"],
+        "duplicate_groups": duplicate_groups,
+    }
+
+
+def explain_scope(path: Path, config_path: Path | None = None) -> dict[str, Any]:
+    config = _load_local_config(config_path)
+    normalized = path.expanduser().absolute()
+    probe = _probe_git(normalized)
+    scope, scope_reason = _classify_scope(normalized, config)
+
+    return {
+        "schema_version": "scope-explanation.v1",
+        "explanation_id": _scope_explanation_id(),
+        "observed_at": _rfc3339_now(),
+        "host": config.host_name,
+        "source_refs": [
+            "local_config.canonical_repo_roots",
+            "local_config.excluded_repo_roots",
+            "filesystem.path",
+            "git.rev_parse.worktree",
+        ],
+        "input_path": str(path),
+        "normalized_path": str(normalized),
+        "is_git_repo": probe.is_git_repo,
+        "git_toplevel": probe.git_toplevel,
+        "scope": scope,
+        "scope_reason": scope_reason,
+        "matched_policy": _matched_policy(normalized, config),
     }

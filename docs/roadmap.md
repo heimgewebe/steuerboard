@@ -50,7 +50,7 @@ Open stop case (manual verification item):
 
 ## Phase 2 — Inventory & Scope (minimal slice)
 
-Status: started.
+Status: sealed.
 
 Phase 2 now includes a minimal read-only inventory CLI:
 
@@ -59,6 +59,12 @@ python -m steuerboard inventory --json
 ```
 
 This slice reads local config roots, observes local Git repository paths, and classifies local scope (`scope_canonical`, `scope_shadow`, `scope_backup`, `scope_gdrive`, `scope_unknown`, `scope_excluded`).
+
+Phase 2 includes:
+
+- `python -m steuerboard inventory --json`
+- `python -m steuerboard inventory duplicates --json`
+- `python -m steuerboard scope explain <path> --json`
 
 Boundary for this slice:
 

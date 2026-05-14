@@ -1,0 +1,102 @@
+{
+  "title": "Scope Explanation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "explanation_id",
+    "observed_at",
+    "host",
+    "source_refs",
+    "input_path",
+    "normalized_path",
+    "is_git_repo",
+    "git_toplevel",
+    "scope",
+    "scope_reason",
+    "matched_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "scope-explanation.v1"
+    },
+    "explanation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "input_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "normalized_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "is_git_repo": {
+      "type": "boolean"
+    },
+    "git_toplevel": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "scope_canonical",
+        "scope_shadow",
+        "scope_backup",
+        "scope_gdrive",
+        "scope_unknown",
+        "scope_excluded"
+      ]
+    },
+    "scope_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "matched_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "canonical_repo_roots",
+            "excluded_repo_roots",
+            "path_segment",
+            "none"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/scope-explanation.v1.schema.json"
+}

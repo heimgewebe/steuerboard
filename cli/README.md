@@ -14,5 +14,13 @@ Command:
 
     python -m steuerboard inventory --json
 
+Additional Phase 2 commands:
+
+    python -m steuerboard inventory duplicates --json
+    python -m steuerboard scope explain <path> --json
+
 The command emits `repo-inventory.v1` JSON with local scope classification (`scope_canonical`, `scope_shadow`, `scope_backup`, `scope_gdrive`, `scope_unknown`, `scope_excluded`).
-It does not emit assessment, decision, planning, or action fields.
+The duplicates command emits `repo-duplicates.v1` JSON grouped by observed `git_toplevel`.
+The scope command emits `scope-explanation.v1` JSON for one path.
+
+These commands remain read-only and do not emit assessment, decision, planning, or action fields.

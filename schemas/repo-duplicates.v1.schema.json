@@ -1,0 +1,95 @@
+{
+  "title": "Repo Duplicates v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "duplicates_id",
+    "observed_at",
+    "host",
+    "source_refs",
+    "duplicate_groups"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "repo-duplicates.v1"
+    },
+    "duplicates_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "duplicate_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "duplicate_id",
+          "git_toplevel",
+          "repos"
+        ],
+        "properties": {
+          "duplicate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "git_toplevel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repos": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "scope",
+                "scope_reason"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "scope_canonical",
+                    "scope_shadow",
+                    "scope_backup",
+                    "scope_gdrive",
+                    "scope_unknown",
+                    "scope_excluded"
+                  ]
+                },
+                "scope_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/repo-duplicates.v1.schema.json"
+}

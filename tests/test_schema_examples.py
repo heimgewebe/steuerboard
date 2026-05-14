@@ -39,6 +39,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "action-capabilities/git-fetch-all-prune.json",
     "action-plans/switch-main-blocked.json",
     "assessments/feature-branch-clean-blocked.json",
+    "duplicates/minimal-duplicates.json",
     "evidence/command-trace-redacted.json",
     "inventories/minimal-inventory.json",
     "local-configs/heim-pc.json",
@@ -46,6 +47,11 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "redaction-policies/default-redaction-policy.json",
     "run-indexes/minimal-run-index.json",
     "run-results/run-blocked.json",
+    "scope-explanations/backup.json",
+    "scope-explanations/canonical.json",
+    "scope-explanations/excluded.json",
+    "scope-explanations/gdrive.json",
+    "scope-explanations/unknown.json",
     "source-refs/git-current-branch.json",
 }
 
