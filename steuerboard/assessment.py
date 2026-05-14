@@ -27,9 +27,12 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
     scope_path = path.expanduser()
     observation_path = scope_path.resolve()
 
+    # --- Observe (read-only: no mutation, no fetch, no network access) ---
     observation = observe_repo(observation_path)
     obs_state = observation["observed_state"]
 
+    # --- Scope classification uses the unresolved scope_path so that symlinks
+    # are matched against config roots the way the user configured them ---
     try:
         scope_explanation = explain_scope(scope_path, config_path=config_path)
         scope: str = scope_explanation["scope"]
@@ -105,13 +108,18 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
             confidence = 0.9
 
         else:
+            # Current branch matches observed default_branch_candidate.
+            # The observation does not expose whether the candidate came from
+            # refs/remotes/origin/HEAD (strong) or local heuristic fallback
+            # (refs/heads/main|master|trunk). Mark the gap as missing_evidence
+            # so downstream consumers know the source quality is unverified.
             derived_status.append("clean_default_current")
             missing_evidence.append("default_branch_source")
             risk_level = "low"
             decision_state = "assessment_clear"
             confidence = 0.8
 
-    provenance = attach_assessment_provenance(derived_status)
+    provenance = attach_assessment_provenance(derived_status, source_refs=source_refs)
 
     return {
         "schema_version": "repo-assessment.v1",

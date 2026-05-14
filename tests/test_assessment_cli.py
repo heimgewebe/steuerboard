@@ -536,3 +536,55 @@ def test_provenance_rejects_unknown_falsification_ref(monkeypatch: pytest.Monkey
 def test_provenance_rejects_empty_derived_status():
     with pytest.raises(ValueError, match="derived_status must not be empty"):
         attach_assessment_provenance([])
+
+
+# ---------------------------------------------------------------------------
+# Context-sensitive freshness: scope_unknown without available config
+# ---------------------------------------------------------------------------
+
+def test_scope_unknown_without_config_uses_unavailable_freshness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """When no config file exists, explain_scope raises FileNotFoundError and
+    assess_repo falls back to scope_unknown + source_refs=['local_config.unavailable'].
+    freshness_refs must say 'unavailable' — not 'current_invocation'.
+    The two directly contradict each other: a file that was not found cannot
+    be 'freshly read'."""
+    repo = tmp_path / "orphan-repo"
+    _init_repo(repo)
+
+    # Simulate no config file existing anywhere (developer machine may have one)
+    def _raise_no_config(*args, **kwargs):
+        raise FileNotFoundError("no config found")
+
+    monkeypatch.setattr("steuerboard.assessment.explain_scope", _raise_no_config)
+
+    assessment = assess_repo(repo)  # config_path=None → fallback, not re-raise
+
+    assert "scope_unknown" in assessment["derived_status"]
+    assert "local_config.unavailable" in assessment["source_refs"]
+    assert "freshness.local_scope_config.unavailable" in assessment["freshness_refs"]
+    assert "freshness.local_scope_config.current_invocation" not in assessment["freshness_refs"]
+
+
+# ---------------------------------------------------------------------------
+# Provenance: falsification_ref prefix validation
+# ---------------------------------------------------------------------------
+
+def test_provenance_rejects_falsification_ref_without_prefix(monkeypatch: pytest.MonkeyPatch):
+    """Both error paths in _validate_falsification_refs must be covered.
+    This test covers the prefix check (ref does not start with 'failure-case.')."""
+    invalid_mapping = {
+        **ASSESSMENT_PROVENANCE,
+        "dirty_worktree": {
+            **ASSESSMENT_PROVENANCE["dirty_worktree"],
+            "falsification_refs": ["no-prefix-at-all"],
+        },
+    }
+    monkeypatch.setattr(
+        "steuerboard.assessment_rules.ASSESSMENT_PROVENANCE",
+        invalid_mapping,
+    )
+
+    with pytest.raises(ValueError, match="Invalid falsification_ref prefix"):
+        attach_assessment_provenance(["dirty_worktree"])

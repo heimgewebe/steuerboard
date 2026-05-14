@@ -98,7 +98,10 @@ def test_assessment_examples_match_runtime_provenance_contract():
     for example_path in sorted((EXAMPLES_DIR / "assessments").glob("*.json")):
         assessment = load_json(example_path)
         validate_instance(assessment, schema, example_path)
-        expected = attach_assessment_provenance(assessment["derived_status"])
+        expected = attach_assessment_provenance(
+            assessment["derived_status"],
+            source_refs=assessment.get("source_refs", []),
+        )
 
         for status in assessment["derived_status"]:
             assert status in ASSESSMENT_PROVENANCE, (

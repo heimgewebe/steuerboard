@@ -124,9 +124,19 @@ def _validate_falsification_refs(refs: list[str]) -> list[str]:
     return refs
 
 
-def attach_assessment_provenance(derived_status: list[str]) -> dict[str, list[str]]:
+def attach_assessment_provenance(
+    derived_status: list[str],
+    source_refs: list[str] | None = None,
+) -> dict[str, list[str]]:
     if not derived_status:
         raise ValueError("derived_status must not be empty")
+
+    # When scope_unknown is caused by a missing config file, the config was
+    # never read, so freshness_refs must say "unavailable" instead of
+    # "current_invocation" — the two would directly contradict each other.
+    config_unavailable = (
+        source_refs is not None and "local_config.unavailable" in source_refs
+    )
 
     rule_refs: list[str] = []
     freshness_refs: list[str] = []
@@ -141,7 +151,17 @@ def attach_assessment_provenance(derived_status: list[str]) -> dict[str, list[st
             raise ValueError(f"No rule_refs defined for derived_status={status!r}")
 
         rule_refs.extend(status_rules)
-        freshness_refs.extend(provenance.get("freshness_refs", []))
+
+        status_freshness: list[str] = list(provenance.get("freshness_refs", []))
+        if status == "scope_unknown" and config_unavailable:
+            status_freshness = [
+                "freshness.local_scope_config.unavailable"
+                if ref == "freshness.local_scope_config.current_invocation"
+                else ref
+                for ref in status_freshness
+            ]
+        freshness_refs.extend(status_freshness)
+
         falsification_refs.extend(provenance.get("falsification_refs", []))
 
     return {

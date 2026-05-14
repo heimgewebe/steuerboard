@@ -99,6 +99,9 @@ python -m steuerboard assess repo <path> --json
 - `missing_evidence` — already present; expanded usage
 - schema-optional, emitted by `assess_repo`: `rule_refs`, `freshness_refs`, `falsification_refs`
 - assessment provenance refs are now attached for emitted status codes (rule/freshness/falsification when applicable)
+- provenance is context-sensitive: when evidence sources are absent (e.g. `local_config.unavailable`),
+  freshness is marked `unavailable` rather than `current_invocation` to avoid self-contradictory output
+- ref lists are deduplicated in deterministic insertion order
 
 Status cases implemented:
 
