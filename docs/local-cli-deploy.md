@@ -5,15 +5,16 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 
 ## What this proves
 
-After installing with `python -m pip install -e '.[test]'`, running `make deploy-check` proves:
+After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
-- All five read-only CLI entrypoints start, parse arguments, and emit valid JSON:
+- The installed `steuerboard` console script starts and parses arguments.
+- All five read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
   - `steuerboard inventory duplicates --json`
   - `steuerboard assess repo <path> --json`
-- All JSON Schemas validate against all checked-in examples (14 schemas, 45 examples).
+- All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
 The smoke path invokes only read-only CLI commands and contains no fetch, pull, switch,
@@ -31,41 +32,52 @@ reset, clean, or network command. It does not instrument system calls.
 ## Install
 
 ```sh
-python -m pip install -e '.[test]'
+python3 -m pip install -e '.[test]'
 ```
 
 This installs the package in editable mode and includes test dependencies (pytest).
 
+If another interpreter is used, pass the same interpreter to make:
+
+```sh
+python -m pip install -e '.[test]'
+make PYTHON=python deploy-check
+```
+
 ## Run the deploy gate
 
 ```sh
-make deploy-check
+make PYTHON=python3 deploy-check
 ```
 
-This runs three targets in sequence:
+This runs three targets in sequence, even if make is invoked with parallelism:
 
 | Target     | What it does                                                  |
 |------------|---------------------------------------------------------------|
-| `validate` | `python scripts/validate_examples.py` — all schemas/examples |
-| `test`     | `python -m pytest` — full test suite                          |
-| `smoke`    | All CLI entrypoints: exit 0 and emit valid JSON               |
+| `validate` | `python3 scripts/validate_examples.py` — all schemas/examples |
+| `test`     | `python3 -m pytest` — full test suite                         |
+| `smoke`    | Installed CLI entrypoints: exit 0 and emit valid JSON         |
 
 You can run any target independently:
 
 ```sh
-make validate
-make test
-make smoke
+make PYTHON=python3 validate
+make PYTHON=python3 test
+make PYTHON=python3 smoke
 ```
 
 ## Config in smoke
 
 The `smoke` target passes `examples/local-configs/heim-pc.json` explicitly via `--config`
-to `scope explain`, `inventory`, and `inventory duplicates`. This config is checked in and
-declares `/home/alex/repos` as canonical root. On other machines this path may not exist;
-inventory will return an empty result, which is still valid JSON and a passing smoke.
+to `scope explain`, `inventory`, `inventory duplicates`, and `assess repo`. This config is
+checked in and declares `/home/alex/repos` as canonical root.
 
-`observe repo . --json` does not require a config. `assess repo . --json --config ...` exercises the explicit scope-config path.
+On other machines this path may not exist. Inventory output is therefore machine-specific
+and may still be non-empty because configured excluded roots are also reported, but it remains
+valid JSON and a passing smoke.
+
+`observe repo . --json` does not require a config. `assess repo . --json --config ...`
+exercises the explicit scope-config path.
 
 ## Boundary
 
@@ -80,12 +92,15 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
 not a productive repository action.
 
+The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
+not a productive repository action.
+
 This boundary follows the architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
 ## What comes next
 
-The local CLI deploy gate is Phase 3.5 in the roadmap. It does not advance to Phase 4.
-Phase 4 would add human-readable assessment explanations and cross-referencing rule refs.
-That phase is deferred until after this gate is proven reproducible.
+The local CLI deploy gate is an intermediate milestone after Phase 3. It does not advance to
+Phase 4. Phase 4 would add human-readable assessment explanations and cross-referencing
+rule refs. That phase is deferred until after this gate is proven reproducible.

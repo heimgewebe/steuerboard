@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "steuerboard"
 version = "0.0.0"
@@ -22,3 +26,6 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
+
+[tool.setuptools.packages.find]
+include = ["steuerboard", "steuerboard.*"]
