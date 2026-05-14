@@ -6,6 +6,7 @@ from pathlib import Path
 from time import time_ns
 from typing import Any
 
+from .assessment_rules import attach_assessment_provenance
 from .inventory import explain_scope
 from .observation import observe_repo
 
@@ -88,7 +89,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
             confidence = 1.0
 
         elif current_branch is None:
-            # Detached HEAD (git branch --show-current returns empty → None)
+            # Detached HEAD (git branch --show-current returns empty -> None)
             derived_status.append("detached_head")
             skip_reasons.append("detached_head")
             risk_level = "medium"
@@ -126,6 +127,8 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
             decision_state = "assessment_clear"
             confidence = 0.8
 
+    provenance = attach_assessment_provenance(derived_status)
+
     return {
         "schema_version": "repo-assessment.v1",
         "assessment_id": _assessment_id(scope_path),
@@ -137,4 +140,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
         "skip_reasons": skip_reasons,
         "missing_evidence": missing_evidence,
         "confidence": confidence,
+        "rule_refs": provenance["rule_refs"],
+        "freshness_refs": provenance["freshness_refs"],
+        "falsification_refs": provenance["falsification_refs"],
     }
