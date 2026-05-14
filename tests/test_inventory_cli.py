@@ -403,6 +403,26 @@ def test_scope_explain_gdrive(tmp_path: Path):
     assert explanation["scope"] == "scope_gdrive"
 
 
+def test_scope_explain_gdrive_like_segment_policy_match(tmp_path: Path):
+    root = tmp_path / "roots"
+    path = root / "GDrive-shadow" / "project"
+    path.mkdir(parents=True)
+
+    config_path = _write_local_config(tmp_path, [root], [])
+    explanation = explain_scope(path, config_path=config_path)
+
+    _assert_scope_invariants(
+        explanation,
+        _scope_explanation_schema(),
+        Path("scope-gdrive-like-segment.json"),
+    )
+    assert explanation["scope"] == "scope_gdrive"
+    assert explanation["matched_policy"] == {
+        "kind": "path_segment",
+        "value": "GDrive-shadow",
+    }
+
+
 def test_scope_explain_excluded(tmp_path: Path):
     root = tmp_path / "roots"
     excluded = root / "excluded"

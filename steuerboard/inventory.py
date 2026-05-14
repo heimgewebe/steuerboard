@@ -162,11 +162,14 @@ def _matched_policy(path: Path, config: LocalConfig) -> dict[str, str | None]:
         if _is_relative_to(path, root):
             return {"kind": "excluded_repo_roots", "value": str(root)}
 
-    for part in path.parts:
-        if part.lower() == "gdrive":
+    # Prefer the nearest matching path segment. Parent directories can contain
+    # incidental words such as pytest test names; the input-local segment is the
+    # stronger explanation.
+    for part in reversed(path.parts):
+        if "gdrive" in part.lower():
             return {"kind": "path_segment", "value": part}
 
-    for part in path.parts:
+    for part in reversed(path.parts):
         if "backup" in part.lower():
             return {"kind": "path_segment", "value": part}
 
