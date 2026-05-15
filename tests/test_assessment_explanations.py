@@ -50,6 +50,18 @@ def test_explain_assessment_rejects_unknown_status():
         explain_assessment(_assessment("not_a_known_status"))
 
 
+def test_explain_assessment_requires_repo_assessment_schema_version():
+    missing = _assessment("dirty_worktree")
+    missing.pop("schema_version")
+    with pytest.raises(ValueError, match="schema_version must be repo-assessment.v1"):
+        explain_assessment(missing)
+
+    wrong = _assessment("dirty_worktree")
+    wrong["schema_version"] = "not-repo-assessment.v1"
+    with pytest.raises(ValueError, match="schema_version must be repo-assessment.v1"):
+        explain_assessment(wrong)
+
+
 def test_explain_assessment_preserves_missing_evidence():
     assessment = _assessment("non_default_branch")
     assessment["missing_evidence"] = ["branch_contains_origin_main_or_pr_merged", "fresh_origin_main"]

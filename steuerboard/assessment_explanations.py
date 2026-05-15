@@ -92,6 +92,10 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(assessment, dict):
         raise ValueError("assessment must be an object")
 
+    schema_version = assessment.get("schema_version")
+    if schema_version != "repo-assessment.v1":
+        raise ValueError("schema_version must be repo-assessment.v1")
+
     assessment_id = assessment.get("assessment_id")
     if not isinstance(assessment_id, str) or not assessment_id:
         raise ValueError("assessment_id must be a non-empty string")
