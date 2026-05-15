@@ -111,5 +111,5 @@ The **CI gate** (`.github/workflows/validate.yml`) reproduces the same checks on
 checkout in a standardized environment. This makes the gate reproducible and ensures drift
 between machines does not hide issues.
 
-Both gates prove the same boundary: read-only observation, valid schemas, no mutations.
+Both gates prove the same boundary for productive CLI smoke commands: read-only observation, valid schemas, and no target-repository mutations. Test fixtures may still create and mutate temporary repositories.
 Neither proves product deploy readiness, backend availability, or frontend functionality.
