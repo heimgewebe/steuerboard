@@ -85,6 +85,26 @@ def test_explain_assessment_rejects_missing_or_empty_derived_status():
         explain_assessment(empty)
 
 
+def test_explain_assessment_rejects_missing_or_null_source_refs():
+    missing = _assessment("dirty_worktree")
+    missing.pop("source_refs")
+    with pytest.raises(ValueError, match="source_refs must be a list of strings"):
+        explain_assessment(missing)
+
+    null_value = _assessment("dirty_worktree")
+    null_value["source_refs"] = None
+    with pytest.raises(ValueError, match="source_refs must be a list of strings"):
+        explain_assessment(null_value)
+
+
+def test_explain_assessment_rejects_null_optional_list_when_present():
+    assessment = _assessment("dirty_worktree")
+    assessment["missing_evidence"] = None
+
+    with pytest.raises(ValueError, match="missing_evidence must be a list of strings"):
+        explain_assessment(assessment)
+
+
 def test_explanation_schema_rejects_forbidden_top_level_fields():
     schema = _schema()
     explanation = explain_assessment(_assessment("dirty_worktree"))

@@ -127,7 +127,7 @@ Boundary for this slice:
 Open epistemic gaps:
 
 - Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
-- Human-readable assessment explanations deferred to a later PR.
+- Richer human-readable assessment narratives remain deferred beyond the minimal `assess explain` contract; action advice remains out of scope.
 - Assessment now cross-references rule_refs, freshness_refs, and falsification_refs (when applicable).
 - `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.
 

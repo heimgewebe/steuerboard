@@ -53,14 +53,23 @@ _STATUS_MEANINGS: dict[str, tuple[str, str]] = {
 }
 
 
-def _as_string_list(value: Any) -> list[str]:
-    if value is None:
+def _string_list_field(
+    assessment: dict[str, Any],
+    key: str,
+    *,
+    required: bool = False,
+) -> list[str]:
+    if key not in assessment:
+        if required:
+            raise ValueError(f"{key} must be a list of strings")
         return []
+
+    value = assessment[key]
     if not isinstance(value, list):
-        raise ValueError("Expected list of strings")
+        raise ValueError(f"{key} must be a list of strings")
     for item in value:
         if not isinstance(item, str):
-            raise ValueError("Expected list of strings")
+            raise ValueError(f"{key} must be a list of strings")
     return value
 
 
@@ -94,8 +103,8 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(status, str) or not status:
             raise ValueError("derived_status must contain non-empty strings")
 
-    source_refs = _as_string_list(assessment.get("source_refs"))
-    missing_evidence = _as_string_list(assessment.get("missing_evidence"))
+    source_refs = _string_list_field(assessment, "source_refs", required=True)
+    missing_evidence = _string_list_field(assessment, "missing_evidence")
 
     observation_ref = assessment.get("observation_ref")
     evidence_refs = list(source_refs)
