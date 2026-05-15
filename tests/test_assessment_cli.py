@@ -9,6 +9,7 @@ import pytest
 
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, ValidationError, load_json, minimal_validate, validate_instance
 from steuerboard.assessment import assess_repo
+from steuerboard.assessment_rules import ASSESSMENT_PROVENANCE, attach_assessment_provenance
 
 
 FORBIDDEN_ASSESSMENT_KEYS = {
@@ -69,12 +70,25 @@ def _assessment_schema() -> dict:
     return load_json(SCHEMAS_DIR / "repo-assessment.v1.schema.json")
 
 
+def _assert_provenance_covers_all_statuses(assessment: dict) -> None:
+    for status in assessment["derived_status"]:
+        expected = ASSESSMENT_PROVENANCE[status]["rule_refs"]
+        for ref in expected:
+            assert ref in assessment["rule_refs"], (
+                f"Missing rule_ref {ref!r} for derived_status {status!r}"
+            )
+
+
 def _assert_assessment_invariants(assessment: dict, schema: dict, label: Path) -> None:
     validate_instance(assessment, schema, label)
     assert FORBIDDEN_ASSESSMENT_KEYS.isdisjoint(assessment), (
         f"Assessment contains forbidden action-plan field(s): "
         f"{FORBIDDEN_ASSESSMENT_KEYS & assessment.keys()}"
     )
+    assert isinstance(assessment.get("rule_refs"), list)
+    assert isinstance(assessment.get("freshness_refs"), list)
+    assert isinstance(assessment.get("falsification_refs"), list)
+    _assert_provenance_covers_all_statuses(assessment)
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +155,9 @@ def test_assess_dirty_worktree_emits_dirty_worktree(tmp_path: Path):
     assert "dirty_worktree" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "action_blocked"
     assert assessment["risk_level"] == "medium"
+    assert "assessment.rule.dirty_worktree_blocks_action" in assessment["rule_refs"]
+    assert "failure-case.dirty_worktree" in assessment["falsification_refs"]
+    assert assessment["freshness_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +182,10 @@ def test_assess_feature_branch_emits_non_default_branch(tmp_path: Path):
     assert assessment["risk_level"] == "medium"
     assert "branch_contains_origin_main_or_pr_merged" in assessment["missing_evidence"]
     assert "fresh_origin_main" in assessment["missing_evidence"]
+    assert "assessment.rule.non_default_branch_requires_lifecycle_evidence" in assessment["rule_refs"]
+    assert "failure-case.feature_branch_unmerged" in assessment["falsification_refs"]
+    assert "freshness.remote_branch_lifecycle.not_observed_no_fetch" in assessment["freshness_refs"]
+    assert "freshness.remote_branch_lifecycle.fresh" not in assessment["freshness_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +206,7 @@ def test_assess_scope_backup_emits_scope_backup(tmp_path: Path):
     assert "scope_backup" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "action_blocked"
     assert assessment["risk_level"] == "medium"
+    assert "failure-case.backup_repo_accidentally_used" in assessment["falsification_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +270,7 @@ def test_assess_clean_canonical_default_branch_emits_clear(tmp_path: Path):
     # refs/remotes/origin/HEAD (strong) or heuristic fallback. The epistemic gap
     # is marked explicitly so downstream consumers know.
     assert "default_branch_source" in assessment["missing_evidence"]
+    assert "assessment.rule.clean_default_current_is_clear_but_default_source_unverified" in assessment["rule_refs"]
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +472,7 @@ def test_assess_detached_head_emits_detached_head(tmp_path: Path):
     assert "detached_head" in assessment["derived_status"]
     assert "detached_head" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "action_blocked"
+    assert "failure-case.detached_head" in assessment["falsification_refs"]
 
 
 def test_assess_default_branch_unknown_when_no_candidate(tmp_path: Path):
@@ -473,6 +497,7 @@ def test_assess_default_branch_unknown_when_no_candidate(tmp_path: Path):
     assert "default_branch_unknown" in assessment["skip_reasons"]
     assert assessment["decision_state"] == "evidence_missing"
     assert "default_branch" in assessment["missing_evidence"]
+    assert "failure-case.unknown_default_branch" in assessment["falsification_refs"]
 
 
 def test_minimal_validator_rejects_confidence_above_one():
@@ -489,3 +514,77 @@ def test_minimal_validator_rejects_confidence_above_one():
 
     with pytest.raises(ValidationError):
         minimal_validate(invalid, schema)
+
+
+def test_provenance_rejects_unknown_falsification_ref(monkeypatch: pytest.MonkeyPatch):
+    invalid_mapping = {
+        **ASSESSMENT_PROVENANCE,
+        "dirty_worktree": {
+            **ASSESSMENT_PROVENANCE["dirty_worktree"],
+            "falsification_refs": ["failure-case.not_a_real_case"],
+        },
+    }
+    monkeypatch.setattr(
+        "steuerboard.assessment_rules.ASSESSMENT_PROVENANCE",
+        invalid_mapping,
+    )
+
+    with pytest.raises(ValueError, match="Unknown falsification_ref"):
+        attach_assessment_provenance(["dirty_worktree"])
+
+
+def test_provenance_rejects_empty_derived_status():
+    with pytest.raises(ValueError, match="derived_status must not be empty"):
+        attach_assessment_provenance([])
+
+
+# ---------------------------------------------------------------------------
+# Context-sensitive freshness: scope_unknown without available config
+# ---------------------------------------------------------------------------
+
+def test_scope_unknown_without_config_uses_unavailable_freshness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """When no config file exists, explain_scope raises FileNotFoundError and
+    assess_repo falls back to scope_unknown + source_refs=['local_config.unavailable'].
+    freshness_refs must say 'unavailable' — not 'current_invocation'.
+    The two directly contradict each other: a file that was not found cannot
+    be 'freshly read'."""
+    repo = tmp_path / "orphan-repo"
+    _init_repo(repo)
+
+    # Simulate no config file existing anywhere (developer machine may have one)
+    def _raise_no_config(*args, **kwargs):
+        raise FileNotFoundError("no config found")
+
+    monkeypatch.setattr("steuerboard.assessment.explain_scope", _raise_no_config)
+
+    assessment = assess_repo(repo)  # config_path=None → fallback, not re-raise
+
+    assert "scope_unknown" in assessment["derived_status"]
+    assert "local_config.unavailable" in assessment["source_refs"]
+    assert "freshness.local_scope_config.unavailable" in assessment["freshness_refs"]
+    assert "freshness.local_scope_config.current_invocation" not in assessment["freshness_refs"]
+
+
+# ---------------------------------------------------------------------------
+# Provenance: falsification_ref prefix validation
+# ---------------------------------------------------------------------------
+
+def test_provenance_rejects_falsification_ref_without_prefix(monkeypatch: pytest.MonkeyPatch):
+    """Both error paths in _validate_falsification_refs must be covered.
+    This test covers the prefix check (ref does not start with 'failure-case.')."""
+    invalid_mapping = {
+        **ASSESSMENT_PROVENANCE,
+        "dirty_worktree": {
+            **ASSESSMENT_PROVENANCE["dirty_worktree"],
+            "falsification_refs": ["no-prefix-at-all"],
+        },
+    }
+    monkeypatch.setattr(
+        "steuerboard.assessment_rules.ASSESSMENT_PROVENANCE",
+        invalid_mapping,
+    )
+
+    with pytest.raises(ValueError, match="Invalid falsification_ref prefix"):
+        attach_assessment_provenance(["dirty_worktree"])

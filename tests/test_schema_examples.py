@@ -2,11 +2,19 @@ import pytest
 
 from scripts.validate_examples import (
     EXAMPLES_DIR,
+    SCHEMAS_DIR,
     _is_date_time,
+    load_json,
     validate_examples,
+    validate_instance,
     validate_schemas,
     minimal_validate,
     ValidationError,
+)
+from steuerboard.assessment_rules import (
+    ASSESSMENT_PROVENANCE,
+    EXISTING_FAILURE_CASE_IDS,
+    attach_assessment_provenance,
 )
 
 REQUIRED_FAILURE_CASES = {
@@ -82,6 +90,50 @@ def test_non_failure_schema_examples_validate_against_schemas():
         if not path.relative_to(EXAMPLES_DIR).as_posix().startswith("failure-cases/")
     }
     assert REQUIRED_SCHEMA_EXAMPLES <= validated_rel
+
+
+def test_assessment_examples_match_runtime_provenance_contract():
+    schema = load_json(SCHEMAS_DIR / "repo-assessment.v1.schema.json")
+
+    for example_path in sorted((EXAMPLES_DIR / "assessments").glob("*.json")):
+        assessment = load_json(example_path)
+        validate_instance(assessment, schema, example_path)
+        expected = attach_assessment_provenance(
+            assessment["derived_status"],
+            source_refs=assessment.get("source_refs", []),
+        )
+
+        for status in assessment["derived_status"]:
+            assert status in ASSESSMENT_PROVENANCE, (
+                f"{example_path.name}: unknown derived_status {status!r}"
+            )
+
+        assert assessment.get("rule_refs", []) == expected["rule_refs"], (
+            f"{example_path.name}: rule_refs drift from runtime provenance"
+        )
+        assert assessment.get("freshness_refs", []) == expected["freshness_refs"], (
+            f"{example_path.name}: freshness_refs drift from runtime provenance"
+        )
+        assert assessment.get("falsification_refs", []) == expected["falsification_refs"], (
+            f"{example_path.name}: falsification_refs drift from runtime provenance"
+        )
+
+        for ref in assessment.get("falsification_refs", []):
+            prefix = "failure-case."
+            assert ref.startswith(prefix), (
+                f"{example_path.name}: invalid falsification_ref prefix {ref!r}"
+            )
+            case_id = ref[len(prefix) :]
+            assert case_id in EXISTING_FAILURE_CASE_IDS, (
+                f"{example_path.name}: unknown falsification_ref {ref!r}"
+            )
+
+
+def test_existing_failure_case_ids_have_example_files():
+    failure_cases_dir = EXAMPLES_DIR / "failure-cases"
+    expected = {f"{case_id}.json" for case_id in EXISTING_FAILURE_CASE_IDS}
+    actual = {path.name for path in failure_cases_dir.glob("*.json")}
+    assert actual == expected
 
 
 def test_fallback_date_time_check_requires_rfc3339_shape():

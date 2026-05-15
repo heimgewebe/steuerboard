@@ -48,14 +48,20 @@ Required:
 - `source_refs` — list of data sources used
 - `decision_state` — Assessment-Ergebnis (see above)
 
-Optional (added in Phase 3):
+Optional in schema, emitted by assess_repo in this slice:
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`
 - `skip_reasons` — normalised reason codes mirroring blocking/defer-style `derived_status` entries only; may be empty for non-blocking outcomes such as `clean_default_current`
 - `confidence` — number 0..1, confidence in derived_status
 - `missing_evidence` — list of evidence items that would change the assessment
-- `rule_refs` — optional references to rules that produced this assessment
-- `freshness_refs` — optional references to freshness model entries
-- `falsification_refs` — optional references to falsification cases
+- `rule_refs` — references to assessment rules supporting each derived status
+- `freshness_refs` — marks the observed evidence state for each data source used.
+  When a config file is absent (`local_config.unavailable` in `source_refs`),
+  `scope_unknown` emits `freshness.local_scope_config.unavailable` instead of
+  `freshness.local_scope_config.current_invocation`. The two are mutually exclusive:
+  a config that was not found cannot be 'freshly read'.
+  `freshness_refs` never claim remote freshness without a prior fetch.
+- `falsification_refs` — references to matching falsification cases when applicable;
+  emitted values are validated by runtime/tests against known failure-case IDs and must not be silently dropped
 
 Explicitly excluded (never in this schema):
 - `action`, `plan_id`, `would_run`, `would_mutate`

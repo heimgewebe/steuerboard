@@ -25,5 +25,14 @@
     "dirty_worktree"
   ],
   "confidence": 1.0,
-  "missing_evidence": []
+  "missing_evidence": [],
+  "rule_refs": [
+    "assessment.rule.dirty_worktree_blocks_action"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_status.current_invocation"
+  ],
+  "falsification_refs": [
+    "failure-case.dirty_worktree"
+  ]
 }
