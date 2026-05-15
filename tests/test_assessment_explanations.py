@@ -124,6 +124,22 @@ def test_clean_default_current_with_conflicting_freshness_provenance_raises():
         explain_assessment(assessment)
 
 
+def test_clean_default_current_remote_origin_head_requires_source_ref():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+    assessment["source_refs"] = [
+        "git.current_branch",
+        "git.status.porcelain",
+    ]
+    assessment["freshness_refs"] = [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.remote_origin_head_local_observed",
+    ]
+
+    with pytest.raises(ValueError, match="requires git.default_branch_candidate_source"):
+        explain_assessment(assessment)
+
+
 def test_non_default_branch_does_not_claim_fresh_remote_state():
     explanation = explain_assessment(_assessment("non_default_branch"))
     meaning = explanation["status_explanations"][0]["meaning"]

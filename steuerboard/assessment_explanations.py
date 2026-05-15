@@ -136,6 +136,14 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
                     "clean_default_current freshness_refs are inconsistent: both "
                     "remote_origin_head_local_observed and unverified are present"
                 )
+            if (
+                has_remote_origin_head_local_observed
+                and "git.default_branch_candidate_source" not in source_refs
+            ):
+                raise ValueError(
+                    "clean_default_current remote_origin_head freshness requires "
+                    "git.default_branch_candidate_source in source_refs"
+                )
 
             if has_remote_origin_head_local_observed:
                 meaning = (
