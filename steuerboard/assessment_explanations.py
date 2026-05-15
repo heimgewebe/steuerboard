@@ -109,6 +109,7 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
 
     source_refs = _string_list_field(assessment, "source_refs", required=True)
     missing_evidence = _string_list_field(assessment, "missing_evidence")
+    assessment_freshness_refs = _string_list_field(assessment, "freshness_refs")
 
     observation_ref = assessment.get("observation_ref")
     evidence_refs = list(source_refs)
@@ -123,18 +124,36 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
         meaning, decision_effect = mapping
         default_branch_candidate_source: str | None = None
         if status == "clean_default_current":
-            if "default_branch_source" in missing_evidence:
+            has_remote_origin_head_local_observed = (
+                "freshness.default_branch_source.remote_origin_head_local_observed"
+                in assessment_freshness_refs
+            )
+            has_unverified_source = (
+                "freshness.default_branch_source.unverified" in assessment_freshness_refs
+            )
+            if has_remote_origin_head_local_observed and has_unverified_source:
+                raise ValueError(
+                    "clean_default_current freshness_refs are inconsistent: both "
+                    "remote_origin_head_local_observed and unverified are present"
+                )
+
+            if has_remote_origin_head_local_observed:
+                meaning = (
+                    "Current branch matches observed default branch candidate from recorded source "
+                    "evidence; remote freshness is not claimed."
+                )
+                default_branch_candidate_source = "remote_origin_head"
+            elif has_unverified_source or "default_branch_source" in missing_evidence:
                 meaning = (
                     "Current branch matches observed default branch candidate and worktree is clean; "
                     "default_branch_source remains unverified."
                 )
                 default_branch_candidate_source = "local_branch_heuristic"
             else:
-                meaning = (
-                    "Current branch matches observed default branch candidate from recorded source "
-                    "evidence; remote freshness is not claimed."
+                raise ValueError(
+                    "clean_default_current requires default_branch_source freshness provenance "
+                    "(remote_origin_head_local_observed or unverified)"
                 )
-                default_branch_candidate_source = "remote_origin_head"
         provenance = attach_assessment_provenance(
             [status],
             source_refs=source_refs,

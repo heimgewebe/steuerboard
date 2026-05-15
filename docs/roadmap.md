@@ -93,7 +93,13 @@ python -m steuerboard assess repo <path> --json
 - `clean_default_current` means current branch matches observed `default_branch_candidate`.
     Observation now exposes `default_branch_candidate_source`.
     If source is `remote_origin_head`, `default_branch_source` is not missing and confidence is `0.9`.
+    Provenance refs in this branch are
+    `assessment.rule.clean_default_current_remote_origin_head_local_source_observed`
+    and `freshness.default_branch_source.remote_origin_head_local_observed`.
     Otherwise, the source gap remains marked via `missing_evidence: ["default_branch_source"]` with `confidence: 0.8`.
+    Provenance refs remain
+    `assessment.rule.clean_default_current_is_clear_but_default_source_unverified`
+    and `freshness.default_branch_source.unverified`.
 - `derived_status` is a proper list: non-canonical scope and `dirty_worktree` are both collected when observed together.
 
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`

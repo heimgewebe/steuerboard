@@ -85,6 +85,10 @@ def test_clean_default_current_without_source_gap_mentions_recorded_source_evide
         "git.status.porcelain",
         "git.default_branch_candidate_source",
     ]
+    assessment["freshness_refs"] = [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.remote_origin_head_local_observed",
+    ]
 
     explanation = explain_assessment(assessment)
     status_item = explanation["status_explanations"][0]
@@ -96,6 +100,15 @@ def test_clean_default_current_without_source_gap_mentions_recorded_source_evide
         "freshness.default_branch_source.remote_origin_head_local_observed"
         in status_item["freshness_refs"]
     )
+
+
+def test_clean_default_current_without_source_gap_and_without_freshness_provenance_raises():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+    assessment["freshness_refs"] = ["freshness.local_git_status.current_invocation"]
+
+    with pytest.raises(ValueError, match="requires default_branch_source freshness provenance"):
+        explain_assessment(assessment)
 
 
 def test_non_default_branch_does_not_claim_fresh_remote_state():

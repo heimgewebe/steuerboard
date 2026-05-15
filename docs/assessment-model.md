@@ -40,11 +40,17 @@ Observation now exposes `default_branch_candidate_source` with values:
 When `default_branch_candidate_source == "remote_origin_head"`, assessment treats
 the local source evidence as observed and does not add
 `missing_evidence: ["default_branch_source"]`; confidence is `0.9`.
+In this case, provenance emits:
+
+- `assessment.rule.clean_default_current_remote_origin_head_local_source_observed`
+- `freshness.default_branch_source.remote_origin_head_local_observed`
 
 When source is not `remote_origin_head`, the source-quality gap remains marked:
 
 - `missing_evidence: ["default_branch_source"]`
 - `confidence: 0.8` (not 1.0 or 0.9)
+- `assessment.rule.clean_default_current_is_clear_but_default_source_unverified`
+- `freshness.default_branch_source.unverified`
 
 `remote_origin_head` provenance is still local observation only. It does not claim
 remote freshness or network truth without fetch.

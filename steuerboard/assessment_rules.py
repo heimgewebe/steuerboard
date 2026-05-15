@@ -150,6 +150,16 @@ def attach_assessment_provenance(
         status_rules: list[str] = provenance.get("rule_refs", [])
         if not status_rules:
             raise ValueError(f"No rule_refs defined for derived_status={status!r}")
+        if (
+            status == "clean_default_current"
+            and default_branch_candidate_source == "remote_origin_head"
+        ):
+            status_rules = [
+                "assessment.rule.clean_default_current_remote_origin_head_local_source_observed"
+                if ref == "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+                else ref
+                for ref in status_rules
+            ]
 
         rule_refs.extend(status_rules)
 
