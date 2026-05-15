@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .assessment import assess_repo
+from .assessment_explanations import explain_assessment
 from .inventory import build_duplicates_report, build_inventory, explain_scope
 from .observation import observe_repo
 
@@ -89,6 +90,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit repo-assessment.v1 JSON.",
     )
 
+    assess_explain_parser = assess_subparsers.add_parser(
+        "explain",
+        help="Explain a repo-assessment JSON object without planning actions.",
+    )
+    assess_explain_parser.add_argument(
+        "assessment_json",
+        help="Path to a repo-assessment.v1 JSON file.",
+    )
+    assess_explain_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit repo-assessment-explanation.v1 JSON.",
+    )
+
     scope_parser = subparsers.add_parser("scope", help="Read-only scope explanation commands.")
     scope_subparsers = scope_parser.add_subparsers(dest="scope_command", required=True)
 
@@ -147,6 +163,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         assessment = assess_repo(Path(args.path), config_path=config_path)
         print(json.dumps(assessment, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "assess" and args.assess_command == "explain":
+        try:
+            with Path(args.assessment_json).open("r", encoding="utf-8") as handle:
+                assessment = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"invalid assessment JSON: {exc}")
+
+        try:
+            explanation = explain_assessment(assessment)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(explanation, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "scope" and args.scope_command == "explain":

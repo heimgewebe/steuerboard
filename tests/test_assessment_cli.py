@@ -70,6 +70,10 @@ def _assessment_schema() -> dict:
     return load_json(SCHEMAS_DIR / "repo-assessment.v1.schema.json")
 
 
+def _assessment_explanation_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json")
+
+
 def _assert_provenance_covers_all_statuses(assessment: dict) -> None:
     for status in assessment["derived_status"]:
         expected = ASSESSMENT_PROVENANCE[status]["rule_refs"]
@@ -588,3 +592,56 @@ def test_provenance_rejects_falsification_ref_without_prefix(monkeypatch: pytest
 
     with pytest.raises(ValueError, match="Invalid falsification_ref prefix"):
         attach_assessment_provenance(["dirty_worktree"])
+
+
+def test_assess_explain_cli_smoke_emits_schema_valid_json(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+
+    assess_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "assess",
+            "repo",
+            str(repo),
+            "--config",
+            str(config_path),
+            "--json",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assessment_path = tmp_path / "assessment.json"
+    assessment_path.write_text(assess_result.stdout, encoding="utf-8")
+
+    explain_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "assess",
+            "explain",
+            str(assessment_path),
+            "--json",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    explanation = json.loads(explain_result.stdout)
+    validate_instance(
+        explanation,
+        _assessment_explanation_schema(),
+        Path("assess-explain-cli-smoke.json"),
+    )
+    assert explanation["schema_version"] == "repo-assessment-explanation.v1"

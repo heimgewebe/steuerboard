@@ -1,0 +1,43 @@
+{
+  "schema_version": "repo-assessment-explanation.v1",
+  "explanation_id": "assess-expl-example-dirty-worktree",
+  "assessment_ref": "assess-example-dirty-worktree-blocked",
+  "summary": "Assessment assess-example-dirty-worktree-blocked is interpreted with status set [dirty_worktree]. This explanation is read-only interpretation and does not authorise or plan actions.",
+  "status_explanations": [
+    {
+      "status": "dirty_worktree",
+      "meaning": "Working tree contains uncommitted changes.",
+      "decision_effect": "blocks_action",
+      "evidence_refs": [
+        "obs-example-dirty-worktree",
+        "git.rev_parse.worktree",
+        "git.current_branch",
+        "git.rev_parse.head",
+        "git.rev_parse.toplevel",
+        "git.status.porcelain",
+        "git.upstream",
+        "git.ahead_behind",
+        "git.remote.origin.url",
+        "git.default_branch_candidate",
+        "local_config.canonical_repo_roots",
+        "local_config.excluded_repo_roots",
+        "filesystem.path"
+      ],
+      "rule_refs": [
+        "assessment.rule.dirty_worktree_blocks_action"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_status.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.dirty_worktree"
+      ],
+      "missing_evidence": []
+    }
+  ],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_mutate": true,
+    "does_not_plan_actions": true
+  }
+}

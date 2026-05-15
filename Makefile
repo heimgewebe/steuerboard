@@ -29,7 +29,20 @@ smoke:
 	json_smoke "scope explain ." $(CLI) scope explain . --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory" $(CLI) inventory --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory duplicates" $(CLI) inventory duplicates --json --config $(EXAMPLE_CONFIG); \
-	json_smoke "assess repo ." $(CLI) assess repo . --json --config $(EXAMPLE_CONFIG); \
+	echo "--- smoke: assess repo . -> assess explain ---"; \
+	tmp_assessment="$$(mktemp)"; \
+	tmp_explanation="$$(mktemp)"; \
+	tmp_files="$$tmp_files $$tmp_assessment $$tmp_explanation"; \
+	if ! $(CLI) assess repo . --json --config $(EXAMPLE_CONFIG) > "$$tmp_assessment"; then \
+		echo "smoke failure: assess repo command failed" >&2; \
+		exit 1; \
+	fi; \
+	if ! $(CLI) assess explain "$$tmp_assessment" --json > "$$tmp_explanation"; then \
+		echo "smoke failure: assess explain command failed" >&2; \
+		exit 1; \
+	fi; \
+	$(PYTHON) -m json.tool "$$tmp_assessment" > /dev/null; \
+	$(PYTHON) -m json.tool "$$tmp_explanation" > /dev/null; \
 	echo "smoke: all entrypoints exited 0 and emitted valid JSON"
 
 deploy-check:

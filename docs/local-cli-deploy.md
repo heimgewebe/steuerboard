@@ -8,12 +8,13 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All five read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All six read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
   - `steuerboard inventory duplicates --json`
   - `steuerboard assess repo <path> --json`
+  - `steuerboard assess explain <assessment-json> --json`
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
@@ -98,6 +99,7 @@ This boundary follows the architecture rule:
 
 ## What comes next
 
-The local CLI deploy gate is an intermediate milestone after Phase 3. It does not advance to
-Phase 4. Phase 4 would add human-readable assessment explanations and cross-referencing
-rule refs. That phase is deferred until after this gate is proven reproducible.
+The local CLI deploy gate remains a read-only reproducibility gate.
+
+Phase 4 minimal now adds a contract-first assessment explanation surface. Action
+planning, action authorization, and command advice remain out of scope.

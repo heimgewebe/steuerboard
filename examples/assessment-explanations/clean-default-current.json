@@ -1,0 +1,44 @@
+{
+  "schema_version": "repo-assessment-explanation.v1",
+  "explanation_id": "assess-expl-example-clean-default-current",
+  "assessment_ref": "assess-example-clean-default-current",
+  "summary": "Assessment assess-example-clean-default-current is interpreted with status set [clean_default_current]. This explanation is read-only interpretation and does not authorise or plan actions.",
+  "status_explanations": [
+    {
+      "status": "clean_default_current",
+      "meaning": "Current branch matches observed default branch candidate and worktree is clean; default_branch_source remains unverified.",
+      "decision_effect": "assessment_clear",
+      "evidence_refs": [
+        "obs-example-clean-main",
+        "git.rev_parse.worktree",
+        "git.current_branch",
+        "git.rev_parse.head",
+        "git.rev_parse.toplevel",
+        "git.status.porcelain",
+        "git.upstream",
+        "git.ahead_behind",
+        "git.remote.origin.url",
+        "git.default_branch_candidate",
+        "local_config.canonical_repo_roots",
+        "local_config.excluded_repo_roots",
+        "filesystem.path"
+      ],
+      "rule_refs": [
+        "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.unverified"
+      ],
+      "falsification_refs": [],
+      "missing_evidence": [
+        "default_branch_source"
+      ]
+    }
+  ],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_mutate": true,
+    "does_not_plan_actions": true
+  }
+}
