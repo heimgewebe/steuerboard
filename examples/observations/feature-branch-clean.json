@@ -6,7 +6,8 @@
     "git.current_branch",
     "git.status.porcelain",
     "git.upstream",
-    "git.remote.origin.url"
+    "git.remote.origin.url",
+    "git.default_branch_candidate_source"
   ],
   "observed_state": {
     "path": "/home/alex/repos/steuerboard",
@@ -19,6 +20,7 @@
     "behind": 0,
     "remote_url": "git@github.com:heimgewebe/steuerboard.git",
     "default_branch_candidate": "main",
+    "default_branch_candidate_source": "local_branch_heuristic",
     "git_status_exit_code": 0,
     "git_metadata_present_at_observed_path": true,
     "git_toplevel": "/home/alex/repos/steuerboard",

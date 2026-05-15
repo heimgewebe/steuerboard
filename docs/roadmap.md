@@ -90,7 +90,16 @@ python -m steuerboard assess repo <path> --json
 ```
 
 - `decision_state` is a **contractual enum** in the schema: `action_blocked`, `evidence_missing`, `assessment_clear`. Free strings are rejected.
-- `clean_default_current` means current branch matches observed `default_branch_candidate`. The observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` (strong) or local heuristic. This is always marked via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`.
+- `clean_default_current` means current branch matches observed `default_branch_candidate`.
+    Observation now exposes `default_branch_candidate_source`.
+    If source is `remote_origin_head`, `default_branch_source` is not missing and confidence is `0.9`.
+    Provenance refs in this branch are
+    `assessment.rule.clean_default_current_remote_origin_head_local_source_observed`
+    and `freshness.default_branch_source.remote_origin_head_local_observed`.
+    Otherwise, the source gap remains marked via `missing_evidence: ["default_branch_source"]` with `confidence: 0.8`.
+    Provenance refs remain
+    `assessment.rule.clean_default_current_is_clear_but_default_source_unverified`
+    and `freshness.default_branch_source.unverified`.
 - `derived_status` is a proper list: non-canonical scope and `dirty_worktree` are both collected when observed together.
 
 - `risk_level` — enum `low`, `medium`, `high`, `unknown`
@@ -111,7 +120,7 @@ Status cases implemented:
 - `detached_head` — HEAD is not on any branch
 - `default_branch_unknown` — default branch not determinable from observation
 - `non_default_branch` — on a non-default branch, clean; missing_evidence set
-- `clean_default_current` — canonical, clean, current branch matches observed `default_branch_candidate`; default-branch source remains unverified and is marked via `missing_evidence: ["default_branch_source"]`
+- `clean_default_current` — canonical, clean, current branch matches observed `default_branch_candidate`; source gap remains only when `default_branch_candidate_source != remote_origin_head`
 
 `decision_state` remains required and is an Assessment-Ergebnis, not an Action-Freigabe.
 Values: `action_blocked`, `evidence_missing`, `assessment_clear`.
@@ -126,7 +135,7 @@ Boundary for this slice:
 
 Open epistemic gaps:
 
-- Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
+- Residual boundary: `remote_origin_head` is a locally observed ref provenance signal, not a remote freshness proof. Assessment still does not claim network freshness without fetch.
 - Richer human-readable assessment narratives remain deferred beyond the minimal `assess explain` contract; action advice remains out of scope.
 - Assessment now cross-references rule_refs, freshness_refs, and falsification_refs (when applicable).
 - `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.

@@ -127,6 +127,7 @@ def _validate_falsification_refs(refs: list[str]) -> list[str]:
 def attach_assessment_provenance(
     derived_status: list[str],
     source_refs: list[str] | None = None,
+    default_branch_candidate_source: str | None = None,
 ) -> dict[str, list[str]]:
     if not derived_status:
         raise ValueError("derived_status must not be empty")
@@ -149,6 +150,16 @@ def attach_assessment_provenance(
         status_rules: list[str] = provenance.get("rule_refs", [])
         if not status_rules:
             raise ValueError(f"No rule_refs defined for derived_status={status!r}")
+        if (
+            status == "clean_default_current"
+            and default_branch_candidate_source == "remote_origin_head"
+        ):
+            status_rules = [
+                "assessment.rule.clean_default_current_remote_origin_head_local_source_observed"
+                if ref == "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+                else ref
+                for ref in status_rules
+            ]
 
         rule_refs.extend(status_rules)
 
@@ -157,6 +168,16 @@ def attach_assessment_provenance(
             status_freshness = [
                 "freshness.local_scope_config.unavailable"
                 if ref == "freshness.local_scope_config.current_invocation"
+                else ref
+                for ref in status_freshness
+            ]
+        if (
+            status == "clean_default_current"
+            and default_branch_candidate_source == "remote_origin_head"
+        ):
+            status_freshness = [
+                "freshness.default_branch_source.remote_origin_head_local_observed"
+                if ref == "freshness.default_branch_source.unverified"
                 else ref
                 for ref in status_freshness
             ]

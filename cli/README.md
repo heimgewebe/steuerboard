@@ -43,7 +43,14 @@ Status codes emitted in `derived_status`:
 - `detached_head` — HEAD is detached
 - `default_branch_unknown` — default branch not determinable
 - `non_default_branch` — clean, on a non-default branch; `missing_evidence` is set
-- `clean_default_current` — current branch matches observed `default_branch_candidate`; always has `missing_evidence: ["default_branch_source"]` since the observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` or local heuristic
+- `clean_default_current` — current branch matches observed `default_branch_candidate`; if observation has `default_branch_candidate_source == "remote_origin_head"`, no `default_branch_source` gap is reported (confidence `0.9`), otherwise the gap remains marked via `missing_evidence: ["default_branch_source"]` (confidence `0.8`)
+
+For `clean_default_current`, provenance refs are source-aware:
+
+- `remote_origin_head` source emits rule ref `assessment.rule.clean_default_current_remote_origin_head_local_source_observed` and freshness ref `freshness.default_branch_source.remote_origin_head_local_observed`
+- non-remote source keeps rule ref `assessment.rule.clean_default_current_is_clear_but_default_source_unverified` and freshness ref `freshness.default_branch_source.unverified`
+
+`remote_origin_head_local_observed` means locally observed ref provenance only; it does not prove remote freshness.
 
 `decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
 

@@ -68,17 +68,17 @@ def _parse_ahead_behind(path: Path) -> tuple[int | None, int | None]:
         return None, None
 
 
-def _default_branch_candidate(path: Path) -> str | None:
+def _default_branch_candidate(path: Path) -> tuple[str | None, str]:
     origin_head = _git_stdout_or_none(path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
     if origin_head:
-        return origin_head.removeprefix("origin/")
+        return origin_head.removeprefix("origin/"), "remote_origin_head"
 
     for branch in ("main", "master", "trunk"):
         result = _run_git(path, "show-ref", "--verify", f"refs/heads/{branch}")
         if result.returncode == 0:
-            return branch
+            return branch, "local_branch_heuristic"
 
-    return None
+    return None, "unavailable"
 
 
 def _netloc_without_userinfo(remote_url: str) -> str | None:
@@ -190,6 +190,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
         "git.ahead_behind",
         "git.remote.origin.url",
         "git.default_branch_candidate",
+        "git.default_branch_candidate_source",
     ]
 
     status_result = _run_git(resolved, "status", "--porcelain")
@@ -206,7 +207,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
     ahead, behind = _parse_ahead_behind(resolved)
     raw_remote_url = _git_stdout_or_none(resolved, "config", "--get", "remote.origin.url")
     remote_url = _redact_remote_url(raw_remote_url)
-    default_branch = _default_branch_candidate(resolved)
+    default_branch, default_branch_source = _default_branch_candidate(resolved)
 
     observed_state: dict[str, Any] = {
         "path": str(resolved),
@@ -222,6 +223,7 @@ def observe_repo(path: Path) -> dict[str, Any]:
         "behind": behind,
         "remote_url": remote_url,
         "default_branch_candidate": default_branch,
+        "default_branch_candidate_source": default_branch_source,
         "git_status_exit_code": status_result.returncode,
     }
 

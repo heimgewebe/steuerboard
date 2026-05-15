@@ -77,6 +77,69 @@ def test_clean_default_current_mentions_unverified_default_branch_source():
     assert "default_branch_source remains unverified" in explanation["status_explanations"][0]["meaning"]
 
 
+def test_clean_default_current_without_source_gap_mentions_recorded_source_evidence():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+    assessment["source_refs"] = [
+        "git.current_branch",
+        "git.status.porcelain",
+        "git.default_branch_candidate_source",
+    ]
+    assessment["freshness_refs"] = [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.remote_origin_head_local_observed",
+    ]
+
+    explanation = explain_assessment(assessment)
+    status_item = explanation["status_explanations"][0]
+
+    assert "recorded source evidence" in status_item["meaning"]
+    assert "remote freshness is not claimed" in status_item["meaning"]
+    assert "freshness.default_branch_source.unverified" not in status_item["freshness_refs"]
+    assert (
+        "freshness.default_branch_source.remote_origin_head_local_observed"
+        in status_item["freshness_refs"]
+    )
+
+
+def test_clean_default_current_without_source_gap_and_without_freshness_provenance_raises():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+    assessment["freshness_refs"] = ["freshness.local_git_status.current_invocation"]
+
+    with pytest.raises(ValueError, match="requires default_branch_source freshness provenance"):
+        explain_assessment(assessment)
+
+
+def test_clean_default_current_with_conflicting_freshness_provenance_raises():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+    assessment["freshness_refs"] = [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.remote_origin_head_local_observed",
+        "freshness.default_branch_source.unverified",
+    ]
+
+    with pytest.raises(ValueError, match="freshness_refs are inconsistent"):
+        explain_assessment(assessment)
+
+
+def test_clean_default_current_remote_origin_head_requires_source_ref():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+    assessment["source_refs"] = [
+        "git.current_branch",
+        "git.status.porcelain",
+    ]
+    assessment["freshness_refs"] = [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.remote_origin_head_local_observed",
+    ]
+
+    with pytest.raises(ValueError, match="requires git.default_branch_candidate_source"):
+        explain_assessment(assessment)
+
+
 def test_non_default_branch_does_not_claim_fresh_remote_state():
     explanation = explain_assessment(_assessment("non_default_branch"))
     meaning = explanation["status_explanations"][0]["meaning"]
