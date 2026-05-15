@@ -80,6 +80,11 @@ Assessment explanations are an interpretation layer over an existing
 - `status_explanations[]` provides one explanation entry per `derived_status`
 - `boundary` hard-codes read-only guarantees
 
+`status_explanations[]` uses status-specific provenance refs:
+
+- `rule_refs`, `freshness_refs`, `falsification_refs` are scoped to each status
+- `missing_evidence` remains assessment-level context and is repeated per status item
+
 Boundary fields are contractual and always true:
 
 - `does_not_authorise_actions`

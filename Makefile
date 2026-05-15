@@ -13,8 +13,7 @@ test:
 smoke:
 	@set -eu; \
 	tmp_files=""; \
-	cleanup() { rm -f $$tmp_files; }; \
-	trap cleanup EXIT INT TERM; \
+	trap 'rm -f $$tmp_files' EXIT INT TERM; \
 	json_smoke() { \
 		label="$$1"; shift; \
 		echo "--- smoke: $$label ---"; \

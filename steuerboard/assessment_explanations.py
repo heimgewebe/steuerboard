@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from .assessment_rules import attach_assessment_provenance
+
 _STATUS_MEANINGS: dict[str, tuple[str, str]] = {
     "not_git_repo": (
         "Path is not a Git repository; assessment cannot proceed as a repository assessment.",
@@ -93,9 +95,6 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("derived_status must contain non-empty strings")
 
     source_refs = _as_string_list(assessment.get("source_refs"))
-    rule_refs = _as_string_list(assessment.get("rule_refs"))
-    freshness_refs = _as_string_list(assessment.get("freshness_refs"))
-    falsification_refs = _as_string_list(assessment.get("falsification_refs"))
     missing_evidence = _as_string_list(assessment.get("missing_evidence"))
 
     observation_ref = assessment.get("observation_ref")
@@ -109,15 +108,16 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
         if mapping is None:
             raise ValueError(f"Unsupported derived_status: {status!r}")
         meaning, decision_effect = mapping
+        provenance = attach_assessment_provenance([status], source_refs=source_refs)
         status_explanations.append(
             {
                 "status": status,
                 "meaning": meaning,
                 "decision_effect": decision_effect,
                 "evidence_refs": evidence_refs,
-                "rule_refs": rule_refs,
-                "freshness_refs": freshness_refs,
-                "falsification_refs": falsification_refs,
+                "rule_refs": provenance["rule_refs"],
+                "freshness_refs": provenance["freshness_refs"],
+                "falsification_refs": provenance["falsification_refs"],
                 "missing_evidence": missing_evidence,
             }
         )

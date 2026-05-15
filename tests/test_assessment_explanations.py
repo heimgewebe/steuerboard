@@ -94,3 +94,56 @@ def test_explanation_schema_rejects_forbidden_top_level_fields():
         invalid[field] = "forbidden"
         with pytest.raises(ValidationError):
             validate_instance(invalid, schema, Path(f"invalid-{field}.json"))
+
+
+def test_explanation_schema_rejects_boundary_false_values():
+    schema = _schema()
+    explanation = explain_assessment(_assessment("dirty_worktree"))
+
+    for key in (
+        "does_not_authorise_actions",
+        "does_not_mutate",
+        "does_not_plan_actions",
+    ):
+        invalid = copy.deepcopy(explanation)
+        invalid["boundary"][key] = False
+        with pytest.raises(ValidationError):
+            validate_instance(invalid, schema, Path(f"invalid-boundary-{key}.json"))
+
+
+def test_explain_assessment_multi_status_emits_two_status_explanations():
+    assessment = {
+        "schema_version": "repo-assessment.v1",
+        "assessment_id": "assess-example-multi",
+        "observation_ref": "obs-example-multi",
+        "derived_status": ["scope_backup", "dirty_worktree"],
+        "source_refs": [
+            "git.status.porcelain",
+            "local_config.canonical_repo_roots",
+            "local_config.excluded_repo_roots",
+            "filesystem.path",
+        ],
+        "decision_state": "action_blocked",
+        "missing_evidence": ["default_branch_source"],
+    }
+
+    explanation = explain_assessment(assessment)
+    entries = explanation["status_explanations"]
+
+    assert len(entries) == 2
+    assert [item["status"] for item in entries] == ["scope_backup", "dirty_worktree"]
+
+    scope_item = entries[0]
+    dirty_item = entries[1]
+
+    assert scope_item["rule_refs"] == ["assessment.rule.scope_backup_blocks_action"]
+    assert scope_item["freshness_refs"] == ["freshness.local_scope_config.current_invocation"]
+    assert scope_item["falsification_refs"] == ["failure-case.backup_repo_accidentally_used"]
+
+    assert dirty_item["rule_refs"] == ["assessment.rule.dirty_worktree_blocks_action"]
+    assert dirty_item["freshness_refs"] == ["freshness.local_git_status.current_invocation"]
+    assert dirty_item["falsification_refs"] == ["failure-case.dirty_worktree"]
+
+    # missing_evidence remains assessment-level context and is repeated per status item.
+    assert scope_item["missing_evidence"] == ["default_branch_source"]
+    assert dirty_item["missing_evidence"] == ["default_branch_source"]
