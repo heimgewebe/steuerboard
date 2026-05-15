@@ -80,11 +80,22 @@ def test_clean_default_current_mentions_unverified_default_branch_source():
 def test_clean_default_current_without_source_gap_mentions_recorded_source_evidence():
     assessment = _assessment("clean_default_current")
     assessment["missing_evidence"] = []
+    assessment["source_refs"] = [
+        "git.current_branch",
+        "git.status.porcelain",
+        "git.default_branch_candidate_source",
+    ]
 
     explanation = explain_assessment(assessment)
+    status_item = explanation["status_explanations"][0]
 
-    assert "recorded source evidence" in explanation["status_explanations"][0]["meaning"]
-    assert "remote freshness is not claimed" in explanation["status_explanations"][0]["meaning"]
+    assert "recorded source evidence" in status_item["meaning"]
+    assert "remote freshness is not claimed" in status_item["meaning"]
+    assert "freshness.default_branch_source.unverified" not in status_item["freshness_refs"]
+    assert (
+        "freshness.default_branch_source.remote_origin_head_local_observed"
+        in status_item["freshness_refs"]
+    )
 
 
 def test_non_default_branch_does_not_claim_fresh_remote_state():

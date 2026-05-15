@@ -51,6 +51,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
     derived_status: list[str] = []
     skip_reasons: list[str] = []
     missing_evidence: list[str] = []
+    default_branch_candidate_source: str | None = None
 
     is_git_repo: bool = obs_state.get("is_git_repo", False)
 
@@ -75,7 +76,7 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
         dirty: bool = obs_state.get("dirty", False)
         current_branch: str | None = obs_state.get("current_branch")
         default_branch_candidate: str | None = obs_state.get("default_branch_candidate")
-        default_branch_candidate_source: str = obs_state.get(
+        default_branch_candidate_source = obs_state.get(
             "default_branch_candidate_source",
             "unavailable",
         )
@@ -125,7 +126,11 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
                 missing_evidence.append("default_branch_source")
                 confidence = 0.8
 
-    provenance = attach_assessment_provenance(derived_status, source_refs=source_refs)
+    provenance = attach_assessment_provenance(
+        derived_status,
+        source_refs=source_refs,
+        default_branch_candidate_source=default_branch_candidate_source,
+    )
 
     return {
         "schema_version": "repo-assessment.v1",

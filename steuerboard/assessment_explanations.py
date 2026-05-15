@@ -121,18 +121,25 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
         if mapping is None:
             raise ValueError(f"Unsupported derived_status: {status!r}")
         meaning, decision_effect = mapping
+        default_branch_candidate_source: str | None = None
         if status == "clean_default_current":
             if "default_branch_source" in missing_evidence:
                 meaning = (
                     "Current branch matches observed default branch candidate and worktree is clean; "
                     "default_branch_source remains unverified."
                 )
+                default_branch_candidate_source = "local_branch_heuristic"
             else:
                 meaning = (
                     "Current branch matches observed default branch candidate from recorded source "
                     "evidence; remote freshness is not claimed."
                 )
-        provenance = attach_assessment_provenance([status], source_refs=source_refs)
+                default_branch_candidate_source = "remote_origin_head"
+        provenance = attach_assessment_provenance(
+            [status],
+            source_refs=source_refs,
+            default_branch_candidate_source=default_branch_candidate_source,
+        )
         status_explanations.append(
             {
                 "status": status,

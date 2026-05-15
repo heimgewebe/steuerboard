@@ -416,6 +416,11 @@ def test_clean_default_current_with_remote_origin_head_has_no_source_gap(tmp_pat
     assert "clean_default_current" in assessment["derived_status"]
     assert "default_branch_source" not in assessment["missing_evidence"]
     assert assessment["confidence"] >= 0.9
+    assert "freshness.default_branch_source.unverified" not in assessment["freshness_refs"]
+    assert (
+        "freshness.default_branch_source.remote_origin_head_local_observed"
+        in assessment["freshness_refs"]
+    )
 
 
 # ---------------------------------------------------------------------------
