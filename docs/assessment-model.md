@@ -61,7 +61,7 @@ Optional in schema, emitted by assess_repo in this slice:
   a config that was not found cannot be 'freshly read'.
   `freshness_refs` never claim remote freshness without a prior fetch.
 - `falsification_refs` — references to matching falsification cases when applicable;
-  values are validated against known failure-case IDs and must not be silently dropped
+  emitted values are validated by runtime/tests against known failure-case IDs and must not be silently dropped
 
 Explicitly excluded (never in this schema):
 - `action`, `plan_id`, `would_run`, `would_mutate`
