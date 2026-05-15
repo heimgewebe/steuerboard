@@ -43,7 +43,7 @@ Status codes emitted in `derived_status`:
 - `detached_head` — HEAD is detached
 - `default_branch_unknown` — default branch not determinable
 - `non_default_branch` — clean, on a non-default branch; `missing_evidence` is set
-- `clean_default_current` — current branch matches observed `default_branch_candidate`; always has `missing_evidence: ["default_branch_source"]` since the observation does not expose whether the candidate came from `refs/remotes/origin/HEAD` or local heuristic
+- `clean_default_current` — current branch matches observed `default_branch_candidate`; if observation has `default_branch_candidate_source == "remote_origin_head"`, no `default_branch_source` gap is reported (confidence `0.9`), otherwise the gap remains marked via `missing_evidence: ["default_branch_source"]` (confidence `0.8`)
 
 `decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
 

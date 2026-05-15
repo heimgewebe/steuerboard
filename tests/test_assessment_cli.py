@@ -270,9 +270,7 @@ def test_assess_clean_canonical_default_branch_emits_clear(tmp_path: Path):
     assert assessment["decision_state"] == "assessment_clear"
     assert assessment["risk_level"] == "low"
     assert assessment["skip_reasons"] == []
-    # The observation does not expose whether default_branch_candidate came from
-    # refs/remotes/origin/HEAD (strong) or heuristic fallback. The epistemic gap
-    # is marked explicitly so downstream consumers know.
+    # Source is local heuristic in this fixture; epistemic gap remains marked.
     assert "default_branch_source" in assessment["missing_evidence"]
     assert "assessment.rule.clean_default_current_is_clear_but_default_source_unverified" in assessment["rule_refs"]
 
@@ -379,8 +377,7 @@ def test_schema_accepts_all_valid_decision_states():
 # ---------------------------------------------------------------------------
 
 def test_clean_default_current_marks_default_branch_source_gap(tmp_path: Path):
-    """Even when clean on default branch, the source of default_branch_candidate
-    is unverifiable from observation alone. The epistemic gap must be marked."""
+    """Local heuristic source keeps the default_branch_source evidence gap marked."""
     canonical_root = tmp_path / "repos"
     repo = canonical_root / "project"
     _init_repo(repo)
@@ -389,11 +386,36 @@ def test_clean_default_current_marks_default_branch_source_gap(tmp_path: Path):
     assessment = assess_repo(repo, config_path=config_path)
 
     assert "clean_default_current" in assessment["derived_status"]
-    # Observation does not expose whether default_branch_candidate came from
-    # refs/remotes/origin/HEAD or local heuristic. Gap must be marked.
+    # This fixture has no refs/remotes/origin/HEAD, so local heuristic applies.
     assert "default_branch_source" in assessment["missing_evidence"]
-    # confidence reflects the unverified source
-    assert assessment["confidence"] < 0.9
+    assert assessment["confidence"] == 0.8
+
+
+def test_clean_default_current_with_remote_origin_head_has_no_source_gap(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout.strip()
+    _run(["git", "update-ref", "refs/remotes/origin/main", head_sha], repo)
+    _run(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+        repo,
+    )
+
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "clean_default_current" in assessment["derived_status"]
+    assert "default_branch_source" not in assessment["missing_evidence"]
+    assert assessment["confidence"] >= 0.9
 
 
 # ---------------------------------------------------------------------------

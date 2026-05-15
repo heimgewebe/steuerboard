@@ -77,6 +77,16 @@ def test_clean_default_current_mentions_unverified_default_branch_source():
     assert "default_branch_source remains unverified" in explanation["status_explanations"][0]["meaning"]
 
 
+def test_clean_default_current_without_source_gap_mentions_recorded_source_evidence():
+    assessment = _assessment("clean_default_current")
+    assessment["missing_evidence"] = []
+
+    explanation = explain_assessment(assessment)
+
+    assert "recorded source evidence" in explanation["status_explanations"][0]["meaning"]
+    assert "remote freshness is not claimed" in explanation["status_explanations"][0]["meaning"]
+
+
 def test_non_default_branch_does_not_claim_fresh_remote_state():
     explanation = explain_assessment(_assessment("non_default_branch"))
     meaning = explanation["status_explanations"][0]["meaning"]

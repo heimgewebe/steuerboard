@@ -111,6 +111,14 @@
             "null"
           ]
         },
+        "default_branch_candidate_source": {
+          "type": "string",
+          "enum": [
+            "remote_origin_head",
+            "local_branch_heuristic",
+            "unavailable"
+          ]
+        },
         "git_status_exit_code": {
           "type": [
             "integer",

@@ -75,6 +75,10 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
         dirty: bool = obs_state.get("dirty", False)
         current_branch: str | None = obs_state.get("current_branch")
         default_branch_candidate: str | None = obs_state.get("default_branch_candidate")
+        default_branch_candidate_source: str = obs_state.get(
+            "default_branch_candidate_source",
+            "unavailable",
+        )
 
         if dirty:
             derived_status.append("dirty_worktree")
@@ -109,15 +113,17 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
 
         else:
             # Current branch matches observed default_branch_candidate.
-            # The observation does not expose whether the candidate came from
-            # refs/remotes/origin/HEAD (strong) or local heuristic fallback
-            # (refs/heads/main|master|trunk). Mark the gap as missing_evidence
-            # so downstream consumers know the source quality is unverified.
+            # If source is remote_origin_head, observation contains local source
+            # evidence for the candidate. This still does not claim remote
+            # freshness or network truth, only locally observed provenance.
             derived_status.append("clean_default_current")
-            missing_evidence.append("default_branch_source")
             risk_level = "low"
             decision_state = "assessment_clear"
-            confidence = 0.8
+            if default_branch_candidate_source == "remote_origin_head":
+                confidence = 0.9
+            else:
+                missing_evidence.append("default_branch_source")
+                confidence = 0.8
 
     provenance = attach_assessment_provenance(derived_status, source_refs=source_refs)
 

@@ -31,12 +31,23 @@ Assessment is strictly read-only. An assessment:
 
 `clean_default_current` means the current branch matches the observed
 `default_branch_candidate`. It does **not** mean the default branch is confirmed.
-The observation does not expose whether `default_branch_candidate` came from
-`refs/remotes/origin/HEAD` (strong) or local heuristic fallback
-(`refs/heads/main|master|trunk`). This gap is always marked:
+Observation now exposes `default_branch_candidate_source` with values:
+
+- `remote_origin_head`
+- `local_branch_heuristic`
+- `unavailable`
+
+When `default_branch_candidate_source == "remote_origin_head"`, assessment treats
+the local source evidence as observed and does not add
+`missing_evidence: ["default_branch_source"]`; confidence is `0.9`.
+
+When source is not `remote_origin_head`, the source-quality gap remains marked:
 
 - `missing_evidence: ["default_branch_source"]`
 - `confidence: 0.8` (not 1.0 or 0.9)
+
+`remote_origin_head` provenance is still local observation only. It does not claim
+remote freshness or network truth without fetch.
 
 ## Fields (repo-assessment.v1)
 

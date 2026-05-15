@@ -314,6 +314,26 @@ def test_stop_case_clean_main(tmp_path: Path):
     assert state["behind"] == 0
     assert state["git_status_exit_code"] == 0
     assert state["default_branch_candidate"] == "main"
+    assert state["default_branch_candidate_source"] == "local_branch_heuristic"
+
+
+def test_observe_repo_prefers_remote_origin_head_for_default_branch_candidate(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    head_sha = _run(["git", "rev-parse", "HEAD"], repo).stdout.strip()
+    _run(["git", "update-ref", "refs/remotes/origin/main", head_sha], repo)
+    _run(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+        repo,
+    )
+
+    observation = observe_repo(repo)
+    schema = load_json(SCHEMAS_DIR / "repo-observation.v1.schema.json")
+    state = _assert_stop_case_invariants(observation, schema, Path("stop-case-remote-origin-head.json"))
+
+    assert state["default_branch_candidate"] == "main"
+    assert state["default_branch_candidate_source"] == "remote_origin_head"
 
 
 def test_stop_case_dirty_main(tmp_path: Path):

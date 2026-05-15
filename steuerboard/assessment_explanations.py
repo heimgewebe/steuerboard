@@ -47,7 +47,7 @@ _STATUS_MEANINGS: dict[str, tuple[str, str]] = {
         "requires_evidence",
     ),
     "clean_default_current": (
-        "Current branch matches observed default branch candidate and worktree is clean; default_branch_source remains unverified.",
+        "Current branch matches observed default branch candidate and worktree is clean.",
         "assessment_clear",
     ),
 }
@@ -121,6 +121,17 @@ def explain_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
         if mapping is None:
             raise ValueError(f"Unsupported derived_status: {status!r}")
         meaning, decision_effect = mapping
+        if status == "clean_default_current":
+            if "default_branch_source" in missing_evidence:
+                meaning = (
+                    "Current branch matches observed default branch candidate and worktree is clean; "
+                    "default_branch_source remains unverified."
+                )
+            else:
+                meaning = (
+                    "Current branch matches observed default branch candidate from recorded source "
+                    "evidence; remote freshness is not claimed."
+                )
         provenance = attach_assessment_provenance([status], source_refs=source_refs)
         status_explanations.append(
             {
