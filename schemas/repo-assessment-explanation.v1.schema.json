@@ -1,0 +1,118 @@
+{
+  "title": "Repo Assessment Explanation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "explanation_id",
+    "assessment_ref",
+    "summary",
+    "status_explanations",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "repo-assessment-explanation.v1"
+    },
+    "explanation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "assessment_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status_explanations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "meaning",
+          "decision_effect",
+          "evidence_refs",
+          "rule_refs",
+          "freshness_refs",
+          "falsification_refs",
+          "missing_evidence"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "meaning": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_effect": {
+            "type": "string",
+            "enum": [
+              "blocks_action",
+              "requires_evidence",
+              "assessment_clear"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rule_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "freshness_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "falsification_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missing_evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_authorise_actions",
+        "does_not_mutate",
+        "does_not_plan_actions"
+      ],
+      "properties": {
+        "does_not_authorise_actions": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_plan_actions": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/repo-assessment-explanation.v1.schema.json"
+}

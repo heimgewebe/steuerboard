@@ -21,6 +21,7 @@ SCHEMAS_DIR = ROOT / "schemas"
 SCHEMA_MAP = {
     "action-capabilities": SCHEMAS_DIR / "action-capability.v1.schema.json",
     "action-plans": SCHEMAS_DIR / "action-plan.v1.schema.json",
+    "assessment-explanations": SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json",
     "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",
     "duplicates": SCHEMAS_DIR / "repo-duplicates.v1.schema.json",
     "evidence": SCHEMAS_DIR / "command-trace.v1.schema.json",

@@ -127,6 +127,33 @@ Boundary for this slice:
 Open epistemic gaps:
 
 - Observation still does not expose whether `default_branch_candidate` came from remote HEAD or local heuristic. PR #11 marks this via `missing_evidence: ["default_branch_source"]` and `confidence: 0.8`; a later PR should expose candidate provenance directly.
-- Human-readable assessment explanations deferred to a later PR.
+- Richer human-readable assessment narratives remain deferred beyond the minimal `assess explain` contract; action advice remains out of scope.
 - Assessment now cross-references rule_refs, freshness_refs, and falsification_refs (when applicable).
 - `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.
+
+## Phase 4 — Assessment Explanations (minimal contract slice)
+
+Status: minimal slice started.
+
+Phase 4 minimal adds a read-only explanation contract for existing assessment output:
+
+```bash
+python -m steuerboard assess explain <assessment-json> --json
+```
+
+This slice adds `repo-assessment-explanation.v1` plus runtime/CLI support to explain
+`derived_status` entries in bounded human-readable form.
+
+Boundary for this slice:
+
+- explanation is interpretation, not planning
+- no action authorisation fields
+- no action suggestions, no safe next steps
+- no mutation, no network calls, no fetch/pull/switch/reset/clean
+- missing evidence and epistemic gaps are preserved
+
+Out of scope in this phase:
+
+- planner outputs
+- action suggestions
+- command execution advice

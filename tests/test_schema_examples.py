@@ -46,6 +46,9 @@ REQUIRED_FAILURE_CASES = {
 REQUIRED_SCHEMA_EXAMPLES = {
     "action-capabilities/git-fetch-all-prune.json",
     "action-plans/switch-main-blocked.json",
+    "assessment-explanations/clean-default-current.json",
+    "assessment-explanations/dirty-worktree.json",
+    "assessment-explanations/non-default-branch.json",
     "assessments/clean-default-current.json",
     "assessments/dirty-worktree-blocked.json",
     "assessments/feature-branch-clean-blocked.json",
@@ -66,6 +69,17 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "scope-explanations/gdrive.json",
     "scope-explanations/unknown.json",
     "source-refs/git-current-branch.json",
+}
+
+FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {
+    "action",
+    "plan_id",
+    "would_run",
+    "would_mutate",
+    "safe_actions",
+    "safe_alternatives",
+    "command_trace",
+    "run_result",
 }
 
 
@@ -90,6 +104,49 @@ def test_non_failure_schema_examples_validate_against_schemas():
         if not path.relative_to(EXAMPLES_DIR).as_posix().startswith("failure-cases/")
     }
     assert REQUIRED_SCHEMA_EXAMPLES <= validated_rel
+
+
+def test_assessment_explanation_examples_validate_against_new_schema():
+    schema = load_json(SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json")
+    examples = sorted((EXAMPLES_DIR / "assessment-explanations").glob("*.json"))
+    assert examples
+
+    for example_path in examples:
+        instance = load_json(example_path)
+        validate_instance(instance, schema, example_path)
+
+
+def test_assessment_explanation_schema_rejects_forbidden_action_fields():
+    schema = load_json(SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json")
+    base = {
+        "schema_version": "repo-assessment-explanation.v1",
+        "explanation_id": "assess-expl-example",
+        "assessment_ref": "assess-example",
+        "summary": "Read-only interpretation.",
+        "status_explanations": [
+            {
+                "status": "dirty_worktree",
+                "meaning": "Working tree contains uncommitted changes.",
+                "decision_effect": "blocks_action",
+                "evidence_refs": ["obs-example"],
+                "rule_refs": ["assessment.rule.dirty_worktree_blocks_action"],
+                "freshness_refs": ["freshness.local_git_status.current_invocation"],
+                "falsification_refs": ["failure-case.dirty_worktree"],
+                "missing_evidence": [],
+            }
+        ],
+        "boundary": {
+            "does_not_authorise_actions": True,
+            "does_not_mutate": True,
+            "does_not_plan_actions": True,
+        },
+    }
+
+    for forbidden_key in FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS:
+        invalid = dict(base)
+        invalid[forbidden_key] = "forbidden"
+        with pytest.raises(ValidationError):
+            validate_instance(invalid, schema, EXAMPLES_DIR / f"invalid-{forbidden_key}.json")
 
 
 def test_assessment_examples_match_runtime_provenance_contract():

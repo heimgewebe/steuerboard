@@ -68,6 +68,37 @@ Explicitly excluded (never in this schema):
 - `safe_actions`, `safe_alternatives`
 - `command_trace`, `run_result`
 
+## Assessment explanations
+
+Assessment explanations are an interpretation layer over an existing
+`repo-assessment.v1` object. They do not create plans and do not provide action advice.
+
+`repo-assessment-explanation.v1` is a separate contract with these core fields:
+
+- `assessment_ref` points to the assessed object
+- `summary` is bounded narrative about assessment outcomes
+- `status_explanations[]` provides one explanation entry per `derived_status`
+- `boundary` hard-codes read-only guarantees
+
+`status_explanations[]` uses status-specific provenance refs:
+
+- `rule_refs`, `freshness_refs`, `falsification_refs` are scoped to each status
+- `missing_evidence` remains assessment-level context and is repeated per status item
+
+Boundary fields are contractual and always true:
+
+- `does_not_authorise_actions`
+- `does_not_mutate`
+- `does_not_plan_actions`
+
+This keeps the architecture boundary explicit:
+
+> Observation ≠ Derivation ≠ Decision ≠ Action
+
+An assessment explanation explains decisions already present in assessment output.
+It must not recommend commands, must not authorise actions, and must not claim
+remote freshness beyond observed evidence.
+
 ## Phase history
 
 - Phase 0b: schema shape defined, static examples only
