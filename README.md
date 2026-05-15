@@ -11,6 +11,8 @@ make PYTHON=python3 deploy-check
 
 See [docs/local-cli-deploy.md](docs/local-cli-deploy.md) for what this proves and what it does not.
 
+The CI gate (`.github/workflows/validate.yml`) reproduces these checks on every push and pull request.
+
 ## Planning anchors
 
 - [Masterplan](docs/masterplan.md)

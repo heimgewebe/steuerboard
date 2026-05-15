@@ -101,3 +101,15 @@ This boundary follows the architecture rule:
 The local CLI deploy gate is an intermediate milestone after Phase 3. It does not advance to
 Phase 4. Phase 4 would add human-readable assessment explanations and cross-referencing
 rule refs. That phase is deferred until after this gate is proven reproducible.
+
+## Local gate vs CI gate
+
+The **local gate** (`make PYTHON=python3 deploy-check` on your machine) proves local correctness
+and JSON schema compliance.
+
+The **CI gate** (`.github/workflows/validate.yml`) reproduces the same checks on a clean
+checkout in a standardized environment. This makes the gate reproducible and ensures drift
+between machines does not hide issues.
+
+Both gates prove the same boundary: read-only observation, valid schemas, no mutations.
+Neither proves product deploy readiness, backend availability, or frontend functionality.
