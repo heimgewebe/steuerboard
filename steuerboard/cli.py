@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from .action_plans import plan_switch_main
 from .assessment import assess_repo
 from .assessment_explanations import explain_assessment
 from .inventory import build_duplicates_report, build_inventory, explain_scope
@@ -105,6 +106,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit repo-assessment-explanation.v1 JSON.",
     )
 
+    plan_parser = subparsers.add_parser(
+        "plan",
+        help="Read-only plan preview commands (Plan ≠ Action).",
+    )
+    plan_subparsers = plan_parser.add_subparsers(dest="plan_command", required=True)
+
+    plan_switch_main_parser = plan_subparsers.add_parser(
+        "switch-main",
+        help=(
+            "Derive a hypothetical switch-main action-plan from an existing "
+            "repo-assessment JSON. Does not execute, mutate, or authorise actions."
+        ),
+    )
+    plan_switch_main_parser.add_argument(
+        "assessment_json",
+        help="Path to a repo-assessment.v1 JSON file.",
+    )
+    plan_switch_main_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit action-plan.v1 JSON.",
+    )
+
     scope_parser = subparsers.add_parser("scope", help="Read-only scope explanation commands.")
     scope_subparsers = scope_parser.add_subparsers(dest="scope_command", required=True)
 
@@ -177,6 +202,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(explanation, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "plan" and args.plan_command == "switch-main":
+        try:
+            with Path(args.assessment_json).open("r", encoding="utf-8") as handle:
+                assessment = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"invalid assessment JSON: {exc}")
+
+        try:
+            plan = plan_switch_main(assessment)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "scope" and args.scope_command == "explain":

@@ -8,13 +8,14 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All six read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All seven read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
   - `steuerboard inventory duplicates --json`
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
+  - `steuerboard plan switch-main <assessment-json> --json`
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
@@ -102,8 +103,11 @@ This boundary follows the architecture rule:
 
 The local CLI deploy gate remains a read-only reproducibility gate.
 
-Phase 4 minimal now adds a contract-first assessment explanation surface. Action
-planning, action authorization, and command advice remain out of scope.
+Phase 4 minimal now adds a contract-first assessment explanation surface.
+Phase 5 minimal adds a read-only plan preview surface for `switch-main`. The
+preview does not execute, mutate, or authorise actions; its `decision` is a
+plan outcome, not an action permission. Action execution and command advice
+remain out of scope.
 
 ## Local gate vs CI gate
 

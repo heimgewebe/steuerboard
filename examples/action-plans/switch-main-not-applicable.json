@@ -1,0 +1,41 @@
+{
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-example-switch-main-not-applicable",
+  "action": "switch-main",
+  "repo_id": "heimgewebe/steuerboard",
+  "assessment_ref": "assess-example-clean-default-current",
+  "decision": "not_applicable",
+  "would_run": [],
+  "would_mutate": [],
+  "blocked_because": [],
+  "required_evidence": [],
+  "safe_alternatives": [],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "git.default_branch_candidate_source",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
+  ],
+  "rule_refs": [
+    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_status.current_invocation",
+    "freshness.default_branch_source.unverified"
+  ],
+  "falsification_refs": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

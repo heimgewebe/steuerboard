@@ -1,8 +1,9 @@
 {
   "schema_version": "action-plan.v1",
   "plan_id": "plan-example-switch-main-blocked",
-  "action": "git.switch_main",
+  "action": "switch-main",
   "repo_id": "heimgewebe/steuerboard",
+  "assessment_ref": "assess-example-non-default-branch-evidence-missing",
   "decision": "blocked",
   "would_run": [
     "git switch main"
@@ -11,15 +12,33 @@
     "current_branch"
   ],
   "blocked_because": [
-    "branch_merge_status_unknown",
-    "origin_main_freshness_unknown"
+    "non_default_branch"
   ],
   "required_evidence": [
     "branch_contains_origin_main_or_pr_merged",
     "fresh_origin_main"
   ],
-  "safe_alternatives": [
-    "show_diff_against_default",
-    "fetch_only_plan"
-  ]
+  "safe_alternatives": [],
+  "source_refs": [
+    "git.current_branch",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.default_branch_candidate_source"
+  ],
+  "rule_refs": [
+    "assessment.rule.non_default_branch_requires_lifecycle_evidence"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_branch.current_invocation",
+    "freshness.remote_branch_lifecycle.not_observed_no_fetch"
+  ],
+  "falsification_refs": [
+    "failure-case.feature_branch_unmerged",
+    "failure-case.origin_main_stale"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
 }

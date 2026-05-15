@@ -166,3 +166,43 @@ Out of scope in this phase:
 - planner outputs
 - action suggestions
 - command execution advice
+
+## Phase 5 — Plan Preview (minimal contract slice)
+
+Status: minimal slice started.
+
+Phase 5 minimal introduces a contract-first plan preview surface for the
+`switch-main` action. It reads an existing `repo-assessment.v1` JSON object
+and emits an `action-plan.v1` JSON object.
+
+```bash
+python -m steuerboard plan switch-main <assessment-json> --json
+```
+
+This slice intentionally does not consume a repository path, does not start
+a new observation, does not read configuration, and does not run Git or
+network commands. It is a pure transformation from a recorded assessment
+artefact to a hypothetical plan artefact.
+
+`action-plan.v1` now carries a `boundary` block with three `const: true`
+fields: `does_not_execute`, `does_not_mutate`, `does_not_authorise_actions`.
+The `decision` enum is extended by `not_applicable` for the case where the
+working tree already matches the target state.
+
+Status mapping for `switch-main`:
+
+- blocking → `decision: "blocked"`: `not_git_repo`, `scope_backup`,
+  `scope_gdrive`, `scope_excluded`, `scope_unknown`, `scope_shadow`,
+  `dirty_worktree`, `detached_head`, `default_branch_unknown`,
+  `non_default_branch`. The plan must not propose a way to bypass the blocker.
+- `clean_default_current` → `decision: "not_applicable"`: the current branch
+  already matches the observed default branch candidate, so no switch is
+  required.
+
+Out of scope in this slice:
+
+- action execution
+- action authorisation (`decision: "allowed"` is never emitted for switch-main)
+- command advice
+- network operations, fetch, pull, switch, reset, clean
+- starting a new observation or reading config

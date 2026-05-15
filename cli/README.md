@@ -55,3 +55,29 @@ For `clean_default_current`, provenance refs are source-aware:
 `decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
 
 Boundary: read-only, no mutation, no fetch, no network, no action planning.
+
+Phase 5 minimal introduces a read-only plan preview surface.
+
+Command:
+
+    python -m steuerboard plan switch-main <assessment-json> --json
+
+The command reads an existing `repo-assessment.v1` JSON file and emits
+`action-plan.v1` JSON. It does not start a new observation, does not read
+config, does not run Git, and does not touch any repository.
+
+`decision` for the `switch-main` action is one of:
+
+- `blocked` — any blocking status in `derived_status` (e.g. `dirty_worktree`,
+  `non_default_branch`, non-canonical `scope_*`, `detached_head`,
+  `default_branch_unknown`, `not_git_repo`). The plan must not propose a way
+  to bypass the blocker.
+- `not_applicable` — `clean_default_current`: current branch already matches
+  the observed default branch candidate, no switch is required.
+
+This slice never emits `decision: "allowed"`. Authorising a mutating switch
+is out of scope.
+
+Boundary: every plan carries a `boundary` block with
+`does_not_execute`, `does_not_mutate`, and `does_not_authorise_actions`
+all set to `true`. The plan is a plan outcome, not an action permission.

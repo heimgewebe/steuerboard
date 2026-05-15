@@ -8,7 +8,8 @@
     "action",
     "decision",
     "would_run",
-    "would_mutate"
+    "would_mutate",
+    "boundary"
   ],
   "properties": {
     "schema_version": {
@@ -25,11 +26,16 @@
     "repo_id": {
       "type": "string"
     },
+    "assessment_ref": {
+      "type": "string",
+      "minLength": 1
+    },
     "decision": {
       "enum": [
         "allowed",
         "blocked",
-        "warn"
+        "warn",
+        "not_applicable"
       ]
     },
     "would_run": {
@@ -60,6 +66,50 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rule_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "freshness_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "falsification_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
       }
     }
   },
