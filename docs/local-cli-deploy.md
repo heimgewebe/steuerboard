@@ -97,9 +97,22 @@ This boundary follows the architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
+
 ## What comes next
 
 The local CLI deploy gate remains a read-only reproducibility gate.
 
 Phase 4 minimal now adds a contract-first assessment explanation surface. Action
 planning, action authorization, and command advice remain out of scope.
+
+## Local gate vs CI gate
+
+The **local gate** (`make PYTHON=python3 deploy-check` on your machine) proves local correctness
+and JSON schema compliance.
+
+The **CI gate** (`.github/workflows/validate.yml`) reproduces the same checks on a clean
+checkout across the configured Python matrix. This makes the gate reproducible and ensures
+drift between machines does not hide issues.
+
+Both gates prove the same boundary for productive CLI smoke commands: read-only observation, valid schemas, and no target-repository mutations. Test fixtures may still create and mutate temporary repositories.
+Neither proves product deploy readiness, backend availability, or frontend functionality.
