@@ -54,7 +54,7 @@ For `clean_default_current`, provenance refs are source-aware:
 
 `decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
 
-Boundary: read-only, no mutation, no fetch, no network, no action planning.
+Assessment boundary: read-only, no mutation, no fetch, no network, no action planning.
 
 Phase 5 introduces a minimal plan preview command that derives from an existing
 assessment artifact only.

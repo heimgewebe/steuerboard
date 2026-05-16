@@ -25,14 +25,10 @@
     "assessment_ref": {
       "type": "string"
     },
-    "repo_id": {
-      "type": "string"
-    },
+
     "decision": {
       "enum": [
-        "allowed",
         "blocked",
-        "warn",
         "not_applicable"
       ]
     },

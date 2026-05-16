@@ -140,22 +140,29 @@ def test_multi_blocking_statuses_preserved():
     assert set(plan["blocked_because"]) == {"scope_backup", "dirty_worktree"}
 
 
-def test_null_optional_field_raises_value_error():
+@pytest.mark.parametrize("field", [
+    "missing_evidence",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+])
+def test_null_optional_field_raises_value_error(field: str):
+    """Verify null optional list fields raise ValueError."""
     assessment = _assessment_with_statuses(["non_default_branch"])
-    assessment["missing_evidence"] = None
+    assessment[field] = None
 
-    with pytest.raises(ValueError, match="missing_evidence must not be null"):
-        plan_switch_main(assessment)
-
-    assessment["missing_evidence"] = []
-    assessment["rule_refs"] = None
-
-    with pytest.raises(ValueError, match="rule_refs must not be null"):
+    with pytest.raises(ValueError, match=f"{field} must not be null"):
         plan_switch_main(assessment)
 
 
-def test_schema_forbids_execution_fields():
-    """Verify schema rejects old executor-oriented fields that should not be present."""
+@pytest.mark.parametrize("field,value", [
+    ("would_run", ["git switch main"]),
+    ("would_mutate", ["current_branch"]),
+    ("safe_alternatives", ["show_diff_against_default"]),
+    ("required_evidence", ["fresh_origin_main"]),
+])
+def test_schema_forbids_execution_fields(field: str, value: list[str]):
+    """Verify schema rejects all old executor-oriented fields."""
     schema = _action_plan_schema()
     plan = {
         "schema_version": "action-plan.v1",
@@ -169,11 +176,11 @@ def test_schema_forbids_execution_fields():
             "does_not_authorise_actions": True,
         },
         "blocked_because": ["dirty_worktree"],
-        "would_run": ["git switch main"],
+        field: value,
     }
 
     with pytest.raises(ValidationError, match="not allowed|unexpected"):
-        validate_instance(plan, schema, Path("plan-with-would_run.json"))
+        validate_instance(plan, schema, Path(f"plan-with-{field}.json"))
 
 
 def test_cli_plan_switch_main_smoke(tmp_path: Path):
