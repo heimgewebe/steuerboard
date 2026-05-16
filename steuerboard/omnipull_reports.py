@@ -65,7 +65,7 @@ _BOUNDARY = {
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
-    return value
+    return value.strip()
 
 
 def _require_string(value: Any, field_name: str) -> str:
@@ -150,8 +150,9 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
     report_id = _require_non_empty_string(raw.get("report_id"), "report_id")
     run_id = _require_non_empty_string(raw.get("run_id"), "run_id")
     generated_at = _require_date_time_string(raw.get("generated_at"), "generated_at")
-    source_path = _require_non_empty_string(raw.get("source_path"), "source_path")
-    if source_path != str(path):
+    raw_source_path = raw.get("source_path")
+    source_path = _require_non_empty_string(raw_source_path, "source_path")
+    if raw_source_path != str(path):
         raise ValueError("source_path must exactly match the loaded artifact path")
 
     boundary = raw.get("boundary")

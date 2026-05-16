@@ -201,6 +201,16 @@ def test_runtime_rejects_lexically_different_source_path_for_same_file(tmp_path:
         load_omnipull_report(report_path)
 
 
+def test_runtime_rejects_whitespace_padded_source_path(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "source-path-whitespace.json"
+    payload["source_path"] = f"  {report_path}  "
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="source_path"):
+        load_omnipull_report(report_path)
+
+
 def test_runtime_accepts_empty_repos_for_empty_run(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     report_path = tmp_path / "empty-run.json"
@@ -278,6 +288,20 @@ def test_runtime_strips_repo_list_item_whitespace(tmp_path: Path):
     loaded = load_omnipull_report(report_path)
 
     assert loaded["repos"][0]["source_refs"] == ["source.branch.current"]
+
+
+def test_runtime_strips_non_empty_repo_strings(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "strip-strings.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["repo_id"] = " repo.mixed-run "
+    payload["repos"][0]["path"] = " ./repo "
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = load_omnipull_report(report_path)
+
+    assert loaded["repos"][0]["repo_id"] == "repo.mixed-run"
+    assert loaded["repos"][0]["path"] == "./repo"
 
 
 def test_runtime_rejects_falsification_ref_prefix(tmp_path: Path):
