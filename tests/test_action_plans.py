@@ -69,6 +69,38 @@ def test_schema_rejects_non_preview_decisions(decision: str):
         validate_instance(plan, schema, Path(f"plan-with-{decision}.json"))
 
 
+@pytest.mark.parametrize("missing_field", [
+    "source_refs",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+    "missing_evidence",
+])
+def test_schema_requires_provenance_lists(missing_field: str):
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+    plan.pop(missing_field)
+
+    with pytest.raises(ValidationError, match="required property|is a required property"):
+        validate_instance(plan, schema, Path(f"plan-missing-{missing_field}.json"))
+
+
 def test_blocked_runtime_emits_blocked_because():
     assessment = _assessment_with_statuses(["non_default_branch"])
 
