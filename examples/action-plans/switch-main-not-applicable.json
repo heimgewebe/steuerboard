@@ -1,0 +1,27 @@
+{
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-example-switch-main-not-applicable",
+  "action": "switch-main",
+  "assessment_ref": "assess-example-clean-default-current",
+  "decision": "not_applicable",
+  "source_refs": [
+    "local.git.status",
+    "local.git.branch.current"
+  ],
+  "rule_refs": [
+    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_status.current_invocation",
+    "freshness.default_branch_source.unverified"
+  ],
+  "falsification_refs": [],
+  "missing_evidence": [
+    "default_branch_source"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

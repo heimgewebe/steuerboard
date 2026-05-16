@@ -2,6 +2,9 @@
 
 Actions are future gated capabilities. They are not implemented in Phase 0b.
 
+Plan preview output is not an action executor and not an action authorisation.
+It is a contract artifact derived from prior assessment.
+
 ## Allowed later with gates
 
 - read-only status commands
@@ -17,3 +20,11 @@ Actions are future gated capabilities. They are not implemented in Phase 0b.
 - branch deletion
 - destructive reset or clean
 - automatic conflict resolution
+
+## Plan Preview Boundary
+
+`action-plan.v1` in the current slice is preview-only:
+
+- no command execution
+- no repository mutation
+- no action authorisation

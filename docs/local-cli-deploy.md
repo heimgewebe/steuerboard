@@ -8,13 +8,14 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All six read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All seven read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
   - `steuerboard inventory duplicates --json`
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
+  - `steuerboard plan switch-main <assessment-json> --json`
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
@@ -27,6 +28,7 @@ reset, clean, or network command. It does not instrument system calls.
 - Any frontend readiness. There is no frontend.
 - Any product deploy readiness. No CI pipeline, no packaging, no distribution.
 - Action planning or authorization. All commands are strictly read-only.
+- Plan execution or action authorization. Plan preview is derivation only.
 - Correctness on all machines. `inventory` results depend on the local config and what exists at
   `canonical_repo_roots`. Results are machine-specific; JSON validity is not.
 
@@ -88,6 +90,7 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 - No `git fetch`, `git pull`, `git switch`, `git reset`, or `git clean`.
 - No network requests.
 - No action planning, no action authorization.
+- Plan preview only from existing assessment artifacts.
 - No branch switches.
 
 The `test` target may create and mutate temporary test fixtures; that is test infrastructure,

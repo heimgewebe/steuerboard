@@ -140,6 +140,27 @@ Open epistemic gaps:
 - Assessment now cross-references rule_refs, freshness_refs, and falsification_refs (when applicable).
 - `scope_shadow` remains an inventory/duplicates classification and is not emitted by single-path `assess repo` in this slice.
 
+## Phase 5 — Plan Preview (minimal contract slice)
+
+Status: minimal slice started.
+
+Phase 5 adds assessment-artifact-only plan preview for `switch-main`:
+
+```bash
+python -m steuerboard plan switch-main <assessment-json> --json
+```
+
+This command derives `action-plan.v1` from existing `repo-assessment.v1` JSON.
+It does not observe repositories, does not read local scope config, does not run
+Git commands, and does not execute or authorise actions.
+
+Contract notes:
+
+- `decision` is a plan result, not execution permission
+- `not_applicable` means no switch is required (`clean_default_current`)
+- `blocked` means blockers remain and no bypass advice is produced
+- boundary fields are constant true: no execute, no mutate, no authorise
+
 ## Phase 4 — Assessment Explanations (minimal contract slice)
 
 Status: minimal slice started.

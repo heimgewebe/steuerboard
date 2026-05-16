@@ -7,8 +7,8 @@
     "plan_id",
     "action",
     "decision",
-    "would_run",
-    "would_mutate"
+    "assessment_ref",
+    "boundary"
   ],
   "properties": {
     "schema_version": {
@@ -22,6 +22,9 @@
       "type": "string",
       "minLength": 1
     },
+    "assessment_ref": {
+      "type": "string"
+    },
     "repo_id": {
       "type": "string"
     },
@@ -29,25 +32,64 @@
       "enum": [
         "allowed",
         "blocked",
-        "warn"
+        "warn",
+        "not_applicable"
       ]
-    },
-    "would_run": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "would_mutate": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
     },
     "blocked_because": {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rule_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "freshness_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "falsification_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
       }
     },
     "required_evidence": {
