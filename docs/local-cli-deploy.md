@@ -105,8 +105,11 @@ This boundary follows the architecture rule:
 
 The local CLI deploy gate remains a read-only reproducibility gate.
 
-Phase 4 minimal now adds a contract-first assessment explanation surface. Action
-execution, action authorization, and command advice remain out of scope.
+Phase 4 minimal now adds a contract-first assessment explanation surface.
+Phase 5 minimal adds a read-only plan preview surface for `switch-main`. The
+preview does not execute, mutate, or authorise actions; its `decision` is a
+plan outcome, not an action permission. Action execution and command advice
+remain out of scope.
 
 ## Local gate vs CI gate
 
