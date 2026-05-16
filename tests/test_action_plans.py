@@ -404,6 +404,14 @@ def test_null_source_refs_raises_value_error():
         plan_switch_main(assessment)
 
 
+def test_empty_source_refs_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["source_refs"] = []
+
+    with pytest.raises(ValueError, match="source_refs"):
+        plan_switch_main(assessment)
+
+
 @pytest.mark.parametrize("field,value", [
     ("would_run", ["git switch main"]),
     ("would_mutate", ["current_branch"]),

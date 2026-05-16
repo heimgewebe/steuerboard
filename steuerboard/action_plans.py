@@ -50,6 +50,13 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
     return value
 
 
+def _require_non_empty_string_list(value: Any, field_name: str) -> list[str]:
+    items = _require_string_list(value, field_name)
+    if not items:
+        raise ValueError(f"{field_name} must be a non-empty list[str]")
+    return items
+
+
 def _require_string_list_field(obj: dict[str, Any], key: str) -> list[str]:
     if key not in obj:
         raise ValueError(f"{key} must be present and be a list[str]")
@@ -89,7 +96,7 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     if unknown_statuses:
         raise ValueError(f"unknown derived_status value(s): {unknown_statuses}")
 
-    source_refs = _require_string_list(assessment.get("source_refs"), "source_refs")
+    source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
 
     missing_evidence = _require_string_list_field(assessment, "missing_evidence")
     rule_refs = _require_string_list_field(assessment, "rule_refs")
