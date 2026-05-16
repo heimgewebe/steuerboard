@@ -12,8 +12,19 @@
     "fresh_origin_main"
   ],
   "source_refs": [
-    "local.git.status",
-    "local.git.branch.current"
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "git.default_branch_candidate_source",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
   ],
   "rule_refs": [
     "assessment.rule.non_default_branch_requires_lifecycle_evidence"

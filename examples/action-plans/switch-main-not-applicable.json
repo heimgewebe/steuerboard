@@ -5,8 +5,19 @@
   "assessment_ref": "assess-example-clean-default-current",
   "decision": "not_applicable",
   "source_refs": [
-    "local.git.status",
-    "local.git.branch.current"
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "git.default_branch_candidate_source",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
   ],
   "rule_refs": [
     "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"

@@ -44,10 +44,16 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
     return value
 
 
-def _optional_string_list(value: Any, field_name: str) -> list[str]:
-    if value is None:
+def _optional_string_list_field(obj: dict[str, Any], key: str) -> list[str]:
+    """Extract optional list[str] field; absent defaults to [], null/non-list raises ValueError."""
+    if key not in obj:
         return []
-    return _require_string_list(value, field_name)
+    value = obj[key]
+    if value is None:
+        raise ValueError(f"{key} must not be null; omit field if not present")
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{key} must be a list[str]")
+    return value
 
 
 def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
@@ -75,10 +81,10 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
 
     source_refs = _require_string_list(assessment.get("source_refs"), "source_refs")
 
-    missing_evidence = _optional_string_list(assessment.get("missing_evidence"), "missing_evidence")
-    rule_refs = _optional_string_list(assessment.get("rule_refs"), "rule_refs")
-    freshness_refs = _optional_string_list(assessment.get("freshness_refs"), "freshness_refs")
-    falsification_refs = _optional_string_list(assessment.get("falsification_refs"), "falsification_refs")
+    missing_evidence = _optional_string_list_field(assessment, "missing_evidence")
+    rule_refs = _optional_string_list_field(assessment, "rule_refs")
+    freshness_refs = _optional_string_list_field(assessment, "freshness_refs")
+    falsification_refs = _optional_string_list_field(assessment, "falsification_refs")
 
     blocking_reasons = [status for status in derived_status if status in BLOCKING_SWITCH_MAIN_STATUSES]
     not_applicable_reasons = [

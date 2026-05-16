@@ -40,6 +40,6 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard assess explain <assessment-json> --json`
 - `python -m steuerboard plan switch-main <assessment-json> --json`
 
-These commands are read-only. They must not plan actions, switch branches, pull, fetch, push, or mutate repositories. The `assess` command derives a structured assessment from observation and scope — it does not produce action plans or authorise actions.
+Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.
 
-The `plan switch-main` command is a plan preview only: it derives `action-plan.v1` from an existing `repo-assessment.v1` artifact, does not execute Git, does not mutate repositories, and does not authorise actions.
+The `plan switch-main` command emits a preview-only plan artifact from an existing assessment. It does not execute Git, does not mutate repositories, and does not authorise actions.

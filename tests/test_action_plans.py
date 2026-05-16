@@ -125,6 +125,55 @@ def test_forbidden_execution_fields_are_not_emitted():
     plan = plan_switch_main(assessment)
 
     assert FORBIDDEN_EXECUTION_FIELDS.isdisjoint(plan.keys())
+    assert "would_run" not in plan
+    assert "would_mutate" not in plan
+    assert "safe_alternatives" not in plan
+    assert "required_evidence" not in plan
+
+
+def test_multi_blocking_statuses_preserved():
+    assessment = _assessment_with_statuses(["scope_backup", "dirty_worktree"])
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert set(plan["blocked_because"]) == {"scope_backup", "dirty_worktree"}
+
+
+def test_null_optional_field_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["missing_evidence"] = None
+
+    with pytest.raises(ValueError, match="missing_evidence must not be null"):
+        plan_switch_main(assessment)
+
+    assessment["missing_evidence"] = []
+    assessment["rule_refs"] = None
+
+    with pytest.raises(ValueError, match="rule_refs must not be null"):
+        plan_switch_main(assessment)
+
+
+def test_schema_forbids_execution_fields():
+    """Verify schema rejects old executor-oriented fields that should not be present."""
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "blocked",
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+        "blocked_because": ["dirty_worktree"],
+        "would_run": ["git switch main"],
+    }
+
+    with pytest.raises(ValidationError, match="not allowed|unexpected"):
+        validate_instance(plan, schema, Path("plan-with-would_run.json"))
 
 
 def test_cli_plan_switch_main_smoke(tmp_path: Path):

@@ -91,18 +91,6 @@
           "const": true
         }
       }
-    },
-    "required_evidence": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "safe_alternatives": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
