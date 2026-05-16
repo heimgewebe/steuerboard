@@ -343,6 +343,18 @@ def test_schema_rejects_missing_required_repo_fields():
             validate_instance(candidate, schema, Path(f"missing-repo-field-{field}.json"))
 
 
+def test_mixed_run_default_branch_unknown_uses_assessment_vocabulary():
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    unknown_default = next(
+        repo for repo in payload["repos"] if repo["status"] == "default_branch_unknown"
+    )
+
+    assert unknown_default["missing_evidence"] == ["default_branch"]
+    assert unknown_default["freshness_refs"] == [
+        "freshness.default_branch_candidate.unavailable"
+    ]
+
+
 def test_omnipull_report_show_cli_rejects_missing_file(tmp_path: Path):
     missing_path = tmp_path / "does-not-exist.json"
     result = subprocess.run(

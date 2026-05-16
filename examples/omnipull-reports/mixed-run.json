@@ -103,13 +103,13 @@
         "git.default_branch_candidate"
       ],
       "freshness_refs": [
-        "freshness.default_branch_source.unverified"
+        "freshness.default_branch_candidate.unavailable"
       ],
       "falsification_refs": [
         "failure-case.unknown_default_branch"
       ],
       "missing_evidence": [
-        "default_branch_source"
+        "default_branch"
       ]
     }
   ],
