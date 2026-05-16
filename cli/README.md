@@ -83,6 +83,8 @@ Command:
 The command loads one explicit `omnipull-report.v1` JSON file, validates required
 fields, and emits a bounded report artifact.
 The report `source_path` must match the explicit artifact path passed to the command.
+For this slice, the match is lexical (no path canonicalization).
+`repos: []` is allowed to represent an empty run artifact.
 
 Boundary for this slice:
 

@@ -52,3 +52,5 @@ lookup, does not search `/home/alex/logs/omnipull`, does not execute Git, does n
 does not execute actions, does not authorise actions, and does not generate new plans from Omnipull
 report input in this slice.
 The artifact `source_path` must match the explicit path provided to the loader.
+This match is lexical for this slice (`./examples/x.json` and `examples/x.json` are different strings).
+`repos: []` is valid and represents an empty run artifact.

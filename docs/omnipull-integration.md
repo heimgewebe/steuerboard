@@ -10,6 +10,8 @@ Current boundary:
 
 - reads one explicit JSON artifact path only
 - report `source_path` must match that explicit artifact path
+- source path matching is lexical in this slice (no canonicalization)
+- `repos: []` is valid for an empty run artifact
 - no latest lookup
 - no path search under `/home/alex/logs/omnipull`
 - no fetch/pull/switch/reset/clean

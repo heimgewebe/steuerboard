@@ -189,6 +189,31 @@ def test_runtime_rejects_source_path_mismatch(tmp_path: Path):
         load_omnipull_report(report_path)
 
 
+def test_runtime_rejects_lexically_different_source_path_for_same_file(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_dir = tmp_path / "nested"
+    report_dir.mkdir()
+    report_path = report_dir / "report.json"
+    payload["source_path"] = f"{report_dir}/./report.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="source_path"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_accepts_empty_repos_for_empty_run(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "empty-run.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"] = []
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = load_omnipull_report(report_path)
+
+    validate_instance(loaded, _schema(), Path("empty-run.json"))
+    assert loaded["repos"] == []
+
+
 def test_runtime_rejects_empty_skip_reasons(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     report_path = tmp_path / "empty-skip-reasons.json"
