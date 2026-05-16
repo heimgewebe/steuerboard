@@ -176,7 +176,12 @@ def _action_plan_schema() -> dict:
 
 def _assessment_with_statuses(statuses: list[str], decision_state: str | None = None) -> dict:
     if decision_state is None:
-        decision_state = "assessment_clear" if statuses == ["clean_default_current"] else "evidence_missing"
+        if statuses == ["clean_default_current"]:
+            decision_state = "assessment_clear"
+        elif statuses == ["non_default_branch"] or statuses == ["default_branch_unknown"]:
+            decision_state = "evidence_missing"
+        else:
+            decision_state = "action_blocked"
 
     return {
         "schema_version": "repo-assessment.v1",
@@ -369,11 +374,25 @@ def test_multi_blocking_statuses_preserved():
     "falsification_refs",
 ])
 def test_null_optional_field_raises_value_error(field: str):
-    """Verify null optional list fields raise ValueError."""
+    """Verify null required list fields raise ValueError."""
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment[field] = None
 
-    with pytest.raises(ValueError, match=f"{field} must not be null"):
+    with pytest.raises(ValueError, match=f"{field} must be a list"):
+        plan_switch_main(assessment)
+
+
+@pytest.mark.parametrize("field", [
+    "missing_evidence",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+])
+def test_missing_required_assessment_list_field_raises_value_error(field: str):
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment.pop(field)
+
+    with pytest.raises(ValueError, match=field):
         plan_switch_main(assessment)
 
 
