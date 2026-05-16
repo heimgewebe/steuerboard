@@ -1,0 +1,33 @@
+{
+  "schema_version": "omnipull-report.v1",
+  "report_id": "omnipull-report-example-dirty-worktree",
+  "run_id": "run-2026-05-16-002",
+  "generated_at": "2026-05-16T09:31:00Z",
+  "source_path": "examples/omnipull-reports/dirty-worktree.json",
+  "repos": [
+    {
+      "repo_id": "heimgewebe/steuerboard",
+      "path": "/home/alex/repos/steuerboard",
+      "status": "dirty_worktree",
+      "skip_reasons": [
+        "dirty_worktree"
+      ],
+      "source_refs": [
+        "git.status.porcelain",
+        "git.current_branch"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_status.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.dirty_worktree"
+      ],
+      "missing_evidence": []
+    }
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

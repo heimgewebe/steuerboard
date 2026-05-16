@@ -28,6 +28,7 @@ smoke:
 	json_smoke "scope explain ." $(CLI) scope explain . --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory" $(CLI) inventory --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory duplicates" $(CLI) inventory duplicates --json --config $(EXAMPLE_CONFIG); \
+	json_smoke "omnipull-report show mixed-run" $(CLI) omnipull-report show examples/omnipull-reports/mixed-run.json --json; \
 	echo "--- smoke: assess repo . -> assess explain -> plan switch-main ---"; \
 	tmp_assessment="$$(mktemp)"; \
 	tmp_explanation="$$(mktemp)"; \

@@ -1,0 +1,36 @@
+{
+  "schema_version": "omnipull-report.v1",
+  "report_id": "omnipull-report-example-non-default-branch",
+  "run_id": "run-2026-05-16-001",
+  "generated_at": "2026-05-16T09:30:00Z",
+  "source_path": "examples/omnipull-reports/non-default-branch.json",
+  "repos": [
+    {
+      "repo_id": "heimgewebe/steuerboard",
+      "path": "/home/alex/repos/steuerboard",
+      "status": "non_default_branch",
+      "skip_reasons": [
+        "non_default_branch"
+      ],
+      "source_refs": [
+        "git.current_branch",
+        "git.default_branch_candidate"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_branch.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.feature_branch_unmerged"
+      ],
+      "missing_evidence": [
+        "branch_contains_origin_main_or_pr_merged",
+        "fresh_origin_main"
+      ]
+    }
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

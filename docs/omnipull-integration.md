@@ -1,6 +1,19 @@
 # Omnipull Integration
 
-omnipull integration is planned but not implemented in Phase 0b.
+omnipull integration status: minimal read-only adapter started in Phase 6a.
+
+Current implemented surface:
+
+- `python -m steuerboard omnipull-report show <report-json> --json`
+
+Current boundary:
+
+- reads one explicit JSON artifact path only
+- no latest lookup
+- no path search under `/home/alex/logs/omnipull`
+- no fetch/pull/switch/reset/clean
+- no network access
+- no action execution and no action authorization
 
 Future reports should be structured JSON instead of log-grep-only text. steuerboard should explain omnipull reports using the same shared vocabulary, for example:
 

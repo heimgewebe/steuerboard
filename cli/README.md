@@ -71,3 +71,20 @@ For this slice, `decision` in the plan is a plan result only:
 
 - `blocked` means switch-main cannot be proposed because blocking status is present
 - `not_applicable` means no switch is needed (`clean_default_current`)
+
+Phase 6a introduces a minimal read-only Omnipull report adapter.
+
+Command:
+
+    python -m steuerboard omnipull-report show <report-json> --json
+
+The command loads one explicit `omnipull-report.v1` JSON file, validates and normalizes required
+fields, and emits a bounded report artifact.
+
+Boundary for this slice:
+
+- no `latest` lookup command
+- no path search under `/home/alex/logs/omnipull`
+- no fetch/pull/switch/reset/clean
+- no network access
+- no action execution and no action authorization

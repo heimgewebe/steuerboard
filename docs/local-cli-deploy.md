@@ -8,7 +8,7 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All seven read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All eight read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
@@ -16,6 +16,7 @@ After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHO
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
   - `steuerboard plan switch-main <assessment-json> --json`
+  - `steuerboard omnipull-report show <report-json> --json`
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
@@ -92,6 +93,7 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 - No action execution, no action authorization.
 - Plan preview only from existing assessment artifacts.
 - No branch switches.
+- Omnipull adapter reads one explicit artifact path only; no latest lookup and no `/home/alex/logs/omnipull` path search.
 
 The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
 not a productive repository action.
