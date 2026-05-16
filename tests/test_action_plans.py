@@ -32,10 +32,32 @@ def _schema() -> dict:
     return load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
 
 
+_NOT_APPLICABLE_STATUSES = frozenset({"clean_default_current"})
+_EVIDENCE_MISSING_STATUSES = frozenset(
+    {"default_branch_unknown", "non_default_branch"}
+)
+
+
+def _default_decision_state(statuses: list[str]) -> str:
+    """Pick a schema-coherent decision_state for the given derived_status set.
+
+    Mirrors steuerboard/assessment.py: blocking statuses → action_blocked,
+    non-default/default-unknown → evidence_missing, clean_default_current →
+    assessment_clear. Used by the test builder so fixtures stay schema-near.
+    """
+    status_set = set(statuses)
+    if status_set & _NOT_APPLICABLE_STATUSES:
+        return "assessment_clear"
+    if status_set & _EVIDENCE_MISSING_STATUSES:
+        return "evidence_missing"
+    return "action_blocked"
+
+
 def _assessment(
     status: str | list[str],
     *,
     missing_evidence: list[str] | None = None,
+    decision_state: str | None = None,
 ) -> dict:
     statuses = [status] if isinstance(status, str) else list(status)
     return {
@@ -48,7 +70,11 @@ def _assessment(
             "git.status.porcelain",
             "git.default_branch_candidate_source",
         ],
-        "decision_state": "evidence_missing",
+        "decision_state": (
+            decision_state
+            if decision_state is not None
+            else _default_decision_state(statuses)
+        ),
         "rule_refs": ["assessment.rule.example"],
         "freshness_refs": ["freshness.example"],
         "falsification_refs": [],
@@ -200,6 +226,66 @@ def test_plan_switch_main_rejects_null_optional_list_when_present():
     assessment = _assessment("dirty_worktree")
     assessment["missing_evidence"] = None
     with pytest.raises(ValueError, match="missing_evidence must be a list of strings"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_missing_observation_ref():
+    assessment = _assessment("clean_default_current")
+    assessment.pop("observation_ref")
+    with pytest.raises(ValueError, match="observation_ref must be a non-empty string"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_empty_observation_ref():
+    assessment = _assessment("clean_default_current")
+    assessment["observation_ref"] = ""
+    with pytest.raises(ValueError, match="observation_ref must be a non-empty string"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_non_string_observation_ref():
+    assessment = _assessment("clean_default_current")
+    assessment["observation_ref"] = 123
+    with pytest.raises(ValueError, match="observation_ref must be a non-empty string"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_missing_decision_state():
+    assessment = _assessment("clean_default_current")
+    assessment.pop("decision_state")
+    with pytest.raises(ValueError, match="decision_state must be a non-empty string"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_empty_decision_state():
+    assessment = _assessment("clean_default_current")
+    assessment["decision_state"] = ""
+    with pytest.raises(ValueError, match="decision_state must be a non-empty string"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_invalid_decision_state_value():
+    assessment = _assessment("clean_default_current", decision_state="some_future_state")
+    with pytest.raises(
+        ValueError,
+        match=r"decision_state must be one of",
+    ):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_input_contract_incoherence_clean_with_action_blocked():
+    """Input-contract coherence: clean_default_current is only consistent with
+    decision_state == 'assessment_clear'."""
+    assessment = _assessment("clean_default_current", decision_state="action_blocked")
+    with pytest.raises(ValueError, match="input-contract incoherence"):
+        plan_switch_main(assessment)
+
+
+def test_plan_switch_main_rejects_input_contract_incoherence_blocking_with_assessment_clear():
+    """Input-contract coherence: a blocking derived_status is incompatible with
+    decision_state == 'assessment_clear'."""
+    assessment = _assessment("dirty_worktree", decision_state="assessment_clear")
+    with pytest.raises(ValueError, match="input-contract incoherence"):
         plan_switch_main(assessment)
 
 

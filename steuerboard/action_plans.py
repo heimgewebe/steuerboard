@@ -52,6 +52,10 @@ _BLOCKING_STATUSES: frozenset[str] = frozenset(
 
 _NOT_APPLICABLE_STATUSES: frozenset[str] = frozenset({"clean_default_current"})
 
+_VALID_DECISION_STATES: frozenset[str] = frozenset(
+    {"action_blocked", "evidence_missing", "assessment_clear"}
+)
+
 
 def _string_list_field(
     assessment: dict[str, Any],
@@ -109,6 +113,19 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(assessment_id, str) or not assessment_id:
         raise ValueError("assessment_id must be a non-empty string")
 
+    observation_ref = assessment.get("observation_ref")
+    if not isinstance(observation_ref, str) or not observation_ref:
+        raise ValueError("observation_ref must be a non-empty string")
+
+    decision_state = assessment.get("decision_state")
+    if not isinstance(decision_state, str) or not decision_state:
+        raise ValueError("decision_state must be a non-empty string")
+    if decision_state not in _VALID_DECISION_STATES:
+        raise ValueError(
+            "decision_state must be one of "
+            "{'action_blocked', 'evidence_missing', 'assessment_clear'}"
+        )
+
     derived_status = assessment.get("derived_status")
     if not isinstance(derived_status, list) or not derived_status:
         raise ValueError("derived_status must be a non-empty list")
@@ -133,6 +150,17 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             "derived_status mixes blocking and not_applicable statuses; "
             "cannot derive a switch-main plan without contract violation"
+        )
+
+    if not_applicable and decision_state != "assessment_clear":
+        raise ValueError(
+            "input-contract incoherence: clean_default_current requires "
+            "decision_state == 'assessment_clear'"
+        )
+    if blocking and decision_state == "assessment_clear":
+        raise ValueError(
+            "input-contract incoherence: blocking derived_status is "
+            "incompatible with decision_state == 'assessment_clear'"
         )
 
     if blocking:
