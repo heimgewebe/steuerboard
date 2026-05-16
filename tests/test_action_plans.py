@@ -174,12 +174,17 @@ def _action_plan_schema() -> dict:
     return load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
 
 
-def _assessment_with_statuses(statuses: list[str]) -> dict:
+def _assessment_with_statuses(statuses: list[str], decision_state: str | None = None) -> dict:
+    if decision_state is None:
+        decision_state = "assessment_clear" if statuses == ["clean_default_current"] else "evidence_missing"
+
     return {
         "schema_version": "repo-assessment.v1",
         "assessment_id": "assess-example",
+        "observation_ref": "observe-example",
         "derived_status": statuses,
         "source_refs": ["local.git.status"],
+        "decision_state": decision_state,
         "missing_evidence": ["fresh_origin_main"],
         "rule_refs": ["assessment.rule.example"],
         "freshness_refs": ["freshness.example"],
@@ -255,6 +260,48 @@ def test_missing_or_wrong_schema_version_raises_value_error():
 
     with pytest.raises(ValueError):
         plan_switch_main(wrong_schema)
+
+
+def test_missing_or_empty_observation_ref_raises_value_error():
+    missing_observation = _assessment_with_statuses(["dirty_worktree"])
+    missing_observation.pop("observation_ref")
+
+    with pytest.raises(ValueError, match="observation_ref"):
+        plan_switch_main(missing_observation)
+
+    empty_observation = _assessment_with_statuses(["dirty_worktree"])
+    empty_observation["observation_ref"] = "  "
+
+    with pytest.raises(ValueError, match="observation_ref"):
+        plan_switch_main(empty_observation)
+
+
+def test_missing_or_invalid_decision_state_raises_value_error():
+    missing_decision_state = _assessment_with_statuses(["dirty_worktree"])
+    missing_decision_state.pop("decision_state")
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(missing_decision_state)
+
+    invalid_decision_state = _assessment_with_statuses(["dirty_worktree"])
+    invalid_decision_state["decision_state"] = "totally_invalid_state"
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(invalid_decision_state)
+
+
+def test_input_contract_coherence_clean_default_requires_assessment_clear_decision_state():
+    assessment = _assessment_with_statuses(["clean_default_current"], decision_state="evidence_missing")
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(assessment)
+
+
+def test_input_contract_coherence_blocking_status_forbids_assessment_clear_decision_state():
+    assessment = _assessment_with_statuses(["non_default_branch"], decision_state="assessment_clear")
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(assessment)
 
 
 def test_schema_rejects_boundary_fields_if_false():

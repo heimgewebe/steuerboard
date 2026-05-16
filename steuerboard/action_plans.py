@@ -31,6 +31,12 @@ BLOCKING_SWITCH_MAIN_STATUSES = {
 
 NOT_APPLICABLE_SWITCH_MAIN_STATUSES = {"clean_default_current"}
 
+VALID_ASSESSMENT_DECISION_STATES = {
+    "action_blocked",
+    "evidence_missing",
+    "assessment_clear",
+}
+
 
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
@@ -70,6 +76,13 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("schema_version must be exactly 'repo-assessment.v1'")
 
     assessment_id = _require_non_empty_string(assessment.get("assessment_id"), "assessment_id")
+    _require_non_empty_string(assessment.get("observation_ref"), "observation_ref")
+    decision_state = _require_non_empty_string(assessment.get("decision_state"), "decision_state")
+    if decision_state not in VALID_ASSESSMENT_DECISION_STATES:
+        raise ValueError(
+            "decision_state must be one of "
+            "['action_blocked', 'evidence_missing', 'assessment_clear']"
+        )
 
     derived_status = _require_string_list(assessment.get("derived_status"), "derived_status")
     if not derived_status:
@@ -95,6 +108,15 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             "derived_status contains contradictory switch-main outcomes: "
             f"blocked={blocking_reasons}, not_applicable={not_applicable_reasons}"
+        )
+
+    if blocking_reasons and decision_state == "assessment_clear":
+        raise ValueError(
+            "decision_state must not be 'assessment_clear' when derived_status contains blocking reasons"
+        )
+    if not_applicable_reasons and decision_state != "assessment_clear":
+        raise ValueError(
+            "decision_state must be 'assessment_clear' when derived_status indicates clean_default_current"
         )
 
     if blocking_reasons:
