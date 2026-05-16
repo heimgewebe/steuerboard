@@ -174,17 +174,46 @@ def _action_plan_schema() -> dict:
     return load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
 
 
-def _assessment_with_statuses(statuses: list[str]) -> dict:
+def _assessment_with_statuses(statuses: list[str], decision_state: str | None = None) -> dict:
+    if decision_state is None:
+        decision_state = "assessment_clear" if statuses == ["clean_default_current"] else "evidence_missing"
+
     return {
         "schema_version": "repo-assessment.v1",
         "assessment_id": "assess-example",
+        "observation_ref": "observe-example",
         "derived_status": statuses,
         "source_refs": ["local.git.status"],
+        "decision_state": decision_state,
         "missing_evidence": ["fresh_origin_main"],
         "rule_refs": ["assessment.rule.example"],
         "freshness_refs": ["freshness.example"],
         "falsification_refs": ["failure-case.feature_branch_unmerged"],
     }
+
+
+def test_schema_rejects_empty_source_refs():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": [],
+        "rule_refs": [],
+        "freshness_refs": [],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError, match="minItems|fewer than|non-empty"):
+        validate_instance(plan, schema, Path("plan-empty-source-refs.json"))
 
 
 def test_plan_switch_main_emits_schema_valid_action_plan_v1():
@@ -257,6 +286,48 @@ def test_missing_or_wrong_schema_version_raises_value_error():
         plan_switch_main(wrong_schema)
 
 
+def test_missing_or_empty_observation_ref_raises_value_error():
+    missing_observation = _assessment_with_statuses(["dirty_worktree"])
+    missing_observation.pop("observation_ref")
+
+    with pytest.raises(ValueError, match="observation_ref"):
+        plan_switch_main(missing_observation)
+
+    empty_observation = _assessment_with_statuses(["dirty_worktree"])
+    empty_observation["observation_ref"] = "  "
+
+    with pytest.raises(ValueError, match="observation_ref"):
+        plan_switch_main(empty_observation)
+
+
+def test_missing_or_invalid_decision_state_raises_value_error():
+    missing_decision_state = _assessment_with_statuses(["dirty_worktree"])
+    missing_decision_state.pop("decision_state")
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(missing_decision_state)
+
+    invalid_decision_state = _assessment_with_statuses(["dirty_worktree"])
+    invalid_decision_state["decision_state"] = "totally_invalid_state"
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(invalid_decision_state)
+
+
+def test_input_contract_coherence_clean_default_requires_assessment_clear_decision_state():
+    assessment = _assessment_with_statuses(["clean_default_current"], decision_state="evidence_missing")
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(assessment)
+
+
+def test_input_contract_coherence_blocking_status_forbids_assessment_clear_decision_state():
+    assessment = _assessment_with_statuses(["non_default_branch"], decision_state="assessment_clear")
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(assessment)
+
+
 def test_schema_rejects_boundary_fields_if_false():
     assessment = _assessment_with_statuses(["dirty_worktree"])
     plan = plan_switch_main(assessment)
@@ -303,6 +374,14 @@ def test_null_optional_field_raises_value_error(field: str):
     assessment[field] = None
 
     with pytest.raises(ValueError, match=f"{field} must not be null"):
+        plan_switch_main(assessment)
+
+
+def test_null_source_refs_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["source_refs"] = None
+
+    with pytest.raises(ValueError, match="source_refs"):
         plan_switch_main(assessment)
 
 

@@ -28,7 +28,7 @@ smoke:
 	json_smoke "scope explain ." $(CLI) scope explain . --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory" $(CLI) inventory --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory duplicates" $(CLI) inventory duplicates --json --config $(EXAMPLE_CONFIG); \
-	echo "--- smoke: assess repo . -> assess explain ---"; \
+	echo "--- smoke: assess repo . -> assess explain -> plan switch-main ---"; \
 	tmp_assessment="$$(mktemp)"; \
 	tmp_explanation="$$(mktemp)"; \
 	tmp_files="$$tmp_files $$tmp_assessment $$tmp_explanation"; \
