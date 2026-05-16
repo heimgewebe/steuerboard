@@ -236,6 +236,38 @@ def test_runtime_rejects_status_not_present_in_skip_reasons(tmp_path: Path):
         load_omnipull_report(report_path)
 
 
+def test_runtime_rejects_empty_or_whitespace_repo_strings(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "empty-string-fields.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["repo_id"] = "   "
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="repo_id"):
+        load_omnipull_report(report_path)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "skip_reasons",
+        "source_refs",
+        "freshness_refs",
+        "falsification_refs",
+        "missing_evidence",
+    ],
+)
+def test_runtime_rejects_empty_repo_list_items(tmp_path: Path, field: str):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / f"empty-{field}.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0][field] = [""]
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="non-empty strings"):
+        load_omnipull_report(report_path)
+
+
 def test_runtime_rejects_falsification_ref_prefix(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     report_path = tmp_path / "bad-falsification-prefix.json"
@@ -341,6 +373,25 @@ def test_schema_rejects_missing_required_repo_fields():
         candidate["repos"][0].pop(field)
         with pytest.raises(ValidationError):
             validate_instance(candidate, schema, Path(f"missing-repo-field-{field}.json"))
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "skip_reasons",
+        "source_refs",
+        "freshness_refs",
+        "falsification_refs",
+        "missing_evidence",
+    ],
+)
+def test_schema_rejects_empty_repo_list_items(field: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["repos"][0][field] = [""]
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"empty-item-{field}.json"))
 
 
 def test_mixed_run_default_branch_unknown_uses_assessment_vocabulary():

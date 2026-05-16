@@ -63,7 +63,7 @@ _BOUNDARY = {
 
 
 def _require_non_empty_string(value: Any, field_name: str) -> str:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
     return value
 
@@ -90,8 +90,8 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
         raise ValueError(f"{field_name} must be a list of strings")
     result: list[str] = []
     for item in value:
-        if not isinstance(item, str):
-            raise ValueError(f"{field_name} must be a list of strings")
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{field_name} must be a list of non-empty strings")
         result.append(item)
     return result
 
