@@ -92,7 +92,7 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
     for item in value:
         if not isinstance(item, str) or not item.strip():
             raise ValueError(f"{field_name} must be a list of non-empty strings")
-        result.append(item)
+        result.append(item.strip())
     return result
 
 

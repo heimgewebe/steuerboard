@@ -268,6 +268,18 @@ def test_runtime_rejects_empty_repo_list_items(tmp_path: Path, field: str):
         load_omnipull_report(report_path)
 
 
+def test_runtime_strips_repo_list_item_whitespace(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "strip-list-items.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["source_refs"] = [" source.branch.current "]
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = load_omnipull_report(report_path)
+
+    assert loaded["repos"][0]["source_refs"] == ["source.branch.current"]
+
+
 def test_runtime_rejects_falsification_ref_prefix(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     report_path = tmp_path / "bad-falsification-prefix.json"
