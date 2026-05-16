@@ -141,6 +141,26 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
         for index, subschema in enumerate(schema["allOf"]):
             minimal_validate(instance, subschema, f"{path}.allOf[{index}]")
 
+    if "not" in schema:
+        try:
+            minimal_validate(instance, schema["not"], f"{path}.not")
+        except ValidationError:
+            pass
+        else:
+            raise ValidationError(f"{path}: instance matches forbidden schema")
+
+    if "if" in schema:
+        try:
+            minimal_validate(instance, schema["if"], f"{path}.if")
+            if_matches = True
+        except ValidationError:
+            if_matches = False
+
+        if if_matches and "then" in schema:
+            minimal_validate(instance, schema["then"], f"{path}.then")
+        if not if_matches and "else" in schema:
+            minimal_validate(instance, schema["else"], f"{path}.else")
+
     if "const" in schema and instance != schema["const"]:
         raise ValidationError(f"{path}: expected const {schema['const']!r}, got {instance!r}")
 

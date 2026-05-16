@@ -7,8 +7,13 @@
     "plan_id",
     "action",
     "decision",
-    "would_run",
-    "would_mutate"
+    "assessment_ref",
+    "source_refs",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+    "missing_evidence",
+    "boundary"
   ],
   "properties": {
     "schema_version": {
@@ -19,30 +24,17 @@
       "minLength": 1
     },
     "action": {
+      "const": "switch-main"
+    },
+    "assessment_ref": {
       "type": "string",
       "minLength": 1
     },
-    "repo_id": {
-      "type": "string"
-    },
     "decision": {
       "enum": [
-        "allowed",
         "blocked",
-        "warn"
+        "not_applicable"
       ]
-    },
-    "would_run": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "would_mutate": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
     },
     "blocked_because": {
       "type": "array",
@@ -50,19 +42,104 @@
         "type": "string"
       }
     },
-    "required_evidence": {
+    "missing_evidence": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "safe_alternatives": {
+    "source_refs": {
       "type": "array",
       "items": {
         "type": "string"
       }
+    },
+    "rule_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "freshness_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "falsification_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
+      }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "blocked"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "required": [
+          "blocked_because"
+        ],
+        "properties": {
+          "blocked_because": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "not_applicable"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "blocked_because"
+          ]
+        }
+      }
+    }
+  ],
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/steuerboard/schemas/action-plan.v1.schema.json"
 }

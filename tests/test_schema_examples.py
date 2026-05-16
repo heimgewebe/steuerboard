@@ -46,6 +46,7 @@ REQUIRED_FAILURE_CASES = {
 REQUIRED_SCHEMA_EXAMPLES = {
     "action-capabilities/git-fetch-all-prune.json",
     "action-plans/switch-main-blocked.json",
+    "action-plans/switch-main-not-applicable.json",
     "assessment-explanations/clean-default-current.json",
     "assessment-explanations/dirty-worktree.json",
     "assessment-explanations/non-default-branch.json",

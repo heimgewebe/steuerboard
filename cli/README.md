@@ -54,4 +54,20 @@ For `clean_default_current`, provenance refs are source-aware:
 
 `decision_state` is a contractual enum: `action_blocked`, `evidence_missing`, `assessment_clear`.
 
-Boundary: read-only, no mutation, no fetch, no network, no action planning.
+Assessment boundary: read-only, no mutation, no fetch, no network, no action planning.
+
+Phase 5 introduces a minimal plan preview command that derives from an existing
+assessment artifact only.
+
+Command:
+
+    python -m steuerboard plan switch-main <assessment-json> --json
+
+The command reads `repo-assessment.v1` JSON and emits `action-plan.v1` JSON.
+It does not observe repositories, read config, run Git commands, execute actions,
+mutate repositories, or authorise actions.
+
+For this slice, `decision` in the plan is a plan result only:
+
+- `blocked` means switch-main cannot be proposed because blocking status is present
+- `not_applicable` means no switch is needed (`clean_default_current`)

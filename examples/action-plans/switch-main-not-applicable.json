@@ -1,16 +1,9 @@
 {
   "schema_version": "action-plan.v1",
-  "plan_id": "plan-example-switch-main-blocked",
+  "plan_id": "plan-example-switch-main-not-applicable",
   "action": "switch-main",
-  "assessment_ref": "assess-example-non-default-branch-evidence-missing",
-  "decision": "blocked",
-  "blocked_because": [
-    "non_default_branch"
-  ],
-  "missing_evidence": [
-    "branch_contains_origin_main_or_pr_merged",
-    "fresh_origin_main"
-  ],
+  "assessment_ref": "assess-example-clean-default-current",
+  "decision": "not_applicable",
   "source_refs": [
     "git.rev_parse.worktree",
     "git.current_branch",
@@ -27,15 +20,15 @@
     "filesystem.path"
   ],
   "rule_refs": [
-    "assessment.rule.non_default_branch_requires_lifecycle_evidence"
+    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
   ],
   "freshness_refs": [
-    "freshness.local_git_branch.current_invocation",
-    "freshness.remote_branch_lifecycle.not_observed_no_fetch"
+    "freshness.local_git_status.current_invocation",
+    "freshness.default_branch_source.unverified"
   ],
-  "falsification_refs": [
-    "failure-case.feature_branch_unmerged",
-    "failure-case.origin_main_stale"
+  "falsification_refs": [],
+  "missing_evidence": [
+    "default_branch_source"
   ],
   "boundary": {
     "does_not_execute": true,
