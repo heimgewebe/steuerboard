@@ -162,7 +162,7 @@ def test_schema_enforces_blocked_because_conditionals():
     with pytest.raises(ValidationError, match="blocked_because"):
         validate_instance(blocked_without_reason, schema, Path("plan-blocked-without-reason.json"))
 
-    with pytest.raises(ValidationError, match="blocked_because"):
+    with pytest.raises(ValidationError, match="forbidden schema|should not be valid under"):
         validate_instance(
             not_applicable_with_reason,
             schema,
