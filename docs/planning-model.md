@@ -20,8 +20,11 @@ Current minimal slice:
 - input is an existing `repo-assessment.v1` artifact
 - output is `action-plan.v1`
 - no repository observation, no config read, no network, no Git subprocess
+- this slice is limited to `action == "switch-main"`
+- additional actions require a separate contract extension or a new schema slice
 
 `decision` in this contract is not an execution permission:
 
 - `blocked` means blockers are present and no bypass recommendation is generated
 - `not_applicable` means no branch switch is needed (`clean_default_current`)
+- `decision` never authorises execution or mutation

@@ -19,6 +19,125 @@ FORBIDDEN_EXECUTION_FIELDS = {
 }
 
 
+
+def test_schema_rejects_wrong_action():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "git.reset",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError, match="switch-main|expected"):
+        validate_instance(plan, schema, Path("plan-with-wrong-action.json"))
+
+
+@pytest.mark.parametrize("decision", ["allowed", "warn"])
+def test_schema_rejects_non_preview_decisions(decision: str):
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": decision,
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError, match="const|enum|not one of"):
+        validate_instance(plan, schema, Path(f"plan-with-{decision}.json"))
+
+
+def test_blocked_runtime_emits_blocked_because():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert "blocked_because" in plan
+    assert len(plan["blocked_because"]) >= 1
+
+
+def test_not_applicable_runtime_omits_blocked_because():
+    assessment = _assessment_with_statuses(["clean_default_current"])
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "not_applicable"
+    assert "blocked_because" not in plan
+
+
+def test_schema_enforces_blocked_because_conditionals():
+    schema = _action_plan_schema()
+    blocked_without_reason = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "blocked",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    not_applicable_with_reason = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "blocked_because": ["clean_default_current"],
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError, match="blocked_because"):
+        validate_instance(blocked_without_reason, schema, Path("plan-blocked-without-reason.json"))
+
+    with pytest.raises(ValidationError, match="blocked_because"):
+        validate_instance(
+            not_applicable_with_reason,
+            schema,
+            Path("plan-not-applicable-with-reason.json"),
+        )
+
+
 def _action_plan_schema() -> dict:
     return load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
 
