@@ -321,6 +321,11 @@ def test_schema_forbids_execution_fields(field: str, value: list[str]):
         "action": "switch-main",
         "assessment_ref": "assess-example",
         "decision": "blocked",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
         "boundary": {
             "does_not_execute": True,
             "does_not_mutate": True,
