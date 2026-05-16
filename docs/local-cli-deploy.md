@@ -92,6 +92,8 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 - No network requests.
 - No action execution, no action authorization.
 - Plan preview only from existing assessment artifacts.
+- Plan preview is pure transformation from `repo-assessment.v1` to `action-plan.v1`.
+- No command advice.
 - No branch switches.
 - Omnipull adapter reads one explicit artifact path only; no latest lookup and no `/home/alex/logs/omnipull` path search.
 - No new plan generation from Omnipull report input.

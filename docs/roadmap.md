@@ -153,6 +153,8 @@ python -m steuerboard plan switch-main <assessment-json> --json
 This command derives `action-plan.v1` from existing `repo-assessment.v1` JSON.
 It does not observe repositories, does not read local scope config, does not run
 Git commands, and does not execute or authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and
+does not provide command advice.
 
 Contract notes:
 

@@ -66,6 +66,8 @@ Command:
 The command reads `repo-assessment.v1` JSON and emits `action-plan.v1` JSON.
 It does not observe repositories, read config, run Git commands, execute actions,
 mutate repositories, or authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and
+does not provide command advice.
 
 For this slice, `decision` in the plan is a plan result only:
 

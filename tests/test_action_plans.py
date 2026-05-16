@@ -373,12 +373,12 @@ def test_multi_blocking_statuses_preserved():
     "freshness_refs",
     "falsification_refs",
 ])
-def test_null_optional_assessment_list_field_raises_value_error(field: str):
-    """Verify null optional list fields raise ValueError."""
+def test_null_required_assessment_list_field_raises_value_error(field: str):
+    """Verify null required list fields raise ValueError."""
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment[field] = None
 
-    with pytest.raises(ValueError, match=f"{field} must not be null"):
+    with pytest.raises(ValueError, match=field):
         plan_switch_main(assessment)
 
 
@@ -388,13 +388,12 @@ def test_null_optional_assessment_list_field_raises_value_error(field: str):
     "freshness_refs",
     "falsification_refs",
 ])
-def test_missing_optional_assessment_list_field_defaults_to_empty_list(field: str):
+def test_missing_required_assessment_list_field_raises_value_error(field: str):
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment.pop(field)
 
-    plan = plan_switch_main(assessment)
-
-    assert plan[field] == []
+    with pytest.raises(ValueError, match=field):
+        plan_switch_main(assessment)
 
 
 def test_null_source_refs_raises_value_error():
@@ -418,6 +417,24 @@ def test_empty_source_refs_raises_value_error():
     assessment["source_refs"] = []
 
     with pytest.raises(ValueError, match="source_refs"):
+        plan_switch_main(assessment)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("action", "switch-main"),
+    ("plan_id", "plan-legacy"),
+    ("would_run", ["git switch main"]),
+    ("would_mutate", ["current_branch"]),
+    ("safe_alternatives", ["show_diff_against_default"]),
+    ("required_evidence", ["fresh_origin_main"]),
+    ("command_trace", {"schema_version": "command-trace.v1"}),
+    ("run_result", {"schema_version": "run-result.v1"}),
+])
+def test_runtime_rejects_forbidden_plan_or_executor_input_fields(field: str, value: object):
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment[field] = value
+
+    with pytest.raises(ValueError, match="forbidden"):
         plan_switch_main(assessment)
 
 

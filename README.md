@@ -44,6 +44,7 @@ Executable code currently covers schema/example validation, read-only observatio
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.
 
 The `plan switch-main` command emits a preview-only plan artifact from an existing assessment. It does not execute Git, does not mutate repositories, and does not authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and does not provide command advice.
 
 The `omnipull-report show` command is a read-only artifact adapter: it loads exactly one provided
 `omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement latest
