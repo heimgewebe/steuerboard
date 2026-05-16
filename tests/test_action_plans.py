@@ -373,12 +373,12 @@ def test_multi_blocking_statuses_preserved():
     "freshness_refs",
     "falsification_refs",
 ])
-def test_null_optional_field_raises_value_error(field: str):
-    """Verify null required list fields raise ValueError."""
+def test_null_optional_assessment_list_field_raises_value_error(field: str):
+    """Verify null optional list fields raise ValueError."""
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment[field] = None
 
-    with pytest.raises(ValueError, match=f"{field} must be a list"):
+    with pytest.raises(ValueError, match=f"{field} must not be null"):
         plan_switch_main(assessment)
 
 
@@ -388,17 +388,26 @@ def test_null_optional_field_raises_value_error(field: str):
     "freshness_refs",
     "falsification_refs",
 ])
-def test_missing_required_assessment_list_field_raises_value_error(field: str):
+def test_missing_optional_assessment_list_field_defaults_to_empty_list(field: str):
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment.pop(field)
 
-    with pytest.raises(ValueError, match=field):
-        plan_switch_main(assessment)
+    plan = plan_switch_main(assessment)
+
+    assert plan[field] == []
 
 
 def test_null_source_refs_raises_value_error():
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment["source_refs"] = None
+
+    with pytest.raises(ValueError, match="source_refs"):
+        plan_switch_main(assessment)
+
+
+def test_missing_source_refs_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment.pop("source_refs")
 
     with pytest.raises(ValueError, match="source_refs"):
         plan_switch_main(assessment)

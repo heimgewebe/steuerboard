@@ -57,10 +57,13 @@ def _require_non_empty_string_list(value: Any, field_name: str) -> list[str]:
     return items
 
 
-def _require_string_list_field(obj: dict[str, Any], key: str) -> list[str]:
+def _optional_string_list_field(obj: dict[str, Any], key: str) -> list[str]:
+    """Extract optional list[str]; absent defaults to [], null/non-list raises ValueError."""
     if key not in obj:
-        raise ValueError(f"{key} must be present and be a list[str]")
+        return []
     value = obj[key]
+    if value is None:
+        raise ValueError(f"{key} must not be null; omit field if not present")
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError(f"{key} must be a list[str]")
     return value
@@ -83,10 +86,8 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     _require_non_empty_string(assessment.get("observation_ref"), "observation_ref")
     decision_state = _require_non_empty_string(assessment.get("decision_state"), "decision_state")
     if decision_state not in VALID_ASSESSMENT_DECISION_STATES:
-        raise ValueError(
-            "decision_state must be one of "
-            "['action_blocked', 'evidence_missing', 'assessment_clear']"
-        )
+        allowed_decision_states = sorted(VALID_ASSESSMENT_DECISION_STATES)
+        raise ValueError(f"decision_state must be one of {allowed_decision_states}")
 
     derived_status = _require_string_list(assessment.get("derived_status"), "derived_status")
     if not derived_status:
@@ -98,10 +99,10 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
 
     source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
 
-    missing_evidence = _require_string_list_field(assessment, "missing_evidence")
-    rule_refs = _require_string_list_field(assessment, "rule_refs")
-    freshness_refs = _require_string_list_field(assessment, "freshness_refs")
-    falsification_refs = _require_string_list_field(assessment, "falsification_refs")
+    missing_evidence = _optional_string_list_field(assessment, "missing_evidence")
+    rule_refs = _optional_string_list_field(assessment, "rule_refs")
+    freshness_refs = _optional_string_list_field(assessment, "freshness_refs")
+    falsification_refs = _optional_string_list_field(assessment, "falsification_refs")
 
     blocking_reasons = [status for status in derived_status if status in BLOCKING_SWITCH_MAIN_STATUSES]
     not_applicable_reasons = [
