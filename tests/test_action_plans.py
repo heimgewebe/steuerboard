@@ -19,6 +19,35 @@ FORBIDDEN_EXECUTION_FIELDS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _action_plan_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
+
+
+def _assessment_with_statuses(statuses: list[str], decision_state: str | None = None) -> dict:
+    if decision_state is None:
+        decision_state = "assessment_clear" if statuses == ["clean_default_current"] else "evidence_missing"
+
+    return {
+        "schema_version": "repo-assessment.v1",
+        "assessment_id": "assess-example",
+        "observation_ref": "observe-example",
+        "derived_status": statuses,
+        "source_refs": ["local.git.status"],
+        "decision_state": decision_state,
+        "missing_evidence": ["fresh_origin_main"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": ["failure-case.feature_branch_unmerged"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Schema tests
+# ---------------------------------------------------------------------------
 
 def test_schema_rejects_wrong_action():
     schema = _action_plan_schema()
@@ -101,23 +130,28 @@ def test_schema_requires_provenance_lists(missing_field: str):
         validate_instance(plan, schema, Path(f"plan-missing-{missing_field}.json"))
 
 
-def test_blocked_runtime_emits_blocked_because():
-    assessment = _assessment_with_statuses(["non_default_branch"])
+def test_schema_rejects_empty_source_refs():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": [],
+        "rule_refs": [],
+        "freshness_refs": [],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
 
-    plan = plan_switch_main(assessment)
-
-    assert plan["decision"] == "blocked"
-    assert "blocked_because" in plan
-    assert len(plan["blocked_because"]) >= 1
-
-
-def test_not_applicable_runtime_omits_blocked_because():
-    assessment = _assessment_with_statuses(["clean_default_current"])
-
-    plan = plan_switch_main(assessment)
-
-    assert plan["decision"] == "not_applicable"
-    assert "blocked_because" not in plan
+    with pytest.raises(ValidationError, match="minItems|fewer than|non-empty"):
+        validate_instance(plan, schema, Path("plan-empty-source-refs.json"))
 
 
 def test_schema_enforces_blocked_because_conditionals():
@@ -170,27 +204,56 @@ def test_schema_enforces_blocked_because_conditionals():
         )
 
 
-def _action_plan_schema() -> dict:
-    return load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
-
-
-def _assessment_with_statuses(statuses: list[str], decision_state: str | None = None) -> dict:
-    if decision_state is None:
-        decision_state = "assessment_clear" if statuses == ["clean_default_current"] else "evidence_missing"
-
-    return {
-        "schema_version": "repo-assessment.v1",
-        "assessment_id": "assess-example",
-        "observation_ref": "observe-example",
-        "derived_status": statuses,
-        "source_refs": ["local.git.status"],
-        "decision_state": decision_state,
-        "missing_evidence": ["fresh_origin_main"],
-        "rule_refs": ["assessment.rule.example"],
-        "freshness_refs": ["freshness.example"],
-        "falsification_refs": ["failure-case.feature_branch_unmerged"],
+def test_schema_rejects_boundary_fields_if_false():
+    assessment = _assessment_with_statuses(["dirty_worktree"])
+    plan = plan_switch_main(assessment)
+    plan["boundary"] = {
+        "does_not_execute": False,
+        "does_not_mutate": True,
+        "does_not_authorise_actions": True,
     }
 
+    with pytest.raises(ValidationError):
+        validate_instance(plan, _action_plan_schema(), Path("plan-invalid-boundary.json"))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("would_run", ["git switch main"]),
+    ("would_mutate", ["current_branch"]),
+    ("safe_alternatives", ["show_diff_against_default"]),
+    ("required_evidence", ["fresh_origin_main"]),
+    ("repo_id", "heimgewebe/steuerboard"),
+])
+def test_schema_forbids_execution_fields(field: str, value: object):
+    """Verify schema rejects all old executor-oriented fields."""
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "blocked",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+        "blocked_because": ["dirty_worktree"],
+        field: value,
+    }
+
+    with pytest.raises(ValidationError, match="not allowed|unexpected"):
+        validate_instance(plan, schema, Path(f"plan-with-{field}.json"))
+
+
+# ---------------------------------------------------------------------------
+# Runtime tests
+# ---------------------------------------------------------------------------
 
 def test_plan_switch_main_emits_schema_valid_action_plan_v1():
     assessment = _assessment_with_statuses(["non_default_branch"])
@@ -198,6 +261,25 @@ def test_plan_switch_main_emits_schema_valid_action_plan_v1():
     plan = plan_switch_main(assessment)
 
     validate_instance(plan, _action_plan_schema(), Path("plan-switch-main.json"))
+
+
+def test_blocked_runtime_emits_blocked_because():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert "blocked_because" in plan
+    assert len(plan["blocked_because"]) >= 1
+
+
+def test_not_applicable_runtime_omits_blocked_because():
+    assessment = _assessment_with_statuses(["clean_default_current"])
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "not_applicable"
+    assert "blocked_because" not in plan
 
 
 def test_non_default_branch_blocks_and_preserves_missing_evidence():
@@ -241,6 +323,15 @@ def test_clean_default_current_is_not_applicable():
     assert "blocked_because" not in plan
 
 
+def test_multi_blocking_statuses_preserved():
+    assessment = _assessment_with_statuses(["scope_backup", "dirty_worktree"])
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert set(plan["blocked_because"]) == {"scope_backup", "dirty_worktree"}
+
+
 def test_unknown_status_raises_value_error():
     assessment = _assessment_with_statuses(["totally_unknown_status"])
 
@@ -260,6 +351,20 @@ def test_missing_or_wrong_schema_version_raises_value_error():
 
     with pytest.raises(ValueError):
         plan_switch_main(wrong_schema)
+
+
+def test_missing_or_blank_assessment_id_raises_value_error():
+    missing_id = _assessment_with_statuses(["dirty_worktree"])
+    missing_id.pop("assessment_id")
+
+    with pytest.raises(ValueError, match="assessment_id"):
+        plan_switch_main(missing_id)
+
+    empty_id = _assessment_with_statuses(["dirty_worktree"])
+    empty_id["assessment_id"] = "  "
+
+    with pytest.raises(ValueError, match="assessment_id"):
+        plan_switch_main(empty_id)
 
 
 def test_missing_or_empty_observation_ref_raises_value_error():
@@ -304,19 +409,6 @@ def test_input_contract_coherence_blocking_status_forbids_assessment_clear_decis
         plan_switch_main(assessment)
 
 
-def test_schema_rejects_boundary_fields_if_false():
-    assessment = _assessment_with_statuses(["dirty_worktree"])
-    plan = plan_switch_main(assessment)
-    plan["boundary"] = {
-        "does_not_execute": False,
-        "does_not_mutate": True,
-        "does_not_authorise_actions": True,
-    }
-
-    with pytest.raises(ValidationError):
-        validate_instance(plan, _action_plan_schema(), Path("plan-invalid-boundary.json"))
-
-
 def test_forbidden_execution_fields_are_not_emitted():
     assessment = _assessment_with_statuses(["non_default_branch"])
 
@@ -327,15 +419,6 @@ def test_forbidden_execution_fields_are_not_emitted():
     assert "would_mutate" not in plan
     assert "safe_alternatives" not in plan
     assert "required_evidence" not in plan
-
-
-def test_multi_blocking_statuses_preserved():
-    assessment = _assessment_with_statuses(["scope_backup", "dirty_worktree"])
-
-    plan = plan_switch_main(assessment)
-
-    assert plan["decision"] == "blocked"
-    assert set(plan["blocked_because"]) == {"scope_backup", "dirty_worktree"}
 
 
 @pytest.mark.parametrize("field", [
@@ -353,38 +436,17 @@ def test_null_optional_field_raises_value_error(field: str):
         plan_switch_main(assessment)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("would_run", ["git switch main"]),
-    ("would_mutate", ["current_branch"]),
-    ("safe_alternatives", ["show_diff_against_default"]),
-    ("required_evidence", ["fresh_origin_main"]),
-])
-def test_schema_forbids_execution_fields(field: str, value: list[str]):
-    """Verify schema rejects all old executor-oriented fields."""
-    schema = _action_plan_schema()
-    plan = {
-        "schema_version": "action-plan.v1",
-        "plan_id": "plan-example",
-        "action": "switch-main",
-        "assessment_ref": "assess-example",
-        "decision": "blocked",
-        "source_refs": ["git.current_branch"],
-        "rule_refs": ["assessment.rule.example"],
-        "freshness_refs": ["freshness.example"],
-        "falsification_refs": [],
-        "missing_evidence": [],
-        "boundary": {
-            "does_not_execute": True,
-            "does_not_mutate": True,
-            "does_not_authorise_actions": True,
-        },
-        "blocked_because": ["dirty_worktree"],
-        field: value,
-    }
+def test_null_source_refs_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["source_refs"] = None
 
-    with pytest.raises(ValidationError, match="not allowed|unexpected"):
-        validate_instance(plan, schema, Path(f"plan-with-{field}.json"))
+    with pytest.raises(ValueError, match="source_refs"):
+        plan_switch_main(assessment)
 
+
+# ---------------------------------------------------------------------------
+# CLI tests
+# ---------------------------------------------------------------------------
 
 def test_cli_plan_switch_main_smoke(tmp_path: Path):
     assessment = _assessment_with_statuses(["non_default_branch"])
@@ -415,3 +477,65 @@ def test_cli_plan_switch_main_smoke(tmp_path: Path):
     validate_instance(plan, _action_plan_schema(), Path("cli-plan-switch-main.json"))
     assert plan["decision"] == "blocked"
     assert plan["assessment_ref"] == "assess-example"
+
+
+def test_cli_plan_switch_main_rejects_invalid_json(tmp_path: Path):
+    bad_path = tmp_path / "broken.json"
+    bad_path.write_text("{not valid json", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "switch-main",
+            str(bad_path),
+            "--json",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+    assert "invalid assessment JSON" in result.stderr
+
+
+def test_cli_plan_switch_main_rejects_wrong_schema_version(tmp_path: Path):
+    assessment_path = tmp_path / "wrong-schema.json"
+    assessment_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "action-plan.v1",
+                "assessment_id": "x",
+                "observation_ref": "obs-x",
+                "derived_status": ["dirty_worktree"],
+                "source_refs": ["local.git.status"],
+                "decision_state": "action_blocked",
+                "missing_evidence": [],
+                "rule_refs": [],
+                "freshness_refs": [],
+                "falsification_refs": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "switch-main",
+            str(assessment_path),
+            "--json",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+    assert "schema_version" in result.stderr
