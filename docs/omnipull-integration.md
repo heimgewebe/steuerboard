@@ -14,6 +14,7 @@ Current boundary:
 - no fetch/pull/switch/reset/clean
 - no network access
 - no action execution and no action authorization
+- no new plan generation from Omnipull report input in this slice
 
 Future reports should be structured JSON instead of log-grep-only text. steuerboard should explain omnipull reports using the same shared vocabulary, for example:
 

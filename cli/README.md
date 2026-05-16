@@ -78,7 +78,7 @@ Command:
 
     python -m steuerboard omnipull-report show <report-json> --json
 
-The command loads one explicit `omnipull-report.v1` JSON file, validates and normalizes required
+The command loads one explicit `omnipull-report.v1` JSON file, validates required
 fields, and emits a bounded report artifact.
 
 Boundary for this slice:
@@ -88,3 +88,4 @@ Boundary for this slice:
 - no fetch/pull/switch/reset/clean
 - no network access
 - no action execution and no action authorization
+- no new plan generation from Omnipull report input in this slice

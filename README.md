@@ -46,6 +46,7 @@ Observation, scope, inventory, and assessment commands are read-only: they must 
 The `plan switch-main` command emits a preview-only plan artifact from an existing assessment. It does not execute Git, does not mutate repositories, and does not authorise actions.
 
 The `omnipull-report show` command is a read-only artifact adapter: it loads exactly one provided
-`omnipull-report.v1` JSON file and emits a normalized report artifact. It does not implement latest
+`omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement latest
 lookup, does not search `/home/alex/logs/omnipull`, does not execute Git, does not mutate repositories,
-and does not authorise actions.
+does not execute actions, does not authorise actions, and does not generate new plans from Omnipull
+report input in this slice.

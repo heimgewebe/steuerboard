@@ -24,10 +24,12 @@
       "minLength": 1
     },
     "generated_at": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time"
     },
     "source_path": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "repos": {
       "type": "array",
@@ -47,13 +49,26 @@
         ],
         "properties": {
           "repo_id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "enum": [
+              "non_default_branch",
+              "dirty_worktree",
+              "no_upstream",
+              "remote_unreachable",
+              "ff_only_not_possible",
+              "default_branch_unknown",
+              "repo_not_in_scope",
+              "permission_denied"
+            ]
           },
           "skip_reasons": {
             "type": "array",

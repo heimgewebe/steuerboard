@@ -208,4 +208,5 @@ Boundary for this slice:
 - no path search or policy over `/home/alex/logs/omnipull`
 - no fetch/pull/switch/reset/clean
 - no network access
-- no action planning or execution
+- no action execution or action authorization
+- no new plan generation from Omnipull report input

@@ -34,15 +34,7 @@ def test_mixed_run_example_validates_against_schema():
 
 
 def test_load_omnipull_report_returns_schema_valid_object(tmp_path: Path):
-    source = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
-    payload = dict(source)
-    payload["boundary"] = {
-        "does_not_execute": False,
-        "does_not_mutate": False,
-        "does_not_authorise_actions": False,
-    }
-    payload["action"] = "switch-main"
-    payload["would_run"] = True
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
 
     report_path = tmp_path / "report.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
@@ -82,7 +74,7 @@ def test_load_omnipull_report_rejects_non_object_json(tmp_path: Path):
         load_omnipull_report(report_path)
 
 
-def test_boundary_false_is_not_adopted(tmp_path: Path):
+def test_boundary_false_is_rejected(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "dirty-worktree.json")
     payload["boundary"] = {
         "does_not_execute": False,
@@ -92,16 +84,11 @@ def test_boundary_false_is_not_adopted(tmp_path: Path):
     report_path = tmp_path / "boundary-false.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    loaded = load_omnipull_report(report_path)
-
-    assert loaded["boundary"] == {
-        "does_not_execute": True,
-        "does_not_mutate": True,
-        "does_not_authorise_actions": True,
-    }
+    with pytest.raises(ValueError, match="boundary"):
+        load_omnipull_report(report_path)
 
 
-def test_runtime_never_emits_executor_fields(tmp_path: Path):
+def test_runtime_rejects_executor_fields(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "non-default-branch.json")
     payload.update(
         {
@@ -118,9 +105,63 @@ def test_runtime_never_emits_executor_fields(tmp_path: Path):
     report_path = tmp_path / "forbidden-fields.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    loaded = load_omnipull_report(report_path)
+    with pytest.raises(ValueError, match="forbidden fields"):
+        load_omnipull_report(report_path)
 
-    assert FORBIDDEN_REPORT_KEYS.isdisjoint(loaded.keys())
+
+def test_runtime_rejects_unknown_top_level_field(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    payload["unexpected"] = "value"
+
+    report_path = tmp_path / "unknown-top-level.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_unknown_repo_item_field(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    payload["repos"][0]["unexpected_repo_field"] = "value"
+
+    report_path = tmp_path / "unknown-repo-field.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_unknown_status(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    payload["repos"][0]["status"] = "unsupported_status"
+
+    report_path = tmp_path / "unknown-status.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="status"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_invalid_generated_at_format(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    payload["generated_at"] = "2026-05-16 09:32:00"
+
+    report_path = tmp_path / "invalid-generated-at.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="date-time"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_missing_boundary(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    payload.pop("boundary")
+
+    report_path = tmp_path / "missing-boundary.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="boundary"):
+        load_omnipull_report(report_path)
 
 
 def test_omnipull_report_show_cli_smoke_emits_valid_json():

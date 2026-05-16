@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,42 @@ _FORBIDDEN_REPORT_KEYS = {
     "safe_actions",
     "safe_alternatives",
 }
+
+_ALLOWED_TOP_LEVEL_KEYS = {
+    "schema_version",
+    "report_id",
+    "run_id",
+    "generated_at",
+    "source_path",
+    "repos",
+    "boundary",
+}
+
+_ALLOWED_REPO_KEYS = {
+    "repo_id",
+    "path",
+    "status",
+    "skip_reasons",
+    "source_refs",
+    "freshness_refs",
+    "falsification_refs",
+    "missing_evidence",
+}
+
+_ALLOWED_STATUSES = {
+    "non_default_branch",
+    "dirty_worktree",
+    "no_upstream",
+    "remote_unreachable",
+    "ff_only_not_possible",
+    "default_branch_unknown",
+    "repo_not_in_scope",
+    "permission_denied",
+}
+
+_RFC3339_DATE_TIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 _BOUNDARY = {
     "does_not_execute": True,
@@ -34,6 +72,17 @@ def _require_string(value: Any, field_name: str) -> str:
     return value
 
 
+def _require_date_time_string(value: Any, field_name: str) -> str:
+    parsed = _require_string(value, field_name)
+    if _RFC3339_DATE_TIME_RE.fullmatch(parsed) is None:
+        raise ValueError(f"{field_name} must be a valid date-time")
+    try:
+        datetime.fromisoformat(parsed.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a valid date-time") from exc
+    return parsed
+
+
 def _require_string_list(value: Any, field_name: str) -> list[str]:
     if not isinstance(value, list):
         raise ValueError(f"{field_name} must be a list of strings")
@@ -45,11 +94,17 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
     return result
 
 
+def _validate_known_keys(payload: dict[str, Any], allowed: set[str], field_name: str) -> None:
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"{field_name} contains unknown fields: {unknown}")
+
+
 def load_omnipull_report(path: Path) -> dict[str, Any]:
-    """Load and normalize one omnipull-report.v1 JSON artifact.
+    """Load and validate one omnipull-report.v1 JSON artifact.
 
     This adapter is intentionally read-only: it accepts one explicit JSON path,
-    validates required fields, strips executor-like fields, and emits a bounded
+    validates required fields, rejects executor-like fields, and emits a bounded
     report object for steuerboard surfaces.
     """
     try:
@@ -61,14 +116,26 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError("omnipull report must be a JSON object")
 
+    forbidden_present = sorted(_FORBIDDEN_REPORT_KEYS & set(raw))
+    if forbidden_present:
+        raise ValueError(f"omnipull report contains forbidden fields: {forbidden_present}")
+
+    _validate_known_keys(raw, _ALLOWED_TOP_LEVEL_KEYS, "omnipull report")
+
     schema_version = raw.get("schema_version")
     if schema_version != "omnipull-report.v1":
         raise ValueError("schema_version must be omnipull-report.v1")
 
     report_id = _require_non_empty_string(raw.get("report_id"), "report_id")
     run_id = _require_non_empty_string(raw.get("run_id"), "run_id")
-    generated_at = _require_string(raw.get("generated_at"), "generated_at")
-    source_path = _require_string(raw.get("source_path"), "source_path")
+    generated_at = _require_date_time_string(raw.get("generated_at"), "generated_at")
+    source_path = _require_non_empty_string(raw.get("source_path"), "source_path")
+
+    boundary = raw.get("boundary")
+    if not isinstance(boundary, dict):
+        raise ValueError("boundary must be an object")
+    if boundary != _BOUNDARY:
+        raise ValueError("boundary must exactly match read-only boundary constants")
 
     repos_raw = raw.get("repos")
     if not isinstance(repos_raw, list):
@@ -80,10 +147,16 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
         if not isinstance(item, dict):
             raise ValueError(f"{field_prefix} must be an object")
 
+        _validate_known_keys(item, _ALLOWED_REPO_KEYS, field_prefix)
+
+        status = _require_non_empty_string(item.get("status"), f"{field_prefix}.status")
+        if status not in _ALLOWED_STATUSES:
+            raise ValueError(f"{field_prefix}.status must be one of {sorted(_ALLOWED_STATUSES)}")
+
         repo = {
-            "repo_id": _require_string(item.get("repo_id"), f"{field_prefix}.repo_id"),
-            "path": _require_string(item.get("path"), f"{field_prefix}.path"),
-            "status": _require_string(item.get("status"), f"{field_prefix}.status"),
+            "repo_id": _require_non_empty_string(item.get("repo_id"), f"{field_prefix}.repo_id"),
+            "path": _require_non_empty_string(item.get("path"), f"{field_prefix}.path"),
+            "status": status,
             "skip_reasons": _require_string_list(
                 item.get("skip_reasons"), f"{field_prefix}.skip_reasons"
             ),
@@ -109,8 +182,5 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
         "repos": repos,
         "boundary": dict(_BOUNDARY),
     }
-
-    for key in _FORBIDDEN_REPORT_KEYS:
-        normalized.pop(key, None)
 
     return normalized

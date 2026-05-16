@@ -94,6 +94,7 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 - Plan preview only from existing assessment artifacts.
 - No branch switches.
 - Omnipull adapter reads one explicit artifact path only; no latest lookup and no `/home/alex/logs/omnipull` path search.
+- No new plan generation from Omnipull report input.
 
 The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
 not a productive repository action.
