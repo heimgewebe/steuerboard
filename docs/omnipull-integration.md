@@ -9,12 +9,15 @@ Current implemented surface:
 Current boundary:
 
 - reads one explicit JSON artifact path only
+- report `source_path` must match that explicit artifact path
 - no latest lookup
 - no path search under `/home/alex/logs/omnipull`
 - no fetch/pull/switch/reset/clean
 - no network access
+- no Git subprocess
 - no action execution and no action authorization
 - no new plan generation from Omnipull report input in this slice
+- no command advice
 
 Future reports should be structured JSON instead of log-grep-only text. steuerboard should explain omnipull reports using the same shared vocabulary, for example:
 

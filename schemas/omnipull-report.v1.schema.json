@@ -72,18 +72,21 @@
           },
           "skip_reasons": {
             "type": "array",
+            "minItems": 1,
             "items": {
               "type": "string"
             }
           },
           "source_refs": {
             "type": "array",
+            "minItems": 1,
             "items": {
               "type": "string"
             }
           },
           "freshness_refs": {
             "type": "array",
+            "minItems": 1,
             "items": {
               "type": "string"
             }

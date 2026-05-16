@@ -82,6 +82,7 @@ Command:
 
 The command loads one explicit `omnipull-report.v1` JSON file, validates required
 fields, and emits a bounded report artifact.
+The report `source_path` must match the explicit artifact path passed to the command.
 
 Boundary for this slice:
 
@@ -89,5 +90,7 @@ Boundary for this slice:
 - no path search under `/home/alex/logs/omnipull`
 - no fetch/pull/switch/reset/clean
 - no network access
+- no Git subprocess
 - no action execution and no action authorization
 - no new plan generation from Omnipull report input in this slice
+- no command advice

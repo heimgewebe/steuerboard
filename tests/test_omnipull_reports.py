@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from scripts.validate_examples import ROOT, EXAMPLES_DIR, SCHEMAS_DIR, load_json, validate_instance
+from scripts.validate_examples import (
+    ROOT,
+    EXAMPLES_DIR,
+    SCHEMAS_DIR,
+    ValidationError,
+    load_json,
+    validate_instance,
+)
 from steuerboard.omnipull_reports import load_omnipull_report
 
 FORBIDDEN_REPORT_KEYS = {
@@ -37,6 +44,7 @@ def test_load_omnipull_report_returns_schema_valid_object(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
 
     report_path = tmp_path / "report.json"
+    payload["source_path"] = str(report_path)
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     loaded = load_omnipull_report(report_path)
@@ -76,12 +84,13 @@ def test_load_omnipull_report_rejects_non_object_json(tmp_path: Path):
 
 def test_boundary_false_is_rejected(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "dirty-worktree.json")
+    report_path = tmp_path / "boundary-false.json"
+    payload["source_path"] = str(report_path)
     payload["boundary"] = {
         "does_not_execute": False,
         "does_not_mutate": False,
         "does_not_authorise_actions": False,
     }
-    report_path = tmp_path / "boundary-false.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="boundary"):
@@ -90,6 +99,8 @@ def test_boundary_false_is_rejected(tmp_path: Path):
 
 def test_runtime_rejects_executor_fields(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "non-default-branch.json")
+    report_path = tmp_path / "forbidden-fields.json"
+    payload["source_path"] = str(report_path)
     payload.update(
         {
             "action": "switch-main",
@@ -102,7 +113,6 @@ def test_runtime_rejects_executor_fields(tmp_path: Path):
             "safe_alternatives": ["inspect"],
         }
     )
-    report_path = tmp_path / "forbidden-fields.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="forbidden fields"):
@@ -111,9 +121,10 @@ def test_runtime_rejects_executor_fields(tmp_path: Path):
 
 def test_runtime_rejects_unknown_top_level_field(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "unknown-top-level.json"
+    payload["source_path"] = str(report_path)
     payload["unexpected"] = "value"
 
-    report_path = tmp_path / "unknown-top-level.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="unknown fields"):
@@ -122,9 +133,10 @@ def test_runtime_rejects_unknown_top_level_field(tmp_path: Path):
 
 def test_runtime_rejects_unknown_repo_item_field(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "unknown-repo-field.json"
+    payload["source_path"] = str(report_path)
     payload["repos"][0]["unexpected_repo_field"] = "value"
 
-    report_path = tmp_path / "unknown-repo-field.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="unknown fields"):
@@ -133,9 +145,10 @@ def test_runtime_rejects_unknown_repo_item_field(tmp_path: Path):
 
 def test_runtime_rejects_unknown_status(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "unknown-status.json"
+    payload["source_path"] = str(report_path)
     payload["repos"][0]["status"] = "unsupported_status"
 
-    report_path = tmp_path / "unknown-status.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="status"):
@@ -144,9 +157,10 @@ def test_runtime_rejects_unknown_status(tmp_path: Path):
 
 def test_runtime_rejects_invalid_generated_at_format(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "invalid-generated-at.json"
+    payload["source_path"] = str(report_path)
     payload["generated_at"] = "2026-05-16 09:32:00"
 
-    report_path = tmp_path / "invalid-generated-at.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="date-time"):
@@ -155,17 +169,202 @@ def test_runtime_rejects_invalid_generated_at_format(tmp_path: Path):
 
 def test_runtime_rejects_missing_boundary(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "missing-boundary.json"
+    payload["source_path"] = str(report_path)
     payload.pop("boundary")
 
-    report_path = tmp_path / "missing-boundary.json"
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="boundary"):
         load_omnipull_report(report_path)
 
 
+def test_runtime_rejects_source_path_mismatch(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "source-path-mismatch.json"
+    payload["source_path"] = str(tmp_path / "other.json")
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="source_path"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_empty_skip_reasons(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "empty-skip-reasons.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["skip_reasons"] = []
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="skip_reasons"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_status_not_present_in_skip_reasons(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "status-not-in-skip-reasons.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["skip_reasons"] = ["dirty_worktree"]
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="skip_reasons"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_falsification_ref_prefix(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "bad-falsification-prefix.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["falsification_refs"] = ["wrong-prefix.feature_branch_unmerged"]
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="failure-case"):
+        load_omnipull_report(report_path)
+
+
+def test_runtime_rejects_unknown_falsification_ref(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / "unknown-falsification-ref.json"
+    payload["source_path"] = str(report_path)
+    payload["repos"][0]["falsification_refs"] = ["failure-case.not_a_real_case"]
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unknown failure-case"):
+        load_omnipull_report(report_path)
+
+
+def test_schema_rejects_forbidden_top_level_fields():
+    schema = _schema()
+    base = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+
+    for field in sorted(FORBIDDEN_REPORT_KEYS):
+        candidate = json.loads(json.dumps(base))
+        candidate[field] = "forbidden"
+        with pytest.raises(ValidationError):
+            validate_instance(candidate, schema, Path(f"forbidden-top-level-{field}.json"))
+
+
+def test_schema_rejects_forbidden_repo_fields():
+    schema = _schema()
+    base = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+
+    for field in sorted(FORBIDDEN_REPORT_KEYS):
+        candidate = json.loads(json.dumps(base))
+        candidate["repos"][0][field] = "forbidden"
+        with pytest.raises(ValidationError):
+            validate_instance(candidate, schema, Path(f"forbidden-repo-field-{field}.json"))
+
+
+def test_schema_rejects_boundary_false_and_extra_field():
+    schema = _schema()
+    candidate_false = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate_false["boundary"] = {
+        "does_not_execute": False,
+        "does_not_mutate": True,
+        "does_not_authorise_actions": True,
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate_false, schema, Path("invalid-boundary-false.json"))
+
+    candidate_extra = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate_extra["boundary"] = {
+        "does_not_execute": True,
+        "does_not_mutate": True,
+        "does_not_authorise_actions": True,
+        "unexpected": True,
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate_extra, schema, Path("invalid-boundary-extra-field.json"))
+
+
+def test_schema_rejects_missing_required_top_level_fields():
+    schema = _schema()
+    required = [
+        "schema_version",
+        "report_id",
+        "run_id",
+        "generated_at",
+        "source_path",
+        "repos",
+        "boundary",
+    ]
+
+    for field in required:
+        candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+        candidate.pop(field)
+        with pytest.raises(ValidationError):
+            validate_instance(candidate, schema, Path(f"missing-top-level-{field}.json"))
+
+
+def test_schema_rejects_missing_required_repo_fields():
+    schema = _schema()
+    required = [
+        "repo_id",
+        "path",
+        "status",
+        "skip_reasons",
+        "source_refs",
+        "freshness_refs",
+        "falsification_refs",
+        "missing_evidence",
+    ]
+
+    for field in required:
+        candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+        candidate["repos"][0].pop(field)
+        with pytest.raises(ValidationError):
+            validate_instance(candidate, schema, Path(f"missing-repo-field-{field}.json"))
+
+
+def test_omnipull_report_show_cli_rejects_missing_file(tmp_path: Path):
+    missing_path = tmp_path / "does-not-exist.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "omnipull-report",
+            "show",
+            str(missing_path),
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+
+
+def test_omnipull_report_show_cli_rejects_invalid_json(tmp_path: Path):
+    invalid_path = tmp_path / "invalid.json"
+    invalid_path.write_text("{not-json", encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "omnipull-report",
+            "show",
+            str(invalid_path),
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+
+
 def test_omnipull_report_show_cli_smoke_emits_valid_json():
-    report_path = EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json"
+    report_path = Path("examples/omnipull-reports/mixed-run.json")
 
     result = subprocess.run(
         [

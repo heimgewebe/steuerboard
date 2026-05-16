@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .assessment_rules import EXISTING_FAILURE_CASE_IDS
+
 _FORBIDDEN_REPORT_KEYS = {
     "action",
     "plan_id",
@@ -94,6 +96,25 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
     return result
 
 
+def _require_non_empty_string_list(value: Any, field_name: str) -> list[str]:
+    result = _require_string_list(value, field_name)
+    if not result:
+        raise ValueError(f"{field_name} must be a non-empty list of strings")
+    return result
+
+
+def _validate_falsification_refs(value: Any, field_name: str) -> list[str]:
+    refs = _require_string_list(value, field_name)
+    for ref in refs:
+        prefix = "failure-case."
+        if not ref.startswith(prefix):
+            raise ValueError(f"{field_name} must use failure-case.* references")
+        case_id = ref[len(prefix) :]
+        if case_id not in EXISTING_FAILURE_CASE_IDS:
+            raise ValueError(f"{field_name} contains unknown failure-case ref: {ref}")
+    return refs
+
+
 def _validate_known_keys(payload: dict[str, Any], allowed: set[str], field_name: str) -> None:
     unknown = sorted(set(payload) - allowed)
     if unknown:
@@ -130,6 +151,8 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
     run_id = _require_non_empty_string(raw.get("run_id"), "run_id")
     generated_at = _require_date_time_string(raw.get("generated_at"), "generated_at")
     source_path = _require_non_empty_string(raw.get("source_path"), "source_path")
+    if source_path != str(path):
+        raise ValueError("source_path must exactly match the loaded artifact path")
 
     boundary = raw.get("boundary")
     if not isinstance(boundary, dict):
@@ -157,20 +180,24 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
             "repo_id": _require_non_empty_string(item.get("repo_id"), f"{field_prefix}.repo_id"),
             "path": _require_non_empty_string(item.get("path"), f"{field_prefix}.path"),
             "status": status,
-            "skip_reasons": _require_string_list(
+            "skip_reasons": _require_non_empty_string_list(
                 item.get("skip_reasons"), f"{field_prefix}.skip_reasons"
             ),
-            "source_refs": _require_string_list(item.get("source_refs"), f"{field_prefix}.source_refs"),
-            "freshness_refs": _require_string_list(
+            "source_refs": _require_non_empty_string_list(
+                item.get("source_refs"), f"{field_prefix}.source_refs"
+            ),
+            "freshness_refs": _require_non_empty_string_list(
                 item.get("freshness_refs"), f"{field_prefix}.freshness_refs"
             ),
-            "falsification_refs": _require_string_list(
+            "falsification_refs": _validate_falsification_refs(
                 item.get("falsification_refs"), f"{field_prefix}.falsification_refs"
             ),
             "missing_evidence": _require_string_list(
                 item.get("missing_evidence"), f"{field_prefix}.missing_evidence"
             ),
         }
+        if status not in repo["skip_reasons"]:
+            raise ValueError(f"{field_prefix}.skip_reasons must include status {status!r}")
         repos.append(repo)
 
     normalized: dict[str, Any] = {

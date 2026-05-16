@@ -51,3 +51,4 @@ The `omnipull-report show` command is a read-only artifact adapter: it loads exa
 lookup, does not search `/home/alex/logs/omnipull`, does not execute Git, does not mutate repositories,
 does not execute actions, does not authorise actions, and does not generate new plans from Omnipull
 report input in this slice.
+The artifact `source_path` must match the explicit path provided to the loader.

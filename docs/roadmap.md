@@ -203,6 +203,7 @@ python -m steuerboard omnipull-report show <report-json> --json
 This command reads one explicitly provided JSON file and emits a normalized
 `omnipull-report.v1` artifact. It does not execute Git, mutate repositories,
 or authorize actions.
+The report `source_path` must match the explicit loaded artifact path.
 
 Boundary for this slice:
 
@@ -210,5 +211,7 @@ Boundary for this slice:
 - no path search or policy over `/home/alex/logs/omnipull`
 - no fetch/pull/switch/reset/clean
 - no network access
+- no Git subprocess
 - no action execution or action authorization
 - no new plan generation from Omnipull report input
+- no command advice
