@@ -411,6 +411,26 @@ def test_schema_rejects_missing_required_repo_fields():
             validate_instance(candidate, schema, Path(f"missing-repo-field-{field}.json"))
 
 
+@pytest.mark.parametrize("field", ["report_id", "run_id", "source_path"])
+def test_schema_rejects_whitespace_only_omnipull_top_level_strings(field: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate[field] = "   "
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"whitespace-top-level-{field}.json"))
+
+
+@pytest.mark.parametrize("field", ["repo_id", "path", "status"])
+def test_schema_rejects_whitespace_only_omnipull_repo_strings(field: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["repos"][0][field] = "   "
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"whitespace-repo-{field}.json"))
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -428,6 +448,25 @@ def test_schema_rejects_empty_repo_list_items(field: str):
 
     with pytest.raises(ValidationError):
         validate_instance(candidate, schema, Path(f"empty-item-{field}.json"))
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "skip_reasons",
+        "source_refs",
+        "freshness_refs",
+        "falsification_refs",
+        "missing_evidence",
+    ],
+)
+def test_schema_rejects_whitespace_only_omnipull_repo_list_items(field: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["repos"][0][field] = ["   "]
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"whitespace-list-item-{field}.json"))
 
 
 def test_mixed_run_default_branch_unknown_uses_assessment_vocabulary():

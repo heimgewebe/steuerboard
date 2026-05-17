@@ -17,11 +17,13 @@
     },
     "report_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": ".*\\S.*"
     },
     "run_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": ".*\\S.*"
     },
     "generated_at": {
       "type": "string",
@@ -29,7 +31,8 @@
     },
     "source_path": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": ".*\\S.*"
     },
     "repos": {
       "type": "array",
@@ -50,15 +53,18 @@
         "properties": {
           "repo_id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": ".*\\S.*"
           },
           "path": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": ".*\\S.*"
           },
           "status": {
             "type": "string",
             "minLength": 1,
+            "pattern": ".*\\S.*",
             "enum": [
               "non_default_branch",
               "dirty_worktree",
@@ -75,7 +81,8 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": ".*\\S.*"
             }
           },
           "source_refs": {
@@ -83,7 +90,8 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": ".*\\S.*"
             }
           },
           "freshness_refs": {
@@ -91,21 +99,24 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": ".*\\S.*"
             }
           },
           "falsification_refs": {
             "type": "array",
             "items": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": ".*\\S.*"
             }
           },
           "missing_evidence": {
             "type": "array",
             "items": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": ".*\\S.*"
             }
           }
         }
