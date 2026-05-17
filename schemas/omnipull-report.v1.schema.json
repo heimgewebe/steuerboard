@@ -108,7 +108,7 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "pattern": ".*\\S.*"
+              "pattern": "^failure-case\\.[A-Za-z0-9_.-]+$"
             }
           },
           "missing_evidence": {

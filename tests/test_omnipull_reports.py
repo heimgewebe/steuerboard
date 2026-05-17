@@ -469,6 +469,15 @@ def test_schema_rejects_whitespace_only_omnipull_repo_list_items(field: str):
         validate_instance(candidate, schema, Path(f"whitespace-list-item-{field}.json"))
 
 
+def test_schema_rejects_invalid_falsification_ref_prefix():
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["repos"][0]["falsification_refs"] = ["not-a-failure-case.dirty_worktree"]
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path("invalid-falsification-ref-prefix.json"))
+
+
 def test_mixed_run_default_branch_unknown_uses_assessment_vocabulary():
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     unknown_default = next(
