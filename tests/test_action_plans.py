@@ -420,6 +420,21 @@ def test_empty_source_refs_raises_value_error():
         plan_switch_main(assessment)
 
 
+@pytest.mark.parametrize("field", [
+    "source_refs",
+    "missing_evidence",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+])
+def test_whitespace_only_assessment_list_items_raise_value_error(field: str):
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment[field] = ["   "]
+
+    with pytest.raises(ValueError, match=field):
+        plan_switch_main(assessment)
+
+
 @pytest.mark.parametrize("field,value", [
     ("action", "switch-main"),
     ("plan_id", "plan-legacy"),
