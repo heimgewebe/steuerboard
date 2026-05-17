@@ -292,7 +292,7 @@ def test_runtime_strips_repo_list_item_whitespace(tmp_path: Path):
 
 def test_runtime_preserves_non_empty_repo_strings(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
-    report_path = tmp_path / "strip-strings.json"
+    report_path = tmp_path / "preserve-strings.json"
     payload["source_path"] = str(report_path)
     payload["repos"][0]["repo_id"] = " repo.mixed-run "
     payload["repos"][0]["path"] = " ./repo "

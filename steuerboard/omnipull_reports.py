@@ -62,7 +62,7 @@ _BOUNDARY = {
 }
 
 
-def _require_non_empty_string(value: Any, field_name: str) -> str:
+def _require_non_blank_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
     return value
@@ -147,11 +147,11 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
     if schema_version != "omnipull-report.v1":
         raise ValueError("schema_version must be omnipull-report.v1")
 
-    report_id = _require_non_empty_string(raw.get("report_id"), "report_id")
-    run_id = _require_non_empty_string(raw.get("run_id"), "run_id")
+    report_id = _require_non_blank_string(raw.get("report_id"), "report_id")
+    run_id = _require_non_blank_string(raw.get("run_id"), "run_id")
     generated_at = _require_date_time_string(raw.get("generated_at"), "generated_at")
     raw_source_path = raw.get("source_path")
-    source_path = _require_non_empty_string(raw_source_path, "source_path")
+    source_path = _require_non_blank_string(raw_source_path, "source_path")
     if raw_source_path != str(path):
         raise ValueError("source_path must exactly match the loaded artifact path")
 
@@ -173,13 +173,13 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
 
         _validate_known_keys(item, _ALLOWED_REPO_KEYS, field_prefix)
 
-        status = _require_non_empty_string(item.get("status"), f"{field_prefix}.status")
+        status = _require_non_blank_string(item.get("status"), f"{field_prefix}.status")
         if status not in _ALLOWED_STATUSES:
             raise ValueError(f"{field_prefix}.status must be one of {sorted(_ALLOWED_STATUSES)}")
 
         repo = {
-            "repo_id": _require_non_empty_string(item.get("repo_id"), f"{field_prefix}.repo_id"),
-            "path": _require_non_empty_string(item.get("path"), f"{field_prefix}.path"),
+            "repo_id": _require_non_blank_string(item.get("repo_id"), f"{field_prefix}.repo_id"),
+            "path": _require_non_blank_string(item.get("path"), f"{field_prefix}.path"),
             "status": status,
             "skip_reasons": _require_non_empty_string_list(
                 item.get("skip_reasons"), f"{field_prefix}.skip_reasons"
