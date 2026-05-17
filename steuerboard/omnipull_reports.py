@@ -65,7 +65,7 @@ _BOUNDARY = {
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
-    return value.strip()
+    return value
 
 
 def _require_string(value: Any, field_name: str) -> str:

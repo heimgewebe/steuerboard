@@ -290,7 +290,7 @@ def test_runtime_strips_repo_list_item_whitespace(tmp_path: Path):
     assert loaded["repos"][0]["source_refs"] == ["source.branch.current"]
 
 
-def test_runtime_strips_non_empty_repo_strings(tmp_path: Path):
+def test_runtime_preserves_non_empty_repo_strings(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     report_path = tmp_path / "strip-strings.json"
     payload["source_path"] = str(report_path)
@@ -300,8 +300,17 @@ def test_runtime_strips_non_empty_repo_strings(tmp_path: Path):
 
     loaded = load_omnipull_report(report_path)
 
-    assert loaded["repos"][0]["repo_id"] == "repo.mixed-run"
-    assert loaded["repos"][0]["path"] == "./repo"
+    assert loaded["repos"][0]["repo_id"] == " repo.mixed-run "
+    assert loaded["repos"][0]["path"] == " ./repo "
+
+
+def test_schema_rejects_whitespace_padded_source_path():
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["source_path"] = " examples/omnipull-reports/mixed-run.json "
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path("whitespace-padded-source-path.json"))
 
 
 def test_runtime_rejects_falsification_ref_prefix(tmp_path: Path):
