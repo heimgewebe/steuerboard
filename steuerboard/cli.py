@@ -248,7 +248,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "omnipull-report" and args.omnipull_report_command == "show":
         try:
-            report = load_omnipull_report(Path(args.report_json))
+            report = load_omnipull_report(
+                Path(args.report_json), source_path_ref=args.report_json
+            )
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True))

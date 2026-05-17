@@ -9,7 +9,7 @@ Current implemented surface:
 Current boundary:
 
 - reads one explicit JSON artifact path only
-- report `source_path` must match that explicit artifact path
+- report `source_path` must match the explicit artifact path string passed to the command
 - source path matching is lexical in this slice (no canonicalization)
 - `repos: []` is valid for an empty run artifact
 - no latest lookup

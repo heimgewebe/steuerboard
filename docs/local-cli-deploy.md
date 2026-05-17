@@ -96,7 +96,7 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 - No command advice.
 - No branch switches.
 - Omnipull adapter reads one explicit artifact path only; no latest lookup and no `/home/alex/logs/omnipull` path search.
-- Omnipull adapter requires report `source_path` to match the explicit loaded artifact path.
+- Omnipull adapter requires report `source_path` to match the explicit artifact path string passed to the command.
 - No Git subprocess in the Omnipull adapter.
 - No new plan generation from Omnipull report input.
 

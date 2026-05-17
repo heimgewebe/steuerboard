@@ -121,7 +121,7 @@ def _validate_known_keys(payload: dict[str, Any], allowed: set[str], field_name:
         raise ValueError(f"{field_name} contains unknown fields: {unknown}")
 
 
-def load_omnipull_report(path: Path) -> dict[str, Any]:
+def load_omnipull_report(path: Path, *, source_path_ref: str | None = None) -> dict[str, Any]:
     """Load and validate one omnipull-report.v1 JSON artifact.
 
     This adapter is intentionally read-only: it accepts one explicit JSON path,
@@ -152,7 +152,8 @@ def load_omnipull_report(path: Path) -> dict[str, Any]:
     generated_at = _require_date_time_string(raw.get("generated_at"), "generated_at")
     raw_source_path = raw.get("source_path")
     source_path = _require_non_blank_string(raw_source_path, "source_path")
-    if raw_source_path != str(path):
+    expected_source_path = source_path_ref if source_path_ref is not None else str(path)
+    if raw_source_path != expected_source_path:
         raise ValueError("source_path must exactly match the loaded artifact path")
 
     boundary = raw.get("boundary")

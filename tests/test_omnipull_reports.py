@@ -201,6 +201,19 @@ def test_runtime_rejects_lexically_different_source_path_for_same_file(tmp_path:
         load_omnipull_report(report_path)
 
 
+def test_runtime_accepts_source_path_matching_explicit_reference(tmp_path: Path):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_dir = tmp_path / "nested"
+    report_dir.mkdir()
+    report_path = report_dir / "report.json"
+    payload["source_path"] = "./nested/report.json"
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = load_omnipull_report(report_path, source_path_ref="./nested/report.json")
+
+    assert loaded["source_path"] == "./nested/report.json"
+
+
 def test_runtime_rejects_whitespace_padded_source_path(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
     report_path = tmp_path / "source-path-whitespace.json"
@@ -566,6 +579,28 @@ def test_omnipull_report_show_cli_smoke_emits_valid_json():
 
     payload = json.loads(result.stdout)
     validate_instance(payload, _schema(), Path("omnipull-report-show-cli-smoke.json"))
+
+
+def test_omnipull_report_show_cli_rejects_dot_slash_alias_for_example():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "omnipull-report",
+            "show",
+            "./examples/omnipull-reports/mixed-run.json",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+    assert "source_path" in result.stderr
 
 
 def test_omnipull_report_latest_command_is_not_available():
