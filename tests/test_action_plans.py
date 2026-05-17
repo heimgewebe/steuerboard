@@ -486,6 +486,63 @@ def test_schema_forbids_execution_fields(field: str, value: list[str]):
         validate_instance(plan, schema, Path(f"plan-with-{field}.json"))
 
 
+@pytest.mark.parametrize("field", [
+    "source_refs",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+    "missing_evidence",
+])
+def test_schema_rejects_whitespace_only_action_plan_list_items(field: str):
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+    plan[field] = ["   "]
+
+    with pytest.raises(ValidationError):
+        validate_instance(plan, schema, Path(f"plan-whitespace-{field}.json"))
+
+
+def test_schema_rejects_whitespace_only_blocked_because_item():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "blocked",
+        "blocked_because": ["   "],
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(plan, schema, Path("plan-whitespace-blocked-because.json"))
+
+
 def test_cli_plan_switch_main_smoke(tmp_path: Path):
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment["missing_evidence"] = [

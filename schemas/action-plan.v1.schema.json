@@ -39,38 +39,50 @@
     "blocked_because": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*"
       }
     },
     "missing_evidence": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*"
       }
     },
     "source_refs": {
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*"
       }
     },
     "rule_refs": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*"
       }
     },
     "freshness_refs": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*"
       }
     },
     "falsification_refs": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*"
       }
     },
     "boundary": {
@@ -115,7 +127,9 @@
             "type": "array",
             "minItems": 1,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": ".*\\S.*"
             }
           }
         }
