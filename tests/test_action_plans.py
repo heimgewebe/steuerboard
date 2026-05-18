@@ -435,13 +435,17 @@ def test_whitespace_only_assessment_list_items_raise_value_error(field: str):
         plan_switch_main(assessment)
 
 
-@pytest.mark.parametrize("field", [
-    "assessment_id",
-    "observation_ref",
-])
-def test_padded_assessment_scalar_strings_raise_value_error(field: str):
+def test_padded_assessment_id_raises_value_error():
     assessment = _assessment_with_statuses(["non_default_branch"])
-    assessment[field] = f" {assessment[field]} "
+    assessment["assessment_id"] = f" {assessment['assessment_id']} "
+
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        plan_switch_main(assessment)
+
+
+def test_padded_observation_ref_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["observation_ref"] = f" {assessment['observation_ref']} "
 
     with pytest.raises(ValueError, match="leading or trailing whitespace"):
         plan_switch_main(assessment)
