@@ -287,34 +287,55 @@ def test_runtime_rejects_empty_repo_list_items(tmp_path: Path, field: str):
     payload["repos"][0][field] = [""]
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="non-empty strings"):
+    with pytest.raises(ValueError, match="non-blank strings"):
         load_omnipull_report(report_path)
 
 
-def test_runtime_strips_repo_list_item_whitespace(tmp_path: Path):
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("skip_reasons", " dirty_worktree "),
+        ("source_refs", " source.branch.current "),
+        ("freshness_refs", " freshness.origin_main.current "),
+        ("falsification_refs", " failure-case.dirty_worktree "),
+        ("missing_evidence", " missing.branch_state "),
+    ],
+)
+def test_runtime_rejects_whitespace_padded_repo_list_items(
+    tmp_path: Path, field: str, value: str
+):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
-    report_path = tmp_path / "strip-list-items.json"
+    report_path = tmp_path / f"whitespace-padded-{field}.json"
     payload["source_path"] = str(report_path)
-    payload["repos"][0]["source_refs"] = [" source.branch.current "]
+    payload["repos"][0][field] = [value]
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    loaded = load_omnipull_report(report_path)
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        load_omnipull_report(report_path)
 
-    assert loaded["repos"][0]["source_refs"] == ["source.branch.current"]
 
-
-def test_runtime_preserves_non_empty_repo_strings(tmp_path: Path):
+def test_runtime_rejects_whitespace_padded_repo_strings(tmp_path: Path):
     payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
-    report_path = tmp_path / "preserve-strings.json"
+    report_path = tmp_path / "whitespace-padded-repo-strings.json"
     payload["source_path"] = str(report_path)
     payload["repos"][0]["repo_id"] = " repo.mixed-run "
     payload["repos"][0]["path"] = " ./repo "
     report_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    loaded = load_omnipull_report(report_path)
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        load_omnipull_report(report_path)
 
-    assert loaded["repos"][0]["repo_id"] == " repo.mixed-run "
-    assert loaded["repos"][0]["path"] == " ./repo "
+
+@pytest.mark.parametrize("field", ["report_id", "run_id"])
+def test_runtime_rejects_whitespace_padded_top_level_strings(tmp_path: Path, field: str):
+    payload = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    report_path = tmp_path / f"whitespace-padded-{field}.json"
+    payload["source_path"] = str(report_path)
+    payload[field] = f" {payload[field]} "
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        load_omnipull_report(report_path)
 
 
 def test_schema_rejects_whitespace_padded_source_path():
@@ -324,6 +345,56 @@ def test_schema_rejects_whitespace_padded_source_path():
 
     with pytest.raises(ValidationError):
         validate_instance(candidate, schema, Path("whitespace-padded-source-path.json"))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("report_id", " report.mixed-run "),
+        ("run_id", " run.mixed-run "),
+    ],
+)
+def test_schema_rejects_whitespace_padded_top_level_strings(field: str, value: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate[field] = value
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"whitespace-padded-top-level-{field}.json"))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("repo_id", " repo.mixed-run "),
+        ("path", " ./repo "),
+    ],
+)
+def test_schema_rejects_whitespace_padded_repo_strings(field: str, value: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["repos"][0][field] = value
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"whitespace-padded-repo-{field}.json"))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("skip_reasons", " dirty_worktree "),
+        ("source_refs", " source.branch.current "),
+        ("freshness_refs", " freshness.origin_main.current "),
+        ("missing_evidence", " missing.branch_state "),
+    ],
+)
+def test_schema_rejects_whitespace_padded_repo_list_items(field: str, value: str):
+    schema = _schema()
+    candidate = load_json(EXAMPLES_DIR / "omnipull-reports" / "mixed-run.json")
+    candidate["repos"][0][field] = [value]
+
+    with pytest.raises(ValidationError):
+        validate_instance(candidate, schema, Path(f"whitespace-padded-list-{field}.json"))
 
 
 def test_runtime_rejects_falsification_ref_prefix(tmp_path: Path):
