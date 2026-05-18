@@ -158,7 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     omnipull_report_show_parser = omnipull_report_subparsers.add_parser(
         "show",
-        help="Load and normalize one omnipull-report.v1 JSON artifact.",
+        help="Load and validate one omnipull-report.v1 JSON artifact.",
     )
     omnipull_report_show_parser.add_argument(
         "report_json",
