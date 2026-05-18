@@ -52,6 +52,8 @@ VALID_ASSESSMENT_DECISION_STATES = {
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
+    if value != value.strip():
+        raise ValueError(f"{field_name} must not have leading or trailing whitespace")
     return value
 
 
@@ -60,6 +62,8 @@ def _require_string_list(value: Any, field_name: str) -> list[str]:
         raise ValueError(f"{field_name} must be a list[str]")
     if not all(isinstance(item, str) and item.strip() for item in value):
         raise ValueError(f"{field_name} must be a list[str] with non-empty items")
+    if any(item != item.strip() for item in value):
+        raise ValueError(f"{field_name} items must not have leading or trailing whitespace")
     return value
 
 

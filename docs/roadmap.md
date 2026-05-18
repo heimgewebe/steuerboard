@@ -200,7 +200,7 @@ Phase 6a adds a bounded artifact adapter for Omnipull reports:
 python -m steuerboard omnipull-report show <report-json> --json
 ```
 
-This command reads one explicitly provided JSON file and emits a normalized
+This command reads one explicitly provided JSON file and emits a validated
 `omnipull-report.v1` artifact. It does not execute Git, mutate repositories,
 or authorize actions.
 The report `source_path` must match the explicit loaded artifact path.

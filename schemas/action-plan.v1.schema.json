@@ -21,14 +21,16 @@
     },
     "plan_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "action": {
       "const": "switch-main"
     },
     "assessment_ref": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "decision": {
       "enum": [
@@ -41,7 +43,7 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*"
+        "pattern": "^\\S(?:.*\\S)?$"
       }
     },
     "missing_evidence": {
@@ -49,7 +51,7 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*"
+        "pattern": "^\\S(?:.*\\S)?$"
       }
     },
     "source_refs": {
@@ -58,7 +60,7 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*"
+        "pattern": "^\\S(?:.*\\S)?$"
       }
     },
     "rule_refs": {
@@ -66,7 +68,7 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*"
+        "pattern": "^\\S(?:.*\\S)?$"
       }
     },
     "freshness_refs": {
@@ -74,7 +76,7 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*"
+        "pattern": "^\\S(?:.*\\S)?$"
       }
     },
     "falsification_refs": {
@@ -82,7 +84,7 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*"
+        "pattern": "^\\S(?:.*\\S)?$"
       }
     },
     "boundary": {
@@ -129,7 +131,7 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "pattern": ".*\\S.*"
+              "pattern": "^\\S(?:.*\\S)?$"
             }
           }
         }
