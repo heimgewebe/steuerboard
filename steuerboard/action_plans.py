@@ -107,11 +107,13 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"unknown derived_status value(s): {unknown_statuses}")
 
     source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
-    missing_evidence = _require_string_list(assessment.get("missing_evidence"), "missing_evidence")
-    rule_refs = _require_string_list(assessment.get("rule_refs"), "rule_refs")
-    freshness_refs = _require_string_list(assessment.get("freshness_refs"), "freshness_refs")
+    missing_evidence = _require_string_list(
+        assessment.get("missing_evidence", []), "missing_evidence"
+    )
+    rule_refs = _require_string_list(assessment.get("rule_refs", []), "rule_refs")
+    freshness_refs = _require_string_list(assessment.get("freshness_refs", []), "freshness_refs")
     falsification_refs = _require_string_list(
-        assessment.get("falsification_refs"), "falsification_refs"
+        assessment.get("falsification_refs", []), "falsification_refs"
     )
 
     blocking_reasons = [status for status in derived_status if status in BLOCKING_SWITCH_MAIN_STATUSES]
