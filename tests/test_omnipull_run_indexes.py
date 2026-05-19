@@ -264,6 +264,56 @@ def test_select_latest_report_rejects_invalid_in_memory_generated_at():
         select_latest_report(index)
 
 
+@pytest.mark.parametrize("value", [None, "", " report-id "])
+def test_select_latest_report_rejects_invalid_in_memory_report_id(value: object):
+    index = {
+        "schema_version": "omnipull-run-index.v1",
+        "generated_at": "2026-05-19T10:00:00Z",
+        "source_path": "examples/omnipull-run-indexes/in-memory.json",
+        "reports": [
+            {
+                "report_id": value,
+                "run_id": "run-x",
+                "generated_at": "2026-05-19T10:00:00Z",
+                "source_path": "examples/omnipull-reports/x.json",
+            }
+        ],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValueError, match="reports\\[\\]\\.report_id"):
+        select_latest_report(index)
+
+
+@pytest.mark.parametrize("value", [None, "", " examples/omnipull-reports/x.json "])
+def test_select_latest_report_rejects_invalid_in_memory_source_path(value: object):
+    index = {
+        "schema_version": "omnipull-run-index.v1",
+        "generated_at": "2026-05-19T10:00:00Z",
+        "source_path": "examples/omnipull-run-indexes/in-memory.json",
+        "reports": [
+            {
+                "report_id": "report-x",
+                "run_id": "run-x",
+                "generated_at": "2026-05-19T10:00:00Z",
+                "source_path": value,
+            }
+        ],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValueError, match="reports\\[\\]\\.source_path"):
+        select_latest_report(index)
+
+
 # ---------------------------------------------------------------------------
 # Runtime loader: negative contracts
 # ---------------------------------------------------------------------------
