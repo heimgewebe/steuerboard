@@ -20,4 +20,4 @@ Keine weiteren teilweise offenen Punkte aus dieser Session.
 
 1. FQDN-Erreichbarkeit außerhalb des Heimnetzes (mobiles Netz, VPN) noch nicht vollständig belegt.
 2. Suspendzeit-Toleranz bei unterschiedlicher Schlaftiefe nicht quantifiziert.
-3. WOL bei abgeschaltetem Router-Portforwarding nicht getestet.
+3. WOL über externen Zugriffspfad ohne LAN-Präsenz noch nicht separat belegt.

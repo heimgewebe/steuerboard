@@ -14,8 +14,22 @@ Vorheriger Zustand: Speed: 100Mb/s (beobachtet in früherer Session, jetzt super
 ## Evidence
 
 Belegt durch:
-- `/home/alex/net-chico-reverse-only-iperf3-2026-05-18.log`
-- `ethtool enp6s0` Ausgabe: Speed: 1000Mb/s, Duplex: Full
+- lokaler Session-Log: `net-chico-reverse-only-iperf3-2026-05-18.log` (nicht eingecheckt)
+- `ethtool enp6s0` Ausgabe: `Speed: 1000Mb/s`, `Duplex: Full`
+- `iperf3` Reverse-Durchsatz: ca. 900–937 Mbit/s
+
+Output-Snippet:
+
+```text
+$ ethtool enp6s0 | grep -E 'Speed|Duplex'
+Speed: 1000Mb/s
+Duplex: Full
+
+$ iperf3 -R ...   # relevante Messläufe
+[ ID] Interval           Transfer     Bitrate
+[  5]   0.00-10.00  sec  1.05 GBytes   900 Mbits/sec
+[  5]   0.00-10.00  sec  1.09 GBytes   937 Mbits/sec
+```
 
 ## Gate-Status
 

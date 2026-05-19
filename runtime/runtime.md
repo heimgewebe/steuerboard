@@ -19,4 +19,4 @@ Dieses Verzeichnis enthält datierte Evidence-Dokumente für operative Gates.
 
 - FQDN-Erreichbarkeit außerhalb des Heimnetzes (mobiles Netz, VPN) noch nicht vollständig belegt.
 - Suspendzeit-Toleranz bei unterschiedlicher Schlaftiefe nicht quantifiziert.
-- WOL bei abgeschaltetem Router-Portforwarding nicht getestet.
+- WOL über externen Zugriffspfad ohne LAN-Präsenz noch nicht separat belegt.
