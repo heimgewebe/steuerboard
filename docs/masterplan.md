@@ -624,12 +624,16 @@ steuerboard plan omnipull --scope fleet
 ```json
 {
   "schema_version": "action-plan.v1",
-  "action_id": "switch-main",
-  "target": "heimgewebe/infra",
+  "plan_id": "plan-example-switch-main",
+  "action": "switch-main",
   "assessment_ref": "examples/assessments/repo.sample.json",
   "decision": "blocked",
-  "blocked_by": ["branch_merge_status_unknown"],
+  "blocked_because": ["branch_merge_status_unknown"],
   "missing_evidence": ["branch_contains_origin_main_or_pr_merged"],
+  "source_refs": ["assessment.repo.sample"],
+  "rule_refs": ["action.switch-main.requires_branch_lifecycle_proof"],
+  "freshness_refs": ["freshness.local_git_status.current_invocation"],
+  "falsification_refs": ["failure-case.feature_branch_unmerged"],
   "boundary": {
     "does_not_execute": true,
     "does_not_mutate": true,
@@ -640,7 +644,12 @@ steuerboard plan omnipull --scope fleet
 
 Historische Platzhalter wie `would_run`, `would_mutate`, `required_evidence`
 oder `safe_alternatives` gehören nicht mehr zur aktuellen
-`action-plan.v1`-Kontraktform.
+`action-plan.v1`-Kontraktform. Contract-Beispiele dürfen keine Felder
+außerhalb des aktuellen Schemas einführen.
+Die aktuellen Beispiel-Feldnamen sind `plan_id`, `action`, `assessment_ref`,
+`decision`, `blocked_because`, `missing_evidence`, `source_refs`, `rule_refs`,
+`freshness_refs`, `falsification_refs` und `boundary`; `action_id`, `target`
+und `blocked_by` sind keine aktuellen Felder.
 
 #### Stop-Kriterium
 
