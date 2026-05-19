@@ -66,8 +66,33 @@ Command:
 The command reads `repo-assessment.v1` JSON and emits `action-plan.v1` JSON.
 It does not observe repositories, read config, run Git commands, execute actions,
 mutate repositories, or authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and
+does not provide command advice.
 
 For this slice, `decision` in the plan is a plan result only:
 
 - `blocked` means switch-main cannot be proposed because blocking status is present
 - `not_applicable` means no switch is needed (`clean_default_current`)
+
+Phase 6a introduces a minimal read-only Omnipull report adapter.
+
+Command:
+
+    python -m steuerboard omnipull-report show <report-json> --json
+
+The command loads one explicit `omnipull-report.v1` JSON file, validates required
+fields, and emits a bounded report artifact.
+The report `source_path` must match the explicit artifact path string passed to the command.
+For this slice, the match is lexical (no path canonicalization).
+`repos: []` is allowed to represent an empty run artifact.
+
+Boundary for this slice:
+
+- no `latest` lookup command
+- no path search under `/home/alex/logs/omnipull`
+- no fetch/pull/switch/reset/clean
+- no network access
+- no Git subprocess
+- no action execution and no action authorization
+- no new plan generation from Omnipull report input in this slice
+- no command advice

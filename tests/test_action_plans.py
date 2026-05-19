@@ -217,7 +217,7 @@ def test_schema_rejects_empty_source_refs():
         },
     }
 
-    with pytest.raises(ValidationError, match="minItems|fewer than|non-empty"):
+    with pytest.raises(ValidationError, match="minItems|fewer than|non-empty|too short"):
         validate_instance(plan, schema, Path("plan-empty-source-refs.json"))
 
 
@@ -373,12 +373,12 @@ def test_multi_blocking_statuses_preserved():
     "freshness_refs",
     "falsification_refs",
 ])
-def test_null_optional_assessment_list_field_raises_value_error(field: str):
-    """Verify null optional list fields raise ValueError."""
+def test_null_required_assessment_list_field_raises_value_error(field: str):
+    """Verify null required list fields raise ValueError."""
     assessment = _assessment_with_statuses(["non_default_branch"])
     assessment[field] = None
 
-    with pytest.raises(ValueError, match=f"{field} must not be null"):
+    with pytest.raises(ValueError, match=field):
         plan_switch_main(assessment)
 
 
@@ -421,6 +421,70 @@ def test_empty_source_refs_raises_value_error():
         plan_switch_main(assessment)
 
 
+@pytest.mark.parametrize("field", [
+    "source_refs",
+    "missing_evidence",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+])
+def test_whitespace_only_assessment_list_items_raise_value_error(field: str):
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment[field] = ["   "]
+
+    with pytest.raises(ValueError, match=field):
+        plan_switch_main(assessment)
+
+
+def test_padded_assessment_id_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["assessment_id"] = f" {assessment['assessment_id']} "
+
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        plan_switch_main(assessment)
+
+
+def test_padded_observation_ref_raises_value_error():
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment["observation_ref"] = f" {assessment['observation_ref']} "
+
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        plan_switch_main(assessment)
+
+
+@pytest.mark.parametrize("field", [
+    "source_refs",
+    "missing_evidence",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+])
+def test_padded_assessment_list_items_raise_value_error(field: str):
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment[field] = [f" {assessment[field][0]} "]
+
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        plan_switch_main(assessment)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("action", "switch-main"),
+    ("plan_id", "plan-legacy"),
+    ("would_run", ["git switch main"]),
+    ("would_mutate", ["current_branch"]),
+    ("safe_alternatives", ["show_diff_against_default"]),
+    ("required_evidence", ["fresh_origin_main"]),
+    ("command_trace", {"schema_version": "command-trace.v1"}),
+    ("run_result", {"schema_version": "run-result.v1"}),
+])
+def test_runtime_rejects_forbidden_plan_or_executor_input_fields(field: str, value: object):
+    assessment = _assessment_with_statuses(["non_default_branch"])
+    assessment[field] = value
+
+    with pytest.raises(ValueError, match="forbidden"):
+        plan_switch_main(assessment)
+
+
 @pytest.mark.parametrize("field,value", [
     ("would_run", ["git switch main"]),
     ("would_mutate", ["current_branch"]),
@@ -452,6 +516,120 @@ def test_schema_forbids_execution_fields(field: str, value: list[str]):
 
     with pytest.raises(ValidationError, match="not allowed|unexpected"):
         validate_instance(plan, schema, Path(f"plan-with-{field}.json"))
+
+
+@pytest.mark.parametrize("field", [
+    "source_refs",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+    "missing_evidence",
+])
+def test_schema_rejects_whitespace_only_action_plan_list_items(field: str):
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+    plan[field] = ["   "]
+
+    with pytest.raises(ValidationError):
+        validate_instance(plan, schema, Path(f"plan-whitespace-{field}.json"))
+
+
+@pytest.mark.parametrize("field", [
+    "source_refs",
+    "rule_refs",
+    "freshness_refs",
+    "falsification_refs",
+    "missing_evidence",
+])
+def test_schema_rejects_padded_action_plan_list_items(field: str):
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "not_applicable",
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+    plan[field] = [" git.current_branch "]
+
+    with pytest.raises(ValidationError):
+        validate_instance(plan, schema, Path(f"plan-padded-{field}.json"))
+
+
+def test_schema_rejects_whitespace_only_blocked_because_item():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example",
+        "action": "switch-main",
+        "assessment_ref": "assess-example",
+        "decision": "blocked",
+        "blocked_because": ["   "],
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(plan, schema, Path("plan-whitespace-blocked-because.json"))
+
+
+def test_schema_rejects_padded_plan_scalars_and_blocked_because_item():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": " plan-example ",
+        "action": "switch-main",
+        "assessment_ref": " assess-example ",
+        "decision": "blocked",
+        "blocked_because": [" dirty_worktree "],
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(plan, schema, Path("plan-padded-scalars.json"))
 
 
 def test_cli_plan_switch_main_smoke(tmp_path: Path):

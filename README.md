@@ -39,7 +39,18 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard assess repo <path> --json`
 - `python -m steuerboard assess explain <assessment-json> --json`
 - `python -m steuerboard plan switch-main <assessment-json> --json`
+- `python -m steuerboard omnipull-report show <report-json> --json`
 
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.
 
 The `plan switch-main` command emits a preview-only plan artifact from an existing assessment. It does not execute Git, does not mutate repositories, and does not authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and does not provide command advice.
+
+The `omnipull-report show` command is a read-only artifact adapter: it loads exactly one provided
+`omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement latest
+lookup, does not search `/home/alex/logs/omnipull`, does not execute Git, does not mutate repositories,
+does not execute actions, does not authorise actions, and does not generate new plans from Omnipull
+report input in this slice.
+The artifact `source_path` must match the explicit path provided to the loader.
+This match is lexical for this slice (`./examples/x.json` and `examples/x.json` are different strings).
+`repos: []` is valid and represents an empty run artifact.

@@ -2,6 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
+FORBIDDEN_PLAN_INPUT_FIELDS = {
+    "action",
+    "plan_id",
+    "would_run",
+    "would_mutate",
+    "safe_alternatives",
+    "required_evidence",
+    "command_trace",
+    "run_result",
+}
+
 KNOWN_SWITCH_MAIN_STATUSES = {
     "not_git_repo",
     "scope_backup",
@@ -41,12 +52,18 @@ VALID_ASSESSMENT_DECISION_STATES = {
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
+    if value != value.strip():
+        raise ValueError(f"{field_name} must not have leading or trailing whitespace")
     return value
 
 
 def _require_string_list(value: Any, field_name: str) -> list[str]:
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+    if not isinstance(value, list):
         raise ValueError(f"{field_name} must be a list[str]")
+    if not all(isinstance(item, str) and item.strip() for item in value):
+        raise ValueError(f"{field_name} must be a list[str] with non-empty items")
+    if any(item != item.strip() for item in value):
+        raise ValueError(f"{field_name} items must not have leading or trailing whitespace")
     return value
 
 
@@ -57,18 +74,6 @@ def _require_non_empty_string_list(value: Any, field_name: str) -> list[str]:
     return items
 
 
-def _optional_string_list_field(obj: dict[str, Any], key: str) -> list[str]:
-    """Extract optional list[str]; absent defaults to [], null/non-list raises ValueError."""
-    if key not in obj:
-        return []
-    value = obj[key]
-    if value is None:
-        raise ValueError(f"{key} must not be null; omit field if not present")
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError(f"{key} must be a list[str]")
-    return value
-
-
 def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     """Derive a preview-only action-plan.v1 from an existing repo-assessment.v1 object.
 
@@ -77,6 +82,10 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     """
     if not isinstance(assessment, dict):
         raise ValueError("assessment must be an object")
+
+    forbidden_present = sorted(FORBIDDEN_PLAN_INPUT_FIELDS & set(assessment))
+    if forbidden_present:
+        raise ValueError(f"assessment contains forbidden plan/executor fields: {forbidden_present}")
 
     schema_version = assessment.get("schema_version")
     if schema_version != "repo-assessment.v1":
@@ -98,11 +107,14 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"unknown derived_status value(s): {unknown_statuses}")
 
     source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
-
-    missing_evidence = _optional_string_list_field(assessment, "missing_evidence")
-    rule_refs = _optional_string_list_field(assessment, "rule_refs")
-    freshness_refs = _optional_string_list_field(assessment, "freshness_refs")
-    falsification_refs = _optional_string_list_field(assessment, "falsification_refs")
+    missing_evidence = _require_string_list(
+        assessment.get("missing_evidence", []), "missing_evidence"
+    )
+    rule_refs = _require_string_list(assessment.get("rule_refs", []), "rule_refs")
+    freshness_refs = _require_string_list(assessment.get("freshness_refs", []), "freshness_refs")
+    falsification_refs = _require_string_list(
+        assessment.get("falsification_refs", []), "falsification_refs"
+    )
 
     blocking_reasons = [status for status in derived_status if status in BLOCKING_SWITCH_MAIN_STATUSES]
     not_applicable_reasons = [

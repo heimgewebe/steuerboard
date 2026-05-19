@@ -1,0 +1,121 @@
+{
+  "schema_version": "omnipull-report.v1",
+  "report_id": "omnipull-report-example-mixed-run",
+  "run_id": "run-2026-05-16-003",
+  "generated_at": "2026-05-16T09:32:00Z",
+  "source_path": "examples/omnipull-reports/mixed-run.json",
+  "repos": [
+    {
+      "repo_id": "heimgewebe/steuerboard",
+      "path": "/home/alex/repos/steuerboard",
+      "status": "non_default_branch",
+      "skip_reasons": [
+        "non_default_branch"
+      ],
+      "source_refs": [
+        "git.current_branch",
+        "git.default_branch_candidate"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_branch.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.feature_branch_unmerged"
+      ],
+      "missing_evidence": [
+        "branch_contains_origin_main_or_pr_merged",
+        "fresh_origin_main"
+      ]
+    },
+    {
+      "repo_id": "heimgewebe/legacy-no-upstream",
+      "path": "/home/alex/repos/legacy-no-upstream",
+      "status": "no_upstream",
+      "skip_reasons": [
+        "no_upstream"
+      ],
+      "source_refs": [
+        "git.upstream"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_branch.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.missing_upstream"
+      ],
+      "missing_evidence": [
+        "upstream_tracking_branch"
+      ]
+    },
+    {
+      "repo_id": "heimgewebe/fleet-shadow-copy",
+      "path": "/home/alex/backups/fleet-shadow-copy",
+      "status": "repo_not_in_scope",
+      "skip_reasons": [
+        "repo_not_in_scope",
+        "permission_denied"
+      ],
+      "source_refs": [
+        "filesystem.path",
+        "local_config.excluded_repo_roots"
+      ],
+      "freshness_refs": [
+        "freshness.local_scope_config.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.backup_repo_accidentally_used"
+      ],
+      "missing_evidence": [
+        "scope_classification_allow_canonical"
+      ]
+    },
+    {
+      "repo_id": "heimgewebe/remote-mainline",
+      "path": "/home/alex/repos/remote-mainline",
+      "status": "ff_only_not_possible",
+      "skip_reasons": [
+        "ff_only_not_possible",
+        "remote_unreachable"
+      ],
+      "source_refs": [
+        "git.ahead_behind",
+        "git.remote.origin.url"
+      ],
+      "freshness_refs": [
+        "freshness.remote_branch_lifecycle.not_observed_no_fetch"
+      ],
+      "falsification_refs": [
+        "failure-case.remote_unreachable",
+        "failure-case.origin_main_stale"
+      ],
+      "missing_evidence": [
+        "fresh_origin_main"
+      ]
+    },
+    {
+      "repo_id": "heimgewebe/unknown-default",
+      "path": "/home/alex/repos/unknown-default",
+      "status": "default_branch_unknown",
+      "skip_reasons": [
+        "default_branch_unknown"
+      ],
+      "source_refs": [
+        "git.default_branch_candidate"
+      ],
+      "freshness_refs": [
+        "freshness.default_branch_candidate.unavailable"
+      ],
+      "falsification_refs": [
+        "failure-case.unknown_default_branch"
+      ],
+      "missing_evidence": [
+        "default_branch"
+      ]
+    }
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

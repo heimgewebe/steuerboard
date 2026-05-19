@@ -28,6 +28,8 @@ It is a contract artifact derived from prior assessment.
 - no command execution
 - no repository mutation
 - no action authorisation
+- no command advice
+- no Git subprocess
 
 ## Contract Note: Redefinition of action-plan.v1
 

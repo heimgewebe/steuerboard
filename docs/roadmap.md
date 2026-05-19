@@ -153,6 +153,8 @@ python -m steuerboard plan switch-main <assessment-json> --json
 This command derives `action-plan.v1` from existing `repo-assessment.v1` JSON.
 It does not observe repositories, does not read local scope config, does not run
 Git commands, and does not execute or authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and
+does not provide command advice.
 
 Contract notes:
 
@@ -187,3 +189,29 @@ Out of scope in this phase:
 - planner outputs
 - action suggestions
 - command execution advice
+
+## Phase 6a — Omnipull Report Read-only Adapter (minimal contract slice)
+
+Status: minimal slice started.
+
+Phase 6a adds a bounded artifact adapter for Omnipull reports:
+
+```bash
+python -m steuerboard omnipull-report show <report-json> --json
+```
+
+This command reads one explicitly provided JSON file and emits a validated
+`omnipull-report.v1` artifact. It does not execute Git, mutate repositories,
+or authorize actions.
+The report `source_path` must match the explicit loaded artifact path.
+
+Boundary for this slice:
+
+- no `omnipull-report latest` command
+- no path search or policy over `/home/alex/logs/omnipull`
+- no fetch/pull/switch/reset/clean
+- no network access
+- no Git subprocess
+- no action execution or action authorization
+- no new plan generation from Omnipull report input
+- no command advice
