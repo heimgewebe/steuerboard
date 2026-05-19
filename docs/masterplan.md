@@ -2,7 +2,11 @@
 
 ## Leitidee
 
-steuerboard ist ein lokaler Kohärenzprüfer und Bedienadapter für Arbeitsgeräte.
+steuerboard ist eine lokale Action-Control-Surface und ein Sicherheitsmechanismus
+für Arbeitsgeräte-Operationen.
+
+Git-Repositoriesynchronisation ist die erste Action-Domain.
+Omnipull bleibt ein Integrationspfad, aber nicht das ganze Produkt.
 
 Es erzeugt keine kanonische Wahrheit, aber es erzeugt prüfbare operative Ableitungen.
 
@@ -11,6 +15,37 @@ Daher gilt:
 > Beobachtung ≠ Ableitung ≠ Entscheidung ≠ Aktion
 
 Das ist der wichtigste Satz des Plans.
+
+steuerboard darf Beobachtung, Assessment, Plan, Approval, Execution und Record
+nicht zu einem Schritt zusammenziehen.
+
+## Action Classes
+
+- Git-Aktionen:
+  erste Action-Domain; umfasst künftig fetch-only Refresh, switch-main Planning
+  und gated fast-forward pull.
+- File-Aktionen:
+  künftig gated, redaction-aware, ohne breite Home-Folder-Mutation als Default.
+- Service-Aktionen:
+  künftig gated, mit expliziter Service-Identität und verpflichtendem Postcheck.
+- Runbook-/Netzwerkchecks:
+  künftig zunächst überwiegend read-only; Mutation erst nach Capability-Gates.
+
+## Canonical Action Chain
+
+Observe
+→ Assess
+→ Plan
+→ Approve
+→ Execute
+→ Record
+→ Explain
+
+- `git pull --ff-only` ist der erste mutierende Pilotkandidat.
+- Git pull darf kein Shortcut werden.
+- Pull ist nur nach Assessment, Plan, Approval, Execution Trace, Run-Result und
+  Postcheck-Evidence zulässig.
+- Diese Kette gilt für Single-Repo-Pull und für spätere Fleet-/Omnipull-Flows.
 
 ---
 
@@ -98,13 +133,14 @@ Nicht:
 steuerboard do <aktion>
 ```
 
+Der Plan ist ein begrenztes Preview-/Derivationsartefakt, keine
+Command-Empfehlung, keine Ausführung und keine Autorisierung.
+
 Der Plan muss zeigen:
 
-- was würde laufen?
-- was würde verändert?
-- was blockiert?
-- welche Beweise fehlen?
-- welche sichere Alternative existiert?
+- welche Aktion und welches Zielobjekt bewertet wurden
+- welche Blocker und fehlende Evidenz vorliegen
+- welche Entscheidung im Preview-Kontrakt resultiert
 
 ---
 
@@ -587,16 +623,33 @@ steuerboard plan omnipull --scope fleet
 
 ```json
 {
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-example-switch-main",
   "action": "switch-main",
-  "repo": "heimgewebe/infra",
+  "assessment_ref": "examples/assessments/repo.sample.json",
   "decision": "blocked",
-  "would_run": ["git switch main"],
-  "would_mutate": ["current_branch"],
   "blocked_because": ["branch_merge_status_unknown"],
-  "required_evidence": ["branch_contains_origin_main_or_pr_merged"],
-  "safe_alternatives": ["show_diff", "fetch_only"]
+  "missing_evidence": ["branch_contains_origin_main_or_pr_merged"],
+  "source_refs": ["assessment.repo.sample"],
+  "rule_refs": ["action.switch-main.requires_branch_lifecycle_proof"],
+  "freshness_refs": ["freshness.local_git_status.current_invocation"],
+  "falsification_refs": ["failure-case.feature_branch_unmerged"],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
 }
 ```
+
+Historische Platzhalter wie `would_run`, `would_mutate`, `required_evidence`
+oder `safe_alternatives` gehören nicht mehr zur aktuellen
+`action-plan.v1`-Kontraktform. Contract-Beispiele dürfen keine Felder
+außerhalb des aktuellen Schemas einführen.
+Die aktuellen Beispiel-Feldnamen sind `plan_id`, `action`, `assessment_ref`,
+`decision`, `blocked_because`, `missing_evidence`, `source_refs`, `rule_refs`,
+`freshness_refs`, `falsification_refs` und `boundary`; `action_id`, `target`
+und `blocked_by` sind keine aktuellen Felder.
 
 #### Stop-Kriterium
 
@@ -642,10 +695,20 @@ Gemeinsames Vokabular:
 #### Stop-Kriterium
 
 ```bash
-steuerboard omnipull-report latest
+steuerboard omnipull-report latest <run-index-json> --json
 ```
 
-kann den letzten Lauf ohne Log-Grep erklären.
+arbeitet auf genau einem expliziten `omnipull-run-index.v1`-Artefakt.
+
+Boundaries:
+
+- kein Filesystem-Discovery
+- kein Glob
+- keine Suche unter `/home/alex/logs/omnipull`
+- kein Auto-Load des referenzierten Reports
+- kein Git-Subprocess
+- kein Netzwerk
+- keine Action-Autorisierung
 
 ---
 
@@ -682,11 +745,10 @@ Jeder Run ist auffindbar, verifizierbar und redacted.
 
 ### Phase 8 — Sichere Read-only Aktionen
 
-#### Erlaubt
+#### Erlaubt (current read-only)
 
 - git status
 - git diff
-- git fetch --all --prune
 - omnipull dry-run
 - make validate --dry-compatible, falls vorhanden
 
@@ -710,6 +772,8 @@ Jede Aktion erzeugt:
 - `run-result.json`
 - redacted evidence
 
+Mutierende Git-Aktionen gehören nicht in diese Phase und bleiben future-gated.
+
 ---
 
 ### Phase 9 — Gated Mutating Actions
@@ -717,7 +781,7 @@ Jede Aktion erzeugt:
 #### Erlaubt mit Gate
 
 - switch main
-- pull --ff-only auf main
+- pull --ff-only auf main (geplanter Pilot)
 
 #### Gate: switch-main
 
@@ -766,7 +830,8 @@ Repo auf Feature-Branch
 → prüft Branch-Lifecycle
 → plant switch-main
 → führt nur bei erfülltem Gate aus
-→ zieht main ff-only
+→ plant und gate't main ff-only
+→ führt erst nach Approval + Trace + Run-Result + Postcheck aus
 → weist HEAD == origin/main nach
 ```
 

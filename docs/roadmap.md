@@ -218,7 +218,7 @@ Boundary for this slice:
 
 ## Phase 6b — Omnipull Run-Index + strict `latest` lookup
 
-Status: minimal slice started.
+Status: complete (merged).
 
 Phase 6b adds an explicit run-index schema and a strictly bounded `latest`
 lookup that operates only on one explicitly loaded run-index artifact:
@@ -262,3 +262,78 @@ Architecture rule reinforced by Phase 6b:
 
 > The Omnipull adapter reads, validates, and references. It does not
 > interpret, recommend, search, or execute.
+
+## Phase 7a — Git Pull FF-only Action Contract
+
+Status: documentation planning only.
+
+Scope:
+
+- define the future contract and safety model for a single-repo
+  fast-forward-only Git pull
+- no implementation
+- no command execution
+- no schema changes in this phase
+- no new CLI commands in this phase
+- no examples in this phase unless strictly necessary as prose-only examples
+
+Planned future command shape:
+
+```bash
+python -m steuerboard plan git-pull-ff-only <assessment-json> --json
+```
+
+This is only a planned future shape.
+It must not be implemented in this phase.
+
+Explicitly not yet:
+
+- `steuerboard pull <repo>`
+- `steuerboard do pull`
+- automatic Omnipull execution
+- fleet-wide mutating execution
+- free shell execution
+- destructive Git operations
+- conflict resolution
+- branch deletion
+- reset/clean
+
+Required future gates for `git-pull-ff-only`:
+
+Preflight gates:
+
+- repo is in canonical scope
+- repository identity is known
+- working tree is clean
+- HEAD is not detached
+- current branch is known
+- current branch equals default branch
+- upstream exists
+- remote is known and acceptable
+- remote freshness evidence exists
+- branch is not ahead
+- branch is not diverged
+- fast-forward is possible
+- ownership/dubious ownership state is acceptable
+- action plan exists
+- user approval exists
+
+Execution evidence:
+
+- command trace is recorded
+- run-result is recorded
+- stdout/stderr are bounded and redacted
+
+Postcheck evidence:
+
+- final HEAD is recorded
+- final branch is still the expected default branch
+- final worktree is clean
+- ahead/behind state is recorded
+- result explains whether the pull changed HEAD or was already current
+
+Boundary statement:
+
+A future `git-pull-ff-only` plan is not a generic pull abstraction.
+It is a narrow mutating pilot with explicit preflight, approval,
+execution trace, run-result, and postcheck.
