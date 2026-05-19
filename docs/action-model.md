@@ -1,6 +1,6 @@
 # Action Model
 
-Actions are future gated capabilities. They are not implemented in Phase 0b.
+Mutating actions remain future-gated capabilities in the current implemented slices.
 
 Plan preview output is not an action executor and not an action authorisation.
 It is a contract artifact derived from prior assessment.
