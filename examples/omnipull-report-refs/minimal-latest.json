@@ -1,0 +1,7 @@
+{
+  "schema_version": "omnipull-report-ref.v1",
+  "report_id": "omnipull-report-example-mixed-run",
+  "run_id": "run-2026-05-16-003",
+  "source_path": "examples/omnipull-reports/mixed-run.json",
+  "selected_by": "latest.generated_at"
+}

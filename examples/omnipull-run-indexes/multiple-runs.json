@@ -1,0 +1,30 @@
+{
+  "schema_version": "omnipull-run-index.v1",
+  "generated_at": "2026-05-19T10:00:00Z",
+  "source_path": "examples/omnipull-run-indexes/multiple-runs.json",
+  "reports": [
+    {
+      "report_id": "omnipull-report-example-non-default-branch",
+      "run_id": "run-2026-05-16-001",
+      "generated_at": "2026-05-16T09:30:00Z",
+      "source_path": "examples/omnipull-reports/non-default-branch.json"
+    },
+    {
+      "report_id": "omnipull-report-example-dirty-worktree",
+      "run_id": "run-2026-05-16-002",
+      "generated_at": "2026-05-16T09:31:00Z",
+      "source_path": "examples/omnipull-reports/dirty-worktree.json"
+    },
+    {
+      "report_id": "omnipull-report-example-mixed-run",
+      "run_id": "run-2026-05-16-003",
+      "generated_at": "2026-05-16T09:32:00Z",
+      "source_path": "examples/omnipull-reports/mixed-run.json"
+    }
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

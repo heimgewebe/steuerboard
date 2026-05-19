@@ -1,0 +1,11 @@
+{
+  "schema_version": "omnipull-run-index.v1",
+  "generated_at": "2026-05-19T10:00:00Z",
+  "source_path": "examples/omnipull-run-indexes/empty.json",
+  "reports": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

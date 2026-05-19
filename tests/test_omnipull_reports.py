@@ -674,7 +674,8 @@ def test_omnipull_report_show_cli_rejects_dot_slash_alias_for_example():
     assert "source_path" in result.stderr
 
 
-def test_omnipull_report_latest_command_is_not_available():
+def test_omnipull_report_latest_command_has_no_auto_search_semantics():
+    """`latest` must require an explicit run-index path; no filesystem discovery."""
     result = subprocess.run(
         [
             sys.executable,
@@ -692,4 +693,4 @@ def test_omnipull_report_latest_command_is_not_available():
     )
 
     assert result.returncode != 0
-    assert "invalid choice" in result.stderr
+    assert "run_index_json" in result.stderr or "required" in result.stderr

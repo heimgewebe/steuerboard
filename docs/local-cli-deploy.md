@@ -8,7 +8,7 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All eight read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All nine read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
@@ -17,6 +17,7 @@ After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHO
   - `steuerboard assess explain <assessment-json> --json`
   - `steuerboard plan switch-main <assessment-json> --json`
   - `steuerboard omnipull-report show <report-json> --json`
+  - `steuerboard omnipull-report latest <run-index-json> --json`
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
@@ -95,10 +96,15 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 - Plan preview is pure transformation from `repo-assessment.v1` to `action-plan.v1`.
 - No command advice.
 - No branch switches.
-- Omnipull adapter reads one explicit artifact path only; no latest lookup and no `/home/alex/logs/omnipull` path search.
-- Omnipull adapter requires report `source_path` to match the explicit artifact path string passed to the command.
-- No Git subprocess in the Omnipull adapter.
-- No new plan generation from Omnipull report input.
+- Omnipull adapter reads one explicit artifact path only (report or run-index); no
+  filesystem search, no glob, and no `/home/alex/logs/omnipull` path search.
+- Omnipull adapter requires both report and run-index `source_path` to match the
+  explicit artifact path string passed to the command.
+- `omnipull-report latest` operates only on the explicit `omnipull-run-index.v1`
+  artifact: it does not auto-load the referenced report file, does not perform
+  directory discovery, and does not look anywhere else for newer reports.
+- No Git subprocess in the Omnipull adapter (neither `show` nor `latest`).
+- No new plan generation from Omnipull report or run-index input.
 
 The `test` target may create and mutate temporary test fixtures; that is test infrastructure,
 not a productive repository action.

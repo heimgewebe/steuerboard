@@ -86,13 +86,34 @@ The report `source_path` must match the explicit artifact path string passed to 
 For this slice, the match is lexical (no path canonicalization).
 `repos: []` is allowed to represent an empty run artifact.
 
-Boundary for this slice:
+Phase 6b extends the adapter with an explicit run-index and a strictly bounded
+`latest` lookup.
 
-- no `latest` lookup command
-- no path search under `/home/alex/logs/omnipull`
+Command:
+
+    python -m steuerboard omnipull-report latest <run-index-json> --json
+
+The command loads one explicit `omnipull-run-index.v1` JSON file, selects the
+newest report entry (by `generated_at`, with `run_id` as lexicographic tie-break),
+and emits an `omnipull-report-ref.v1` reference artifact. The reference contains
+only `schema_version`, `report_id`, `run_id`, `source_path`, and `selected_by`.
+
+`selected_by` is currently the contractual enum value `latest.generated_at`.
+
+The run-index `source_path` must lexically match the explicit artifact path
+passed on the command line. `reports: []` is rejected with a precise error
+message: there is no implicit "nothing to do" fallback.
+
+Boundary for the Omnipull adapter (both `show` and `latest`):
+
+- `latest` operates **only** on the explicit run-index artifact supplied on the
+  command line; no auto-discovery, no glob, no path search under
+  `/home/alex/logs/omnipull`, no `$PWD` scanning
+- `latest` does **not** auto-load the referenced omnipull-report file; the
+  reference artifact only contains metadata copied from the index entry
 - no fetch/pull/switch/reset/clean
 - no network access
 - no Git subprocess
 - no action execution and no action authorization
-- no new plan generation from Omnipull report input in this slice
+- no new plan generation from Omnipull report or run-index input
 - no command advice

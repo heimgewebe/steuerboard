@@ -11,6 +11,7 @@ from .assessment_explanations import explain_assessment
 from .inventory import build_duplicates_report, build_inventory, explain_scope
 from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
+from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -171,6 +172,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit omnipull-report.v1 JSON.",
     )
 
+    omnipull_report_latest_parser = omnipull_report_subparsers.add_parser(
+        "latest",
+        help=(
+            "Select the latest omnipull-report reference from one explicit "
+            "omnipull-run-index.v1 JSON artifact."
+        ),
+    )
+    omnipull_report_latest_parser.add_argument(
+        "run_index_json",
+        help="Path to an omnipull-run-index.v1 JSON file.",
+    )
+    omnipull_report_latest_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit omnipull-report-ref.v1 JSON.",
+    )
+
     return parser
 
 
@@ -254,6 +273,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "omnipull-report" and args.omnipull_report_command == "latest":
+        try:
+            index = load_omnipull_run_index(
+                Path(args.run_index_json), source_path_ref=args.run_index_json
+            )
+            report_ref = select_latest_report(index)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(report_ref, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")
