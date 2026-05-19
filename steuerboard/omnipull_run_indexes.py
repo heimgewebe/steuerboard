@@ -201,6 +201,7 @@ def select_latest_report(index: dict[str, Any]) -> dict[str, Any]:
 
     latest = max(reports, key=_sort_key)
     report_id = _require_non_blank_string(latest.get("report_id"), "reports[].report_id")
+    run_id = _require_non_blank_string(latest.get("run_id"), "reports[].run_id")
     source_path = _require_non_blank_string(
         latest.get("source_path"), "reports[].source_path"
     )
@@ -208,7 +209,7 @@ def select_latest_report(index: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": "omnipull-report-ref.v1",
         "report_id": report_id,
-        "run_id": latest["run_id"],
+        "run_id": run_id,
         "source_path": source_path,
         "selected_by": "latest.generated_at",
     }
