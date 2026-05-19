@@ -217,7 +217,7 @@ def test_schema_rejects_empty_source_refs():
         },
     }
 
-    with pytest.raises(ValidationError, match="minItems|fewer than|non-empty"):
+    with pytest.raises(ValidationError, match="minItems|fewer than|non-empty|too short"):
         validate_instance(plan, schema, Path("plan-empty-source-refs.json"))
 
 
