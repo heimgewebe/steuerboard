@@ -1,0 +1,18 @@
+{
+  "schema_version": "omnipull-run-index.v1",
+  "generated_at": "2026-05-19T10:00:00Z",
+  "source_path": "examples/omnipull-run-indexes/minimal.json",
+  "reports": [
+    {
+      "report_id": "omnipull-report-example-mixed-run",
+      "run_id": "run-2026-05-16-003",
+      "generated_at": "2026-05-16T09:32:00Z",
+      "source_path": "examples/omnipull-reports/mixed-run.json"
+    }
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

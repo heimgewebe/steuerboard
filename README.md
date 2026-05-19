@@ -40,6 +40,7 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard assess explain <assessment-json> --json`
 - `python -m steuerboard plan switch-main <assessment-json> --json`
 - `python -m steuerboard omnipull-report show <report-json> --json`
+- `python -m steuerboard omnipull-report latest <run-index-json> --json`
 
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.
 
@@ -47,10 +48,18 @@ The `plan switch-main` command emits a preview-only plan artifact from an existi
 It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and does not provide command advice.
 
 The `omnipull-report show` command is a read-only artifact adapter: it loads exactly one provided
-`omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement latest
-lookup, does not search `/home/alex/logs/omnipull`, does not execute Git, does not mutate repositories,
-does not execute actions, does not authorise actions, and does not generate new plans from Omnipull
-report input in this slice.
+`omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement
+filesystem search, does not search `/home/alex/logs/omnipull`, does not execute Git, does not mutate
+repositories, does not execute actions, does not authorise actions, and does not generate new plans
+from Omnipull report input in this slice.
 The artifact `source_path` must match the explicit path provided to the loader.
 This match is lexical for this slice (`./examples/x.json` and `examples/x.json` are different strings).
 `repos: []` is valid and represents an empty run artifact.
+
+The `omnipull-report latest` command operates on **exactly one** explicit `omnipull-run-index.v1`
+JSON file. It selects the newest report entry (by `generated_at`, with `run_id` as lexicographic
+tie-break) and emits a bounded `omnipull-report-ref.v1` artifact. It never scans the filesystem,
+never auto-loads the referenced report file, never calls Git, never accesses the network, and never
+authorises actions. There is no automatic discovery, no glob, no path search under
+`/home/alex/logs/omnipull`. The run-index's `source_path` must lexically match the explicit path
+passed on the command line.
