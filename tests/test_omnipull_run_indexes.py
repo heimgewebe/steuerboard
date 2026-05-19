@@ -185,6 +185,33 @@ def test_select_latest_report_breaks_ties_by_run_id_lexicographically(tmp_path: 
     assert ref["report_id"] == "omega"
 
 
+def test_select_latest_report_orders_generated_at_chronologically_with_offsets(
+    tmp_path: Path,
+):
+    payload = _base_payload()
+    payload["reports"] = [
+        {
+            "report_id": "offset-plus-two",
+            "run_id": "run-plus-two",
+            "generated_at": "2026-05-16T10:00:00+02:00",
+            "source_path": "examples/omnipull-reports/non-default-branch.json",
+        },
+        {
+            "report_id": "utc-later",
+            "run_id": "run-utc",
+            "generated_at": "2026-05-16T08:30:00Z",
+            "source_path": "examples/omnipull-reports/dirty-worktree.json",
+        },
+    ]
+    index_path = _write_index(tmp_path, payload, name="offset-order.json")
+    loaded = load_omnipull_run_index(index_path)
+
+    ref = select_latest_report(loaded)
+
+    assert ref["run_id"] == "run-utc"
+    assert ref["report_id"] == "utc-later"
+
+
 def test_select_latest_report_is_stable_across_input_orderings(tmp_path: Path):
     payload = _base_payload()
     payload["reports"] = list(reversed(payload["reports"]))
@@ -210,6 +237,30 @@ def test_select_latest_report_raises_for_empty_reports():
     }
 
     with pytest.raises(ValueError, match="empty"):
+        select_latest_report(index)
+
+
+def test_select_latest_report_rejects_invalid_in_memory_generated_at():
+    index = {
+        "schema_version": "omnipull-run-index.v1",
+        "generated_at": "2026-05-19T10:00:00Z",
+        "source_path": "examples/omnipull-run-indexes/in-memory.json",
+        "reports": [
+            {
+                "report_id": "x",
+                "run_id": "run-x",
+                "generated_at": "not-a-timestamp",
+                "source_path": "examples/omnipull-reports/x.json",
+            }
+        ],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    with pytest.raises(ValueError, match="reports\\[\\]\\.generated_at"):
         select_latest_report(index)
 
 

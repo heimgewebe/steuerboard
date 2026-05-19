@@ -189,7 +189,17 @@ def select_latest_report(index: dict[str, Any]) -> dict[str, Any]:
             "cannot select latest report: run-index reports list is empty"
         )
 
-    latest = max(reports, key=lambda entry: (entry["generated_at"], entry["run_id"]))
+    def _sort_key(entry: Any) -> tuple[datetime, str]:
+        if not isinstance(entry, dict):
+            raise ValueError("run-index report entries must be objects")
+
+        generated_at = _require_date_time_string(
+            entry.get("generated_at"), "reports[].generated_at"
+        )
+        run_id = _require_non_blank_string(entry.get("run_id"), "reports[].run_id")
+        return (datetime.fromisoformat(generated_at.replace("Z", "+00:00")), run_id)
+
+    latest = max(reports, key=_sort_key)
 
     return {
         "schema_version": "omnipull-report-ref.v1",
