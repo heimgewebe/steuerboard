@@ -25,7 +25,7 @@ $ ethtool enp6s0 | grep -E 'Speed|Duplex'
 Speed: 1000Mb/s
 Duplex: Full
 
-$ iperf3 -R -c ZIEL_HOST  # Platzhalter: mehrere relevante Messläufe (gekürzt)
+# gekürzter Auszug aus lokalem Session-Log; konkrete Peer-Adresse nicht im Repo dokumentiert
 [ ID] Interval           Transfer     Bitrate
 [  5]   0.00-10.00  sec  1.05 GBytes   900 Mbits/sec
 [  5]   0.00-10.00  sec  1.09 GBytes   937 Mbits/sec
