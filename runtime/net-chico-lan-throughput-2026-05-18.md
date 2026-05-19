@@ -18,14 +18,14 @@ Belegt durch:
 - `ethtool enp6s0` Ausgabe: `Speed: 1000Mb/s`, `Duplex: Full`
 - `iperf3` Reverse-Durchsatz: ca. 900–937 Mbit/s
 
-Output-Snippet:
+Output-Snippet (gekürzt):
 
 ```text
 $ ethtool enp6s0 | grep -E 'Speed|Duplex'
 Speed: 1000Mb/s
 Duplex: Full
 
-$ iperf3 -R ...   # relevante Messläufe
+$ iperf3 -R <ziel-host>   # Platzhalter: mehrere relevante Messläufe (gekürzt)
 [ ID] Interval           Transfer     Bitrate
 [  5]   0.00-10.00  sec  1.05 GBytes   900 Mbits/sec
 [  5]   0.00-10.00  sec  1.09 GBytes   937 Mbits/sec
