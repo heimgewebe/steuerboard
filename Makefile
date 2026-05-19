@@ -29,6 +29,7 @@ smoke:
 	json_smoke "inventory" $(CLI) inventory --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory duplicates" $(CLI) inventory duplicates --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "omnipull-report show mixed-run" $(CLI) omnipull-report show examples/omnipull-reports/mixed-run.json --json; \
+	json_smoke "omnipull-report latest multiple-runs" $(CLI) omnipull-report latest examples/omnipull-run-indexes/multiple-runs.json --json; \
 	echo "--- smoke: assess repo . -> assess explain -> plan switch-main ---"; \
 	tmp_assessment="$$(mktemp)"; \
 	tmp_explanation="$$(mktemp)"; \

@@ -215,3 +215,50 @@ Boundary for this slice:
 - no action execution or action authorization
 - no new plan generation from Omnipull report input
 - no command advice
+
+## Phase 6b — Omnipull Run-Index + strict `latest` lookup
+
+Status: minimal slice started.
+
+Phase 6b adds an explicit run-index schema and a strictly bounded `latest`
+lookup that operates only on one explicitly loaded run-index artifact:
+
+```bash
+python -m steuerboard omnipull-report latest <run-index-json> --json
+```
+
+The run-index contract is `omnipull-run-index.v1`. It lists report references
+(each with `report_id`, `run_id`, `generated_at`, `source_path`) plus a boundary
+block identical to `omnipull-report.v1`.
+
+The `latest` selection rule is:
+
+1. primary key: `generated_at` (descending — newest wins)
+2. tie-break: `run_id` (descending lexicographic comparison)
+
+The command emits an `omnipull-report-ref.v1` reference artifact carrying only
+metadata copied from the selected index entry: `report_id`, `run_id`,
+`source_path`, plus `selected_by: "latest.generated_at"`.
+
+Boundary for this slice:
+
+- `latest` works **only** against the explicit run-index artifact supplied on
+  the command line
+- no auto-loading of the referenced omnipull-report file
+- no directory scanning, no glob, no `$PWD` walking, no environment lookups
+- no path search under `/home/alex/logs/omnipull`
+- no fetch/pull/switch/reset/clean
+- no network access
+- no Git subprocess
+- no action execution or action authorization
+- no new plan generation from Omnipull report or run-index input
+- no command advice
+- no canonicalization "smart" path matching — `source_path` must match the
+  explicit path string passed to the command lexically
+- `reports: []` is a valid run-index, but `latest` against an empty index
+  raises a precise `ValueError`; there is no fallback discovery
+
+Architecture rule reinforced by Phase 6b:
+
+> The Omnipull adapter reads, validates, and references. It does not
+> interpret, recommend, search, or execute.
