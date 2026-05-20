@@ -64,6 +64,7 @@ Status vocabulary for this slice:
 
 - `git_pull_ff_only_local_preflight_clear`
 - `git_pull_ff_only_blocked_missing_upstream`
+- `git_pull_ff_only_evidence_missing_tracking_counts`
 - `git_pull_ff_only_blocked_branch_ahead`
 - `git_pull_ff_only_blocked_branch_diverged`
 - `git_pull_ff_only_evidence_missing_remote_freshness`
@@ -75,6 +76,13 @@ Interpretation boundary:
 - therefore assessment emits `git_pull_ff_only_evidence_missing_remote_freshness`
   until remote freshness evidence exists
 - no fetch is executed by assessment to fill this gap
+- if upstream exists but `ahead` or `behind` is unavailable, assessment emits
+  `git_pull_ff_only_evidence_missing_tracking_counts` and
+  `missing_evidence: ["tracking_counts"]`
+- in that case assessment must not emit
+  `git_pull_ff_only_local_preflight_clear`,
+  `git_pull_ff_only_blocked_branch_ahead`, or
+  `git_pull_ff_only_blocked_branch_diverged` from missing counts
 
 Existing status `non_default_branch` satisfies the pull-readiness gate
 `current_branch_is_default == false`; no separate

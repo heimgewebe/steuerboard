@@ -133,13 +133,20 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
                 risk_level = "medium"
                 decision_state = "action_blocked"
 
-            elif (ahead or 0) > 0 and (behind or 0) > 0:
+            elif ahead is None or behind is None:
+                derived_status.append("git_pull_ff_only_evidence_missing_tracking_counts")
+                skip_reasons.append("git_pull_ff_only_evidence_missing_tracking_counts")
+                missing_evidence.append("tracking_counts")
+                risk_level = "medium"
+                decision_state = "evidence_missing"
+
+            elif ahead > 0 and behind > 0:
                 derived_status.append("git_pull_ff_only_blocked_branch_diverged")
                 skip_reasons.append("git_pull_ff_only_blocked_branch_diverged")
                 risk_level = "medium"
                 decision_state = "action_blocked"
 
-            elif (ahead or 0) > 0:
+            elif ahead > 0:
                 derived_status.append("git_pull_ff_only_blocked_branch_ahead")
                 skip_reasons.append("git_pull_ff_only_blocked_branch_ahead")
                 risk_level = "medium"

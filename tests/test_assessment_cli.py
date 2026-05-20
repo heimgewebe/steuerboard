@@ -472,6 +472,70 @@ def test_pull_preflight_local_clear_marks_remote_freshness_gap(tmp_path: Path):
     )
 
 
+def test_pull_preflight_with_upstream_and_missing_tracking_counts_marks_evidence_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = tmp_path / "project"
+    repo.mkdir(parents=True)
+
+    def _fake_observe_repo(path: Path) -> dict:
+        assert path == repo
+        return {
+            "schema_version": "repo-observation.v1",
+            "observation_id": "obs-missing-tracking-counts",
+            "source_refs": [
+                "git.current_branch",
+                "git.default_branch_candidate",
+                "git.default_branch_candidate_source",
+                "git.upstream",
+                "git.ahead_behind",
+                "git.status.porcelain",
+            ],
+            "observed_state": {
+                "is_git_repo": True,
+                "dirty": False,
+                "current_branch": "main",
+                "default_branch_candidate": "main",
+                "default_branch_candidate_source": "remote_origin_head",
+                "upstream": "origin/main",
+                "ahead": None,
+                "behind": None,
+            },
+        }
+
+    def _fake_explain_scope(path: Path, config_path: Path | None = None) -> dict:
+        assert path == repo
+        assert config_path is None
+        return {
+            "scope": "scope_canonical",
+            "source_refs": ["local_config.canonical_repo_roots"],
+        }
+
+    monkeypatch.setattr("steuerboard.assessment.observe_repo", _fake_observe_repo)
+    monkeypatch.setattr("steuerboard.assessment.explain_scope", _fake_explain_scope)
+
+    assessment = assess_repo(repo)
+
+    schema = _assessment_schema()
+    validate_instance(assessment, schema, Path("assess-missing-tracking-counts.json"))
+    assert FORBIDDEN_ASSESSMENT_KEYS.isdisjoint(assessment)
+    assert "clean_default_current" in assessment["derived_status"]
+    assert "git_pull_ff_only_evidence_missing_tracking_counts" in assessment["derived_status"]
+    assert "git_pull_ff_only_local_preflight_clear" not in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_ahead" not in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_diverged" not in assessment["derived_status"]
+    assert assessment["decision_state"] == "evidence_missing"
+    assert assessment["risk_level"] == "medium"
+    assert "tracking_counts" in assessment["missing_evidence"]
+    assert (
+        "git_pull_ff_only_evidence_missing_tracking_counts" in assessment["skip_reasons"]
+    )
+    assert (
+        "assessment.rule.git_pull_ff_only_evidence_missing_tracking_counts"
+        in assessment["rule_refs"]
+    )
+
+
 def test_pull_preflight_blocks_branch_ahead(tmp_path: Path):
     canonical_root = tmp_path / "repos"
     repo = canonical_root / "project"
