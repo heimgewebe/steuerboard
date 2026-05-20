@@ -265,17 +265,25 @@ Architecture rule reinforced by Phase 6b:
 
 ## Phase 7a — Git Pull FF-only Action Contract
 
-Status: documentation planning only.
+Status: started.
 
 Scope:
 
-- define the future contract and safety model for a single-repo
-  fast-forward-only Git pull
-- no implementation
-- no command execution
-- no schema changes in this phase
-- no new CLI commands in this phase
-- no examples in this phase unless strictly necessary as prose-only examples
+- define a documentation-first contract blueprint for future single-repo
+  `git pull --ff-only`
+- no implementation in this phase
+- no command execution in this phase
+
+Subtasks:
+
+- 7a.1 contract blueprint (current): `docs/git-pull-ff-only-contract.md`
+
+Not part of 7a.1 (later phases):
+
+- schema updates
+- CLI command additions
+- execution runner
+- UI integration
 
 Planned future command shape:
 

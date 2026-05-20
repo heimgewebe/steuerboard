@@ -60,6 +60,9 @@ Stage E: UI-triggered approved actions
 - no command advice
 - no Git subprocess
 
+The planned `git-pull-ff-only` action is specified in
+`docs/git-pull-ff-only-contract.md`.
+
 `git pull --ff-only` belongs to Stage C/D, not Stage A/B.
 `git pull --ff-only` is acceptable only with preflight gates, approval,
 trace, run-result, and postcheck.
