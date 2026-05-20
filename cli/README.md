@@ -74,6 +74,18 @@ For this slice, `decision` in the plan is a plan result only:
 - `blocked` means switch-main cannot be proposed because blocking status is present
 - `not_applicable` means no switch is needed (`clean_default_current`)
 
+Phase 7a.3 adds a second preview-only planner command for the future
+single-repo `git pull --ff-only` action shape.
+
+Command:
+
+    python -m steuerboard plan git-pull-ff-only <assessment-json> --json
+
+The command is still a pure artifact transformation from `repo-assessment.v1`
+to `action-plan.v1`. It remains preview-only, does not execute Git, and may
+return `decision: blocked` when pull preflight evidence is incomplete (notably
+missing remote freshness evidence).
+
 Phase 6a introduces a minimal read-only Omnipull report adapter.
 
 Command:

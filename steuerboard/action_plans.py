@@ -34,6 +34,33 @@ KNOWN_SWITCH_MAIN_STATUSES = {
     "clean_default_current",
 }
 
+KNOWN_GIT_PULL_FF_ONLY_STATUSES = {
+    "git_pull_ff_only_local_preflight_clear",
+    "git_pull_ff_only_blocked_missing_upstream",
+    "git_pull_ff_only_evidence_missing_tracking_counts",
+    "git_pull_ff_only_blocked_branch_ahead",
+    "git_pull_ff_only_blocked_branch_diverged",
+    "git_pull_ff_only_evidence_missing_remote_freshness",
+}
+
+BLOCKING_GIT_PULL_FF_ONLY_STATUSES = {
+    "not_git_repo",
+    "scope_backup",
+    "scope_gdrive",
+    "scope_excluded",
+    "scope_unknown",
+    "scope_shadow",
+    "dirty_worktree",
+    "detached_head",
+    "default_branch_unknown",
+    "non_default_branch",
+    "git_pull_ff_only_blocked_missing_upstream",
+    "git_pull_ff_only_evidence_missing_tracking_counts",
+    "git_pull_ff_only_blocked_branch_ahead",
+    "git_pull_ff_only_blocked_branch_diverged",
+    "git_pull_ff_only_evidence_missing_remote_freshness",
+}
+
 BLOCKING_SWITCH_MAIN_STATUSES = {
     "not_git_repo",
     "scope_backup",
@@ -185,5 +212,88 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
 
     if blocking_reasons:
         plan["blocked_because"] = blocking_reasons
+
+    return plan
+
+
+def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
+    """Derive a preview-only git-pull-ff-only action-plan.v1 from repo-assessment.v1.
+
+    This function never executes commands, never mutates repositories, and never
+    authorises action execution.
+    """
+    if not isinstance(assessment, dict):
+        raise ValueError("assessment must be an object")
+
+    forbidden_present = sorted(FORBIDDEN_PLAN_INPUT_FIELDS & set(assessment))
+    if forbidden_present:
+        raise ValueError(f"assessment contains forbidden plan/executor fields: {forbidden_present}")
+
+    schema_version = assessment.get("schema_version")
+    if schema_version != "repo-assessment.v1":
+        raise ValueError("schema_version must be exactly 'repo-assessment.v1'")
+
+    assessment_id = _require_non_empty_string(assessment.get("assessment_id"), "assessment_id")
+    _require_non_empty_string(assessment.get("observation_ref"), "observation_ref")
+    _require_non_empty_string(assessment.get("decision_state"), "decision_state")
+
+    derived_status = _require_string_list(assessment.get("derived_status"), "derived_status")
+    if not derived_status:
+        raise ValueError("derived_status must not be empty")
+
+    source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
+    missing_evidence = _require_string_list(
+        assessment.get("missing_evidence", []), "missing_evidence"
+    )
+    rule_refs = _require_string_list(assessment.get("rule_refs", []), "rule_refs")
+    freshness_refs = _require_string_list(assessment.get("freshness_refs", []), "freshness_refs")
+    falsification_refs = _require_string_list(
+        assessment.get("falsification_refs", []), "falsification_refs"
+    )
+
+    blocked_because: list[str] = [
+        status for status in derived_status if status in BLOCKING_GIT_PULL_FF_ONLY_STATUSES
+    ]
+
+    has_pull_assessment = any(status in KNOWN_GIT_PULL_FF_ONLY_STATUSES for status in derived_status)
+    has_local_preflight_clear = "git_pull_ff_only_local_preflight_clear" in derived_status
+
+    if not blocked_because and not has_pull_assessment:
+        blocked_because.append("git_pull_ff_only_assessment_missing_preflight")
+        if "git_pull_ff_only_assessment" not in missing_evidence:
+            missing_evidence.append("git_pull_ff_only_assessment")
+
+    if not blocked_because and not has_local_preflight_clear:
+        blocked_because.append("git_pull_ff_only_assessment_missing_preflight")
+        if "git_pull_ff_only_assessment" not in missing_evidence:
+            missing_evidence.append("git_pull_ff_only_assessment")
+
+    # Even with complete future local/remote pull evidence, this slice remains
+    # preview-only and intentionally does not encode execution permission.
+    if not blocked_because and has_local_preflight_clear:
+        blocked_because.append("git_pull_ff_only_preview_only_execution_out_of_scope")
+
+    if "git_pull_ff_only_evidence_missing_remote_freshness" in derived_status:
+        if "remote_freshness" not in missing_evidence:
+            missing_evidence.append("remote_freshness")
+
+    plan: dict[str, Any] = {
+        "schema_version": "action-plan.v1",
+        "plan_id": f"plan-{assessment_id}-git-pull-ff-only",
+        "action": "git-pull-ff-only",
+        "assessment_ref": assessment_id,
+        "decision": "blocked",
+        "blocked_because": blocked_because,
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+        "source_refs": source_refs,
+        "rule_refs": rule_refs,
+        "freshness_refs": freshness_refs,
+        "falsification_refs": falsification_refs,
+        "missing_evidence": missing_evidence,
+    }
 
     return plan

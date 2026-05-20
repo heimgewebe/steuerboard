@@ -18,12 +18,15 @@ It also does not provide command advice.
 Current minimal slice:
 
 - `python -m steuerboard plan switch-main <assessment-json> --json`
+- `python -m steuerboard plan git-pull-ff-only <assessment-json> --json`
 - input is an existing `repo-assessment.v1` artifact
 - output is `action-plan.v1`
 - pure transformation from `repo-assessment.v1` to `action-plan.v1`
 - no repository observation, no config read, no network, no Git subprocess
-- this slice is limited to `action == "switch-main"`
-- additional actions require a separate contract extension or a new schema slice
+- this slice is still preview-only; `git-pull-ff-only` plans may remain blocked
+	when remote freshness evidence is missing
+- no action implies execution permission; additional execution semantics remain
+	out of scope for this slice
 
 `decision` in this contract is not an execution permission:
 

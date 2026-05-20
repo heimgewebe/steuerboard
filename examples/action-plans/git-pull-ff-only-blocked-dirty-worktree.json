@@ -1,0 +1,40 @@
+{
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-assess-example-dirty-worktree-blocked-git-pull-ff-only",
+  "action": "git-pull-ff-only",
+  "assessment_ref": "assess-example-dirty-worktree-blocked",
+  "decision": "blocked",
+  "blocked_because": [
+    "dirty_worktree"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "git.default_branch_candidate_source",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
+  ],
+  "rule_refs": [
+    "assessment.rule.dirty_worktree_blocks_action"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_status.current_invocation"
+  ],
+  "falsification_refs": [
+    "failure-case.dirty_worktree"
+  ],
+  "missing_evidence": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}
