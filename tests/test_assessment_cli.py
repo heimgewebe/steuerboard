@@ -517,6 +517,38 @@ def test_pull_preflight_blocks_branch_diverged(tmp_path: Path):
     assert assessment["decision_state"] == "action_blocked"
 
 
+def test_pull_preflight_behind_only_clears_local_awaits_remote_freshness(tmp_path: Path):
+    """Most common real pull case: ahead=0, behind>0, upstream tracked, clean default.
+    Locally preflight-clear, but remote freshness is unobserved without fetch."""
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    _set_origin_tracking_main(repo)
+    base_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+
+    # Simulate remote being ahead by one commit.
+    _run(["git", "checkout", "-b", "remote-sim", base_sha], repo)
+    (repo / "remote-change.txt").write_text("upstream change\n", encoding="utf-8")
+    _run(["git", "add", "remote-change.txt"], repo)
+    _run(["git", "commit", "-m", "upstream change"], repo)
+    remote_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+    _run(["git", "checkout", "main"], repo)
+    _run(["git", "update-ref", "refs/remotes/origin/main", remote_sha], repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "clean_default_current" in assessment["derived_status"]
+    assert "git_pull_ff_only_local_preflight_clear" in assessment["derived_status"]
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_ahead" not in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_diverged" not in assessment["derived_status"]
+    assert assessment["decision_state"] == "evidence_missing"
+    assert "remote_freshness" in assessment["missing_evidence"]
+    assert "assessment.rule.git_pull_ff_only_local_preflight_clear" in assessment["rule_refs"]
+    assert "assessment.rule.git_pull_ff_only_evidence_missing_remote_freshness" in assessment["rule_refs"]
+
+
 # ---------------------------------------------------------------------------
 # Multi-befund: dirty_worktree collected even in non-canonical scope
 # ---------------------------------------------------------------------------

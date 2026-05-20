@@ -76,6 +76,10 @@ Interpretation boundary:
   until remote freshness evidence exists
 - no fetch is executed by assessment to fill this gap
 
+Existing status `non_default_branch` satisfies the pull-readiness gate
+`current_branch_is_default == false`; no separate
+`git_pull_ff_only_blocked_non_default_branch` status is introduced in this slice.
+
 This keeps pull readiness as assessment truth, not planner logic.
 
 ## Fields (repo-assessment.v1)

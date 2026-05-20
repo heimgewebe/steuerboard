@@ -1,9 +1,10 @@
 {
   "schema_version": "repo-assessment.v1",
   "assessment_id": "assess-example-clean-default-current",
-  "observation_ref": "obs-example-clean-main",
+  "observation_ref": "obs-example-clean-main-no-upstream",
   "derived_status": [
-    "clean_default_current"
+    "clean_default_current",
+    "git_pull_ff_only_blocked_missing_upstream"
   ],
   "source_refs": [
     "git.rev_parse.worktree",
@@ -20,19 +21,25 @@
     "local_config.excluded_repo_roots",
     "filesystem.path"
   ],
-  "decision_state": "assessment_clear",
-  "risk_level": "low",
-  "skip_reasons": [],
+  "decision_state": "action_blocked",
+  "risk_level": "medium",
+  "skip_reasons": [
+    "git_pull_ff_only_blocked_missing_upstream"
+  ],
   "confidence": 0.8,
   "missing_evidence": [
     "default_branch_source"
   ],
   "rule_refs": [
-    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified",
+    "assessment.rule.git_pull_ff_only_blocked_missing_upstream"
   ],
   "freshness_refs": [
     "freshness.local_git_status.current_invocation",
-    "freshness.default_branch_source.unverified"
+    "freshness.default_branch_source.unverified",
+    "freshness.local_git_upstream.current_invocation"
   ],
-  "falsification_refs": []
+  "falsification_refs": [
+    "failure-case.missing_upstream"
+  ]
 }
