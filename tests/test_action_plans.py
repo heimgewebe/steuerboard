@@ -319,11 +319,16 @@ def test_missing_or_invalid_decision_state_raises_value_error():
         plan_switch_main(invalid_decision_state)
 
 
-def test_input_contract_coherence_clean_default_requires_assessment_clear_decision_state():
+def test_clean_default_current_with_non_assessment_clear_decision_state_succeeds():
+    # Aggregate decision_state may be non-assessment_clear when unrelated action domains
+    # (e.g. pull-readiness) contribute independently. The planner evaluates only
+    # switch-main-relevant statuses, not the aggregate, for its action-domain outcome.
     assessment = _assessment_with_statuses(["clean_default_current"], decision_state="evidence_missing")
 
-    with pytest.raises(ValueError, match="decision_state"):
-        plan_switch_main(assessment)
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "not_applicable"
+    assert "blocked_because" not in plan
 
 
 def test_input_contract_coherence_blocking_status_forbids_assessment_clear_decision_state():
@@ -661,3 +666,99 @@ def test_cli_plan_switch_main_smoke(tmp_path: Path):
     validate_instance(plan, _action_plan_schema(), Path("cli-plan-switch-main.json"))
     assert plan["decision"] == "blocked"
     assert plan["assessment_ref"] == "assess-example"
+
+
+# ---------------------------------------------------------------------------
+# Phase 7a.2 pull-readiness regression tests
+# Ensure switch-main planner tolerates known pull-readiness statuses without
+# treating them as switch-main blockers or unknown statuses.
+# ---------------------------------------------------------------------------
+
+def test_pull_readiness_local_preflight_clear_with_evidence_missing_does_not_crash():
+    # Regression A: clean default branch + local preflight clear + remote freshness missing.
+    # decision_state is evidence_missing because remote freshness is unobserved.
+    # switch-main planner must emit not_applicable (already on default branch).
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+        decision_state="evidence_missing",
+    )
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "not_applicable"
+    assert "blocked_because" not in plan
+
+
+def test_pull_readiness_blocked_missing_upstream_does_not_crash_switch_main():
+    # Regression B: clean default branch + pull blocked because upstream is missing.
+    # decision_state is action_blocked due to pull-readiness, but switch-main
+    # is already not_applicable (we are on default branch).
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_blocked_missing_upstream",
+        ],
+        decision_state="action_blocked",
+    )
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "not_applicable"
+    assert "blocked_because" not in plan
+
+
+def test_truly_unknown_status_still_raises():
+    # Regression C: genuinely unknown statuses must still raise ValueError.
+    assessment = _assessment_with_statuses(["totally_unknown_and_invented_status"])
+
+    with pytest.raises(ValueError, match="unknown derived_status"):
+        plan_switch_main(assessment)
+
+
+def test_switch_main_blockers_still_block_regardless_of_pull_readiness():
+    # Regression D: switch-main blockers remain effective even when pull-readiness
+    # statuses are present alongside them.
+    assessment = _assessment_with_statuses(
+        [
+            "non_default_branch",
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+        decision_state="evidence_missing",
+    )
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert "non_default_branch" in plan["blocked_because"]
+
+
+def test_cli_plan_switch_main_with_pull_readiness_example(tmp_path: Path):
+    # CLI smoke: use the checked-in pull-preflight-local-clear example which has
+    # decision_state: evidence_missing and pull-readiness statuses present.
+    examples_dir = Path(__file__).parent.parent / "examples" / "assessments"
+    assessment_path = examples_dir / "pull-preflight-local-clear-evidence-missing.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "switch-main",
+            str(assessment_path),
+            "--json",
+        ],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    plan = json.loads(result.stdout)
+    validate_instance(plan, _action_plan_schema(), Path("cli-plan-switch-main-pull-readiness.json"))
+    assert plan["decision"] == "not_applicable"

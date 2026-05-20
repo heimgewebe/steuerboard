@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from steuerboard.assessment_rules import ASSESSMENT_PROVENANCE
+
+# Globally known assessment status vocabulary, derived from the provenance registry.
+# Used to distinguish "known but irrelevant to switch-main" from "truly unknown".
+# Update assessment_rules.ASSESSMENT_PROVENANCE to extend this set.
+KNOWN_ASSESSMENT_STATUSES: frozenset[str] = frozenset(ASSESSMENT_PROVENANCE.keys())
+
 FORBIDDEN_PLAN_INPUT_FIELDS = {
     "action",
     "plan_id",
@@ -102,9 +109,12 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     if not derived_status:
         raise ValueError("derived_status must not be empty")
 
-    unknown_statuses = [status for status in derived_status if status not in KNOWN_SWITCH_MAIN_STATUSES]
-    if unknown_statuses:
-        raise ValueError(f"unknown derived_status value(s): {unknown_statuses}")
+    # Reject statuses not present in the global assessment vocabulary.
+    # Statuses that are known but irrelevant to switch-main planning are tolerated here;
+    # they are simply excluded from switch-main relevance checks below.
+    truly_unknown = [s for s in derived_status if s not in KNOWN_ASSESSMENT_STATUSES]
+    if truly_unknown:
+        raise ValueError(f"unknown derived_status value(s): {truly_unknown}")
 
     source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
     missing_evidence = _require_string_list(
@@ -131,10 +141,10 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             "decision_state must not be 'assessment_clear' when derived_status contains blocking reasons"
         )
-    if not_applicable_reasons and decision_state != "assessment_clear":
-        raise ValueError(
-            "decision_state must be 'assessment_clear' when derived_status indicates clean_default_current"
-        )
+    # Note: aggregate decision_state may be non-assessment_clear even when clean_default_current
+    # is present, because unrelated action domains (e.g. pull-readiness) contribute independently
+    # to the aggregate. The planner evaluates only switch-main-relevant statuses, not the
+    # aggregate decision_state, when determining its own action-domain outcome.
 
     if blocking_reasons:
         decision = "blocked"
