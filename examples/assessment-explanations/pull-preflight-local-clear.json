@@ -1,0 +1,114 @@
+{
+  "schema_version": "repo-assessment-explanation.v1",
+  "explanation_id": "assess-expl-example-pull-preflight-local-clear",
+  "assessment_ref": "assess-example-pull-preflight-local-clear-evidence-missing",
+  "summary": "Assessment assess-example-pull-preflight-local-clear-evidence-missing is interpreted with status set [clean_default_current, git_pull_ff_only_local_preflight_clear, git_pull_ff_only_evidence_missing_remote_freshness]. This explanation is read-only interpretation and does not authorise or plan actions.",
+  "status_explanations": [
+    {
+      "status": "clean_default_current",
+      "meaning": "Current branch matches observed default branch candidate and worktree is clean; default_branch_source remains unverified.",
+      "decision_effect": "assessment_clear",
+      "evidence_refs": [
+        "obs-example-clean-main-tracking",
+        "git.rev_parse.worktree",
+        "git.current_branch",
+        "git.rev_parse.head",
+        "git.rev_parse.toplevel",
+        "git.status.porcelain",
+        "git.upstream",
+        "git.ahead_behind",
+        "git.remote.origin.url",
+        "git.default_branch_candidate",
+        "git.default_branch_candidate_source",
+        "local_config.canonical_repo_roots",
+        "local_config.excluded_repo_roots",
+        "filesystem.path"
+      ],
+      "rule_refs": [
+        "assessment.rule.clean_default_current_is_clear_but_default_source_unverified"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_status.current_invocation",
+        "freshness.default_branch_source.unverified"
+      ],
+      "falsification_refs": [],
+      "missing_evidence": [
+        "default_branch_source",
+        "remote_freshness"
+      ]
+    },
+    {
+      "status": "git_pull_ff_only_local_preflight_clear",
+      "meaning": "Local pull preflight checks are clear for ff-only shape (clean worktree, tracked default branch, no local-ahead/diverged blocker).",
+      "decision_effect": "requires_evidence",
+      "evidence_refs": [
+        "obs-example-clean-main-tracking",
+        "git.rev_parse.worktree",
+        "git.current_branch",
+        "git.rev_parse.head",
+        "git.rev_parse.toplevel",
+        "git.status.porcelain",
+        "git.upstream",
+        "git.ahead_behind",
+        "git.remote.origin.url",
+        "git.default_branch_candidate",
+        "git.default_branch_candidate_source",
+        "local_config.canonical_repo_roots",
+        "local_config.excluded_repo_roots",
+        "filesystem.path"
+      ],
+      "rule_refs": [
+        "assessment.rule.git_pull_ff_only_local_preflight_clear"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_status.current_invocation",
+        "freshness.local_git_upstream.current_invocation",
+        "freshness.local_git_tracking.current_invocation"
+      ],
+      "falsification_refs": [],
+      "missing_evidence": [
+        "default_branch_source",
+        "remote_freshness"
+      ]
+    },
+    {
+      "status": "git_pull_ff_only_evidence_missing_remote_freshness",
+      "meaning": "Remote tracking freshness is not observed in this read-only assessment without fetch.",
+      "decision_effect": "requires_evidence",
+      "evidence_refs": [
+        "obs-example-clean-main-tracking",
+        "git.rev_parse.worktree",
+        "git.current_branch",
+        "git.rev_parse.head",
+        "git.rev_parse.toplevel",
+        "git.status.porcelain",
+        "git.upstream",
+        "git.ahead_behind",
+        "git.remote.origin.url",
+        "git.default_branch_candidate",
+        "git.default_branch_candidate_source",
+        "local_config.canonical_repo_roots",
+        "local_config.excluded_repo_roots",
+        "filesystem.path"
+      ],
+      "rule_refs": [
+        "assessment.rule.git_pull_ff_only_evidence_missing_remote_freshness"
+      ],
+      "freshness_refs": [
+        "freshness.remote_tracking.not_observed_no_fetch"
+      ],
+      "falsification_refs": [
+        "failure-case.origin_main_stale"
+      ],
+      "missing_evidence": [
+        "default_branch_source",
+        "remote_freshness"
+      ]
+    }
+  ],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_mutate": true,
+    "does_not_plan_actions": true
+  }
+}

@@ -2,14 +2,14 @@
   "schema_version": "repo-assessment-explanation.v1",
   "explanation_id": "assess-expl-example-clean-default-current",
   "assessment_ref": "assess-example-clean-default-current",
-  "summary": "Assessment assess-example-clean-default-current is interpreted with status set [clean_default_current]. This explanation is read-only interpretation and does not authorise or plan actions.",
+  "summary": "Assessment assess-example-clean-default-current is interpreted with status set [clean_default_current, git_pull_ff_only_blocked_missing_upstream]. This explanation is read-only interpretation and does not authorise or plan actions.",
   "status_explanations": [
     {
       "status": "clean_default_current",
       "meaning": "Current branch matches observed default branch candidate and worktree is clean; default_branch_source remains unverified.",
       "decision_effect": "assessment_clear",
       "evidence_refs": [
-        "obs-example-clean-main",
+        "obs-example-clean-main-no-upstream",
         "git.rev_parse.worktree",
         "git.current_branch",
         "git.rev_parse.head",
@@ -32,6 +32,39 @@
         "freshness.default_branch_source.unverified"
       ],
       "falsification_refs": [],
+      "missing_evidence": [
+        "default_branch_source"
+      ]
+    },
+    {
+      "status": "git_pull_ff_only_blocked_missing_upstream",
+      "meaning": "No upstream tracking branch is configured for the current branch.",
+      "decision_effect": "blocks_action",
+      "evidence_refs": [
+        "obs-example-clean-main-no-upstream",
+        "git.rev_parse.worktree",
+        "git.current_branch",
+        "git.rev_parse.head",
+        "git.rev_parse.toplevel",
+        "git.status.porcelain",
+        "git.upstream",
+        "git.ahead_behind",
+        "git.remote.origin.url",
+        "git.default_branch_candidate",
+        "git.default_branch_candidate_source",
+        "local_config.canonical_repo_roots",
+        "local_config.excluded_repo_roots",
+        "filesystem.path"
+      ],
+      "rule_refs": [
+        "assessment.rule.git_pull_ff_only_blocked_missing_upstream"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_upstream.current_invocation"
+      ],
+      "falsification_refs": [
+        "failure-case.missing_upstream"
+      ],
       "missing_evidence": [
         "default_branch_source"
       ]

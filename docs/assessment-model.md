@@ -55,6 +55,43 @@ When source is not `remote_origin_head`, the source-quality gap remains marked:
 `remote_origin_head` provenance is still local observation only. It does not claim
 remote freshness or network truth without fetch.
 
+## Pull Readiness (Phase 7a.2)
+
+Assessment derives pull-readiness state from existing local observation fields
+(`upstream`, `ahead`, `behind`, default-branch match) without fetch/pull/plan/action.
+
+Status vocabulary for this slice:
+
+- `git_pull_ff_only_local_preflight_clear`
+- `git_pull_ff_only_blocked_missing_upstream`
+- `git_pull_ff_only_blocked_branch_ahead`
+- `git_pull_ff_only_blocked_branch_diverged`
+- `git_pull_ff_only_evidence_missing_remote_freshness`
+
+Interpretation boundary:
+
+- `git_pull_ff_only_local_preflight_clear` means local preflight checks are clear
+- it does not claim remote freshness
+- therefore assessment emits `git_pull_ff_only_evidence_missing_remote_freshness`
+  until remote freshness evidence exists
+- no fetch is executed by assessment to fill this gap
+
+Existing status `non_default_branch` satisfies the pull-readiness gate
+`current_branch_is_default == false`; no separate
+`git_pull_ff_only_blocked_non_default_branch` status is introduced in this slice.
+
+This keeps pull readiness as assessment truth, not planner logic.
+
+### Status explanations and decision state
+
+Assessment explanations describe the local meaning and effect of each individual `derived_status` entry.
+`decision_state` is the aggregate result across all derived statuses.
+
+Example: `clean_default_current` as a single status carries `decision_effect: assessment_clear`,
+but the overall assessment `decision_state` may be `action_blocked` if another derived_status
+(e.g., `git_pull_ff_only_blocked_missing_upstream`) is present.
+This is not a contradiction; it reflects the read-only assessment of multiple independent conditions.
+
 ## Fields (repo-assessment.v1)
 
 Required:

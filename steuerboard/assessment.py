@@ -76,6 +76,9 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
         dirty: bool = obs_state.get("dirty", False)
         current_branch: str | None = obs_state.get("current_branch")
         default_branch_candidate: str | None = obs_state.get("default_branch_candidate")
+        upstream: str | None = obs_state.get("upstream")
+        ahead: int | None = obs_state.get("ahead")
+        behind: int | None = obs_state.get("behind")
         default_branch_candidate_source = obs_state.get(
             "default_branch_candidate_source",
             "unavailable",
@@ -118,13 +121,37 @@ def assess_repo(path: Path, config_path: Path | None = None) -> dict[str, Any]:
             # evidence for the candidate. This still does not claim remote
             # freshness or network truth, only locally observed provenance.
             derived_status.append("clean_default_current")
-            risk_level = "low"
-            decision_state = "assessment_clear"
             if default_branch_candidate_source == "remote_origin_head":
                 confidence = 0.9
             else:
                 missing_evidence.append("default_branch_source")
                 confidence = 0.8
+
+            if not upstream:
+                derived_status.append("git_pull_ff_only_blocked_missing_upstream")
+                skip_reasons.append("git_pull_ff_only_blocked_missing_upstream")
+                risk_level = "medium"
+                decision_state = "action_blocked"
+
+            elif (ahead or 0) > 0 and (behind or 0) > 0:
+                derived_status.append("git_pull_ff_only_blocked_branch_diverged")
+                skip_reasons.append("git_pull_ff_only_blocked_branch_diverged")
+                risk_level = "medium"
+                decision_state = "action_blocked"
+
+            elif (ahead or 0) > 0:
+                derived_status.append("git_pull_ff_only_blocked_branch_ahead")
+                skip_reasons.append("git_pull_ff_only_blocked_branch_ahead")
+                risk_level = "medium"
+                decision_state = "action_blocked"
+
+            else:
+                derived_status.append("git_pull_ff_only_local_preflight_clear")
+                derived_status.append("git_pull_ff_only_evidence_missing_remote_freshness")
+                skip_reasons.append("git_pull_ff_only_evidence_missing_remote_freshness")
+                missing_evidence.append("remote_freshness")
+                risk_level = "medium"
+                decision_state = "evidence_missing"
 
     provenance = attach_assessment_provenance(
         derived_status,

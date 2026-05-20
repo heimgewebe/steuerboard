@@ -47,6 +47,25 @@ def _init_repo(path: Path) -> None:
     _run(["git", "commit", "-m", "init"], path)
 
 
+def _stdout(command: list[str], cwd: Path) -> str:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.stdout.strip()
+
+
+def _set_origin_tracking_main(repo: Path) -> None:
+    _run(["git", "remote", "add", "origin", "https://example.invalid/acme/repo.git"], repo)
+    head_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+    _run(["git", "update-ref", "refs/remotes/origin/main", head_sha], repo)
+    _run(["git", "branch", "--set-upstream-to", "origin/main", "main"], repo)
+
+
 def _write_local_config(path: Path, canonical_roots: list[Path], excluded_roots: list[Path]) -> Path:
     config = {
         "schema_version": "local-config.v1",
@@ -254,7 +273,7 @@ def test_assess_scope_excluded_emits_scope_excluded(tmp_path: Path):
 # Clean canonical repo on default branch
 # ---------------------------------------------------------------------------
 
-def test_assess_clean_canonical_default_branch_emits_clear(tmp_path: Path):
+def test_assess_clean_canonical_default_branch_without_upstream_blocks_pull_preflight(tmp_path: Path):
     canonical_root = tmp_path / "repos"
     repo = canonical_root / "project"
     _init_repo(repo)
@@ -267,9 +286,10 @@ def test_assess_clean_canonical_default_branch_emits_clear(tmp_path: Path):
     schema = _assessment_schema()
     _assert_assessment_invariants(assessment, schema, Path("assess-clear.json"))
     assert "clean_default_current" in assessment["derived_status"]
-    assert assessment["decision_state"] == "assessment_clear"
-    assert assessment["risk_level"] == "low"
-    assert assessment["skip_reasons"] == []
+    assert "git_pull_ff_only_blocked_missing_upstream" in assessment["derived_status"]
+    assert assessment["decision_state"] == "action_blocked"
+    assert assessment["risk_level"] == "medium"
+    assert "git_pull_ff_only_blocked_missing_upstream" in assessment["skip_reasons"]
     # Source is local heuristic in this fixture; epistemic gap remains marked.
     assert "default_branch_source" in assessment["missing_evidence"]
     assert "assessment.rule.clean_default_current_is_clear_but_default_source_unverified" in assessment["rule_refs"]
@@ -386,6 +406,7 @@ def test_clean_default_current_marks_default_branch_source_gap(tmp_path: Path):
     assessment = assess_repo(repo, config_path=config_path)
 
     assert "clean_default_current" in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_missing_upstream" in assessment["derived_status"]
     # This fixture has no refs/remotes/origin/HEAD, so local heuristic applies.
     assert "default_branch_source" in assessment["missing_evidence"]
     assert assessment["confidence"] == 0.8
@@ -414,6 +435,7 @@ def test_clean_default_current_with_remote_origin_head_has_no_source_gap(tmp_pat
     assessment = assess_repo(repo, config_path=config_path)
 
     assert "clean_default_current" in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_missing_upstream" in assessment["derived_status"]
     assert "default_branch_source" not in assessment["missing_evidence"]
     assert assessment["confidence"] >= 0.9
     assert (
@@ -429,6 +451,102 @@ def test_clean_default_current_with_remote_origin_head_has_no_source_gap(tmp_pat
         "freshness.default_branch_source.remote_origin_head_local_observed"
         in assessment["freshness_refs"]
     )
+
+
+def test_pull_preflight_local_clear_marks_remote_freshness_gap(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    _set_origin_tracking_main(repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "clean_default_current" in assessment["derived_status"]
+    assert "git_pull_ff_only_local_preflight_clear" in assessment["derived_status"]
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in assessment["derived_status"]
+    assert assessment["decision_state"] == "evidence_missing"
+    assert "remote_freshness" in assessment["missing_evidence"]
+    assert (
+        "git_pull_ff_only_evidence_missing_remote_freshness" in assessment["skip_reasons"]
+    )
+
+
+def test_pull_preflight_blocks_branch_ahead(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    _set_origin_tracking_main(repo)
+
+    (repo / "ahead.txt").write_text("ahead\n", encoding="utf-8")
+    _run(["git", "add", "ahead.txt"], repo)
+    _run(["git", "commit", "-m", "ahead"], repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "git_pull_ff_only_blocked_branch_ahead" in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_ahead" in assessment["skip_reasons"]
+    assert assessment["decision_state"] == "action_blocked"
+
+
+def test_pull_preflight_blocks_branch_diverged(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    _set_origin_tracking_main(repo)
+    base_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+
+    (repo / "local.txt").write_text("local\n", encoding="utf-8")
+    _run(["git", "add", "local.txt"], repo)
+    _run(["git", "commit", "-m", "local"], repo)
+
+    _run(["git", "checkout", "-b", "remote-sim", base_sha], repo)
+    (repo / "remote.txt").write_text("remote\n", encoding="utf-8")
+    _run(["git", "add", "remote.txt"], repo)
+    _run(["git", "commit", "-m", "remote"], repo)
+    remote_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+    _run(["git", "checkout", "main"], repo)
+    _run(["git", "update-ref", "refs/remotes/origin/main", remote_sha], repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "git_pull_ff_only_blocked_branch_diverged" in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_diverged" in assessment["skip_reasons"]
+    assert assessment["decision_state"] == "action_blocked"
+
+
+def test_pull_preflight_behind_only_clears_local_awaits_remote_freshness(tmp_path: Path):
+    """Most common real pull case: ahead=0, behind>0, upstream tracked, clean default.
+    Locally preflight-clear, but remote freshness is unobserved without fetch."""
+    canonical_root = tmp_path / "repos"
+    repo = canonical_root / "project"
+    _init_repo(repo)
+    _set_origin_tracking_main(repo)
+    base_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+
+    # Simulate remote being ahead by one commit.
+    _run(["git", "checkout", "-b", "remote-sim", base_sha], repo)
+    (repo / "remote-change.txt").write_text("upstream change\n", encoding="utf-8")
+    _run(["git", "add", "remote-change.txt"], repo)
+    _run(["git", "commit", "-m", "upstream change"], repo)
+    remote_sha = _stdout(["git", "rev-parse", "HEAD"], repo)
+    _run(["git", "checkout", "main"], repo)
+    _run(["git", "update-ref", "refs/remotes/origin/main", remote_sha], repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    assessment = assess_repo(repo, config_path=config_path)
+
+    assert "clean_default_current" in assessment["derived_status"]
+    assert "git_pull_ff_only_local_preflight_clear" in assessment["derived_status"]
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_ahead" not in assessment["derived_status"]
+    assert "git_pull_ff_only_blocked_branch_diverged" not in assessment["derived_status"]
+    assert assessment["decision_state"] == "evidence_missing"
+    assert "remote_freshness" in assessment["missing_evidence"]
+    assert "assessment.rule.git_pull_ff_only_local_preflight_clear" in assessment["rule_refs"]
+    assert "assessment.rule.git_pull_ff_only_evidence_missing_remote_freshness" in assessment["rule_refs"]
 
 
 # ---------------------------------------------------------------------------

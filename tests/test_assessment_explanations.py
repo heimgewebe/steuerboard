@@ -148,6 +148,22 @@ def test_non_default_branch_does_not_claim_fresh_remote_state():
     assert "not observed" in meaning
 
 
+def test_pull_preflight_local_clear_explanation_is_read_only_evidence_gap():
+    explanation = explain_assessment(_assessment("git_pull_ff_only_evidence_missing_remote_freshness"))
+    meaning = explanation["status_explanations"][0]["meaning"]
+
+    assert "without fetch" in meaning
+    assert explanation["status_explanations"][0]["decision_effect"] == "requires_evidence"
+
+
+def test_pull_preflight_missing_upstream_blocks_action():
+    explanation = explain_assessment(_assessment("git_pull_ff_only_blocked_missing_upstream"))
+    status_item = explanation["status_explanations"][0]
+
+    assert status_item["decision_effect"] == "blocks_action"
+    assert "upstream tracking branch" in status_item["meaning"]
+
+
 def test_explain_assessment_rejects_missing_or_empty_derived_status():
     without = _assessment("dirty_worktree")
     without.pop("derived_status")
