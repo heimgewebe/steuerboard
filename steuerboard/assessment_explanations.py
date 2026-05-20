@@ -58,6 +58,10 @@ _STATUS_MEANINGS: dict[str, tuple[str, str]] = {
         "No upstream tracking branch is configured for the current branch.",
         "blocks_action",
     ),
+    "git_pull_ff_only_evidence_missing_tracking_counts": (
+        "Upstream exists but local ahead/behind tracking counts are unavailable, so local ff-only preflight cannot be concluded.",
+        "requires_evidence",
+    ),
     "git_pull_ff_only_blocked_branch_ahead": (
         "Current branch is ahead of upstream, so ff-only pull is blocked in this local state.",
         "blocks_action",
