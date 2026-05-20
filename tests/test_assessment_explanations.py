@@ -164,6 +164,18 @@ def test_pull_preflight_missing_upstream_blocks_action():
     assert "upstream tracking branch" in status_item["meaning"]
 
 
+def test_pull_preflight_missing_tracking_counts_requires_evidence():
+    assessment = _assessment("git_pull_ff_only_evidence_missing_tracking_counts")
+    assessment["missing_evidence"] = ["tracking_counts"]
+
+    explanation = explain_assessment(assessment)
+    status_item = explanation["status_explanations"][0]
+
+    assert status_item["decision_effect"] == "requires_evidence"
+    assert "ahead/behind tracking counts are unavailable" in status_item["meaning"]
+    assert status_item["missing_evidence"] == ["tracking_counts"]
+
+
 def test_explain_assessment_rejects_missing_or_empty_derived_status():
     without = _assessment("dirty_worktree")
     without.pop("derived_status")

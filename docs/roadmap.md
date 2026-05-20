@@ -121,6 +121,7 @@ Status cases implemented:
 - `default_branch_unknown` — default branch not determinable from observation
 - `non_default_branch` — on a non-default branch, clean; missing_evidence set
 - `clean_default_current` — canonical, clean, current branch matches observed `default_branch_candidate`; source gap remains only when `default_branch_candidate_source != remote_origin_head`
+- `git_pull_ff_only_evidence_missing_tracking_counts` — upstream exists but local `ahead`/`behind` counts are unavailable; assessment keeps pull-readiness in `evidence_missing` and does not coerce missing counts to `0`
 
 `decision_state` remains required and is an Assessment-Ergebnis, not an Action-Freigabe.
 Values: `action_blocked`, `evidence_missing`, `assessment_clear`.
