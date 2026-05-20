@@ -319,16 +319,14 @@ def test_missing_or_invalid_decision_state_raises_value_error():
         plan_switch_main(invalid_decision_state)
 
 
-def test_clean_default_current_with_non_assessment_clear_decision_state_succeeds():
-    # Aggregate decision_state may be non-assessment_clear when unrelated action domains
-    # (e.g. pull-readiness) contribute independently. The planner evaluates only
-    # switch-main-relevant statuses, not the aggregate, for its action-domain outcome.
+def test_lone_clean_default_current_requires_assessment_clear_decision_state():
+    # Regression A: lone clean_default_current must remain internally coherent.
+    # Without additional unrelated statuses there is no justification for a
+    # non-assessment_clear aggregate, so the planner must reject it.
     assessment = _assessment_with_statuses(["clean_default_current"], decision_state="evidence_missing")
 
-    plan = plan_switch_main(assessment)
-
-    assert plan["decision"] == "not_applicable"
-    assert "blocked_because" not in plan
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_switch_main(assessment)
 
 
 def test_input_contract_coherence_blocking_status_forbids_assessment_clear_decision_state():
@@ -675,9 +673,10 @@ def test_cli_plan_switch_main_smoke(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 def test_pull_readiness_local_preflight_clear_with_evidence_missing_does_not_crash():
-    # Regression A: clean default branch + local preflight clear + remote freshness missing.
-    # decision_state is evidence_missing because remote freshness is unobserved.
-    # switch-main planner must emit not_applicable (already on default branch).
+    # Regression B: mixed clean_default_current + pull-readiness statuses with evidence_missing.
+    # Pull-readiness statuses are switch-main-irrelevant and push the aggregate to evidence_missing.
+    # switch-main planner must emit not_applicable; it ignores aggregate decision_state when
+    # unrelated known statuses are present alongside clean_default_current.
     assessment = _assessment_with_statuses(
         [
             "clean_default_current",
@@ -694,9 +693,9 @@ def test_pull_readiness_local_preflight_clear_with_evidence_missing_does_not_cra
 
 
 def test_pull_readiness_blocked_missing_upstream_does_not_crash_switch_main():
-    # Regression B: clean default branch + pull blocked because upstream is missing.
-    # decision_state is action_blocked due to pull-readiness, but switch-main
-    # is already not_applicable (we are on default branch).
+    # Regression C: mixed clean_default_current + pull blocked due to missing upstream.
+    # Pull-readiness pushes aggregate to action_blocked, but that is unrelated to switch-main.
+    # switch-main planner must emit not_applicable (already on default branch).
     assessment = _assessment_with_statuses(
         [
             "clean_default_current",
@@ -712,7 +711,7 @@ def test_pull_readiness_blocked_missing_upstream_does_not_crash_switch_main():
 
 
 def test_truly_unknown_status_still_raises():
-    # Regression C: genuinely unknown statuses must still raise ValueError.
+    # Regression D: genuinely unknown statuses must still raise ValueError.
     assessment = _assessment_with_statuses(["totally_unknown_and_invented_status"])
 
     with pytest.raises(ValueError, match="unknown derived_status"):
@@ -720,7 +719,7 @@ def test_truly_unknown_status_still_raises():
 
 
 def test_switch_main_blockers_still_block_regardless_of_pull_readiness():
-    # Regression D: switch-main blockers remain effective even when pull-readiness
+    # Regression E: switch-main blockers remain effective even when pull-readiness
     # statuses are present alongside them.
     assessment = _assessment_with_statuses(
         [

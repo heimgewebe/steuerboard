@@ -141,10 +141,20 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             "decision_state must not be 'assessment_clear' when derived_status contains blocking reasons"
         )
-    # Note: aggregate decision_state may be non-assessment_clear even when clean_default_current
-    # is present, because unrelated action domains (e.g. pull-readiness) contribute independently
-    # to the aggregate. The planner evaluates only switch-main-relevant statuses, not the
-    # aggregate decision_state, when determining its own action-domain outcome.
+    # Coherence guard: a lone clean_default_current assessment is internally unambiguous and
+    # must have decision_state == assessment_clear. The exception applies only when additional
+    # globally-known but switch-main-irrelevant statuses are present (e.g. pull-readiness),
+    # because those unrelated action domains may push the aggregate decision_state to
+    # evidence_missing or action_blocked independently of switch-main's own evaluation.
+    irrelevant_known = [
+        s for s in derived_status
+        if s not in KNOWN_SWITCH_MAIN_STATUSES and s in KNOWN_ASSESSMENT_STATUSES
+    ]
+    if not_applicable_reasons and not irrelevant_known and decision_state != "assessment_clear":
+        raise ValueError(
+            "decision_state must be 'assessment_clear' when derived_status contains only "
+            "clean_default_current without additional unrelated assessment statuses"
+        )
 
     if blocking_reasons:
         decision = "blocked"
