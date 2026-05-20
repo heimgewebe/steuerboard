@@ -99,6 +99,43 @@ ASSESSMENT_PROVENANCE: dict[str, dict[str, list[str]]] = {
             "freshness.default_branch_source.unverified",
         ],
     },
+    "git_pull_ff_only_local_preflight_clear": {
+        "rule_refs": ["assessment.rule.git_pull_ff_only_local_preflight_clear"],
+        "falsification_refs": [],
+        "freshness_refs": [
+            "freshness.local_git_status.current_invocation",
+            "freshness.local_git_upstream.current_invocation",
+            "freshness.local_git_tracking.current_invocation",
+        ],
+    },
+    "git_pull_ff_only_blocked_missing_upstream": {
+        "rule_refs": ["assessment.rule.git_pull_ff_only_blocked_missing_upstream"],
+        "falsification_refs": ["failure-case.missing_upstream"],
+        "freshness_refs": [
+            "freshness.local_git_upstream.current_invocation",
+        ],
+    },
+    "git_pull_ff_only_blocked_branch_ahead": {
+        "rule_refs": ["assessment.rule.git_pull_ff_only_blocked_branch_ahead"],
+        "falsification_refs": ["failure-case.branch_local_only"],
+        "freshness_refs": [
+            "freshness.local_git_tracking.current_invocation",
+        ],
+    },
+    "git_pull_ff_only_blocked_branch_diverged": {
+        "rule_refs": ["assessment.rule.git_pull_ff_only_blocked_branch_diverged"],
+        "falsification_refs": ["failure-case.ff_only_not_possible"],
+        "freshness_refs": [
+            "freshness.local_git_tracking.current_invocation",
+        ],
+    },
+    "git_pull_ff_only_evidence_missing_remote_freshness": {
+        "rule_refs": ["assessment.rule.git_pull_ff_only_evidence_missing_remote_freshness"],
+        "falsification_refs": ["failure-case.origin_main_stale"],
+        "freshness_refs": [
+            "freshness.remote_tracking.not_observed_no_fetch",
+        ],
+    },
 }
 
 

@@ -55,6 +55,29 @@ When source is not `remote_origin_head`, the source-quality gap remains marked:
 `remote_origin_head` provenance is still local observation only. It does not claim
 remote freshness or network truth without fetch.
 
+## Pull Readiness (Phase 7a.2)
+
+Assessment derives pull-readiness state from existing local observation fields
+(`upstream`, `ahead`, `behind`, default-branch match) without fetch/pull/plan/action.
+
+Status vocabulary for this slice:
+
+- `git_pull_ff_only_local_preflight_clear`
+- `git_pull_ff_only_blocked_missing_upstream`
+- `git_pull_ff_only_blocked_branch_ahead`
+- `git_pull_ff_only_blocked_branch_diverged`
+- `git_pull_ff_only_evidence_missing_remote_freshness`
+
+Interpretation boundary:
+
+- `git_pull_ff_only_local_preflight_clear` means local preflight checks are clear
+- it does not claim remote freshness
+- therefore assessment emits `git_pull_ff_only_evidence_missing_remote_freshness`
+  until remote freshness evidence exists
+- no fetch is executed by assessment to fill this gap
+
+This keeps pull readiness as assessment truth, not planner logic.
+
 ## Fields (repo-assessment.v1)
 
 Required:

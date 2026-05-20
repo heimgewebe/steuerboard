@@ -50,6 +50,26 @@ _STATUS_MEANINGS: dict[str, tuple[str, str]] = {
         "Current branch matches observed default branch candidate and worktree is clean.",
         "assessment_clear",
     ),
+    "git_pull_ff_only_local_preflight_clear": (
+        "Local pull preflight checks are clear for ff-only shape (clean worktree, tracked default branch, no local-ahead/diverged blocker).",
+        "requires_evidence",
+    ),
+    "git_pull_ff_only_blocked_missing_upstream": (
+        "No upstream tracking branch is configured for the current branch.",
+        "blocks_action",
+    ),
+    "git_pull_ff_only_blocked_branch_ahead": (
+        "Current branch is ahead of upstream, so ff-only pull is blocked in this local state.",
+        "blocks_action",
+    ),
+    "git_pull_ff_only_blocked_branch_diverged": (
+        "Current branch and upstream have diverged, so ff-only pull is blocked in this local state.",
+        "blocks_action",
+    ),
+    "git_pull_ff_only_evidence_missing_remote_freshness": (
+        "Remote tracking freshness is not observed in this read-only assessment without fetch.",
+        "requires_evidence",
+    ),
 }
 
 

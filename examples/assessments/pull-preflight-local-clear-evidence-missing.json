@@ -1,0 +1,50 @@
+{
+  "schema_version": "repo-assessment.v1",
+  "assessment_id": "assess-example-pull-preflight-local-clear-evidence-missing",
+  "observation_ref": "obs-example-clean-main-tracking",
+  "derived_status": [
+    "clean_default_current",
+    "git_pull_ff_only_local_preflight_clear",
+    "git_pull_ff_only_evidence_missing_remote_freshness"
+  ],
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "git.default_branch_candidate_source",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.path"
+  ],
+  "decision_state": "evidence_missing",
+  "risk_level": "medium",
+  "skip_reasons": [
+    "git_pull_ff_only_evidence_missing_remote_freshness"
+  ],
+  "confidence": 0.8,
+  "missing_evidence": [
+    "default_branch_source",
+    "remote_freshness"
+  ],
+  "rule_refs": [
+    "assessment.rule.clean_default_current_is_clear_but_default_source_unverified",
+    "assessment.rule.git_pull_ff_only_local_preflight_clear",
+    "assessment.rule.git_pull_ff_only_evidence_missing_remote_freshness"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_status.current_invocation",
+    "freshness.default_branch_source.unverified",
+    "freshness.local_git_upstream.current_invocation",
+    "freshness.local_git_tracking.current_invocation",
+    "freshness.remote_tracking.not_observed_no_fetch"
+  ],
+  "falsification_refs": [
+    "failure-case.origin_main_stale"
+  ]
+}

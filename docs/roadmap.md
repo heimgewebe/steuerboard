@@ -277,6 +277,18 @@ Scope:
 Subtasks:
 
 - 7a.1 contract blueprint (current): `docs/git-pull-ff-only-contract.md`
+- 7a.2 pull-readiness assessment (current): read-only derivation in `assess repo`
+
+7a.2 scope:
+
+- derive pull readiness from existing local observation state only
+- no fetch, no pull, no plan, no action execution
+- add pull-readiness status vocabulary in assessment output
+  - `git_pull_ff_only_local_preflight_clear`
+  - `git_pull_ff_only_blocked_missing_upstream`
+  - `git_pull_ff_only_blocked_branch_ahead`
+  - `git_pull_ff_only_blocked_branch_diverged`
+  - `git_pull_ff_only_evidence_missing_remote_freshness`
 
 Not part of 7a.1 (later phases):
 
