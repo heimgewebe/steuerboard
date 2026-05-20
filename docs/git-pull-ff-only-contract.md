@@ -39,9 +39,9 @@ Observe
 
 The chain is strict: each stage needs bounded evidence from prior stages.
 
-## Preflight Gates
+## Plan Eligibility Gates
 
-Minimum gates for a future `git-pull-ff-only` plan candidate:
+Minimum gates before emitting a future `git-pull-ff-only` plan candidate:
 
 - `repo_in_scope`
 - `repo_identity_known`
@@ -56,8 +56,14 @@ Minimum gates for a future `git-pull-ff-only` plan candidate:
 - `not_diverged`
 - `ff_only_possible`
 - `ownership_ok`
-- `plan_exists`
-- `approval_exists`
+
+## Execution Gates
+
+A future runner may execute only if all of the following exist:
+
+- `action_plan_exists`
+- `user_approval_exists`
+- `runner_contract_exists`
 
 ## Decision Table
 
@@ -66,9 +72,10 @@ Minimum gates for a future `git-pull-ff-only` plan candidate:
 | dirty worktree             | blocked        | dirty_worktree           | clean_worktree                 |
 | feature branch             | blocked        | non_default_branch       | default_branch_checkout_intent |
 | remote stale               | blocked        | remote_freshness_unknown | fresh_remote_refs              |
-| clean default, ff possible | plan_candidate | none                     | approval                       |
+| clean default, ff possible | plan_candidate | none                     | none                           |
+| plan exists, no approval   | execution_blocked | approval_missing      | user_approval                  |
 
-## Execution Evidence (after execution)
+## Postcheck Evidence
 
 After a future execution step, the evidence set must include:
 
