@@ -82,6 +82,16 @@ Existing status `non_default_branch` satisfies the pull-readiness gate
 
 This keeps pull readiness as assessment truth, not planner logic.
 
+### Status explanations and decision state
+
+Assessment explanations describe the local meaning and effect of each individual `derived_status` entry.
+`decision_state` is the aggregate result across all derived statuses.
+
+Example: `clean_default_current` as a single status carries `decision_effect: assessment_clear`,
+but the overall assessment `decision_state` may be `action_blocked` if another derived_status
+(e.g., `git_pull_ff_only_blocked_missing_upstream`) is present.
+This is not a contradiction; it reflects the read-only assessment of multiple independent conditions.
+
 ## Fields (repo-assessment.v1)
 
 Required:

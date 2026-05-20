@@ -1,0 +1,33 @@
+{
+  "schema_version": "repo-observation.v1",
+  "observation_id": "obs-example-clean-main-no-upstream",
+  "source_refs": [
+    "git.rev_parse.worktree",
+    "git.current_branch",
+    "git.rev_parse.head",
+    "git.rev_parse.toplevel",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "git.default_branch_candidate",
+    "git.default_branch_candidate_source"
+  ],
+  "observed_state": {
+    "path": "/home/alex/repos/example-canonical",
+    "is_git_repo": true,
+    "git_metadata_present_at_observed_path": true,
+    "git_toplevel": "/home/alex/repos/example-canonical",
+    "git_worktree_check_exit_code": 0,
+    "current_branch": "main",
+    "head_sha": "2222222222222222222222222222222222222222",
+    "dirty": false,
+    "upstream": null,
+    "ahead": null,
+    "behind": null,
+    "remote_url": "[REDACTED_REMOTE_URL]",
+    "default_branch_candidate": "main",
+    "default_branch_candidate_source": "local_branch_heuristic",
+    "git_status_exit_code": 0
+  }
+}
