@@ -76,6 +76,12 @@ BLOCKING_SWITCH_MAIN_STATUSES = {
 
 NOT_APPLICABLE_SWITCH_MAIN_STATUSES = {"clean_default_current"}
 
+# All statuses that any action planner is expected to handle.
+# This union prevents silent misclassification when unknown statuses appear.
+KNOWN_ACTION_PLAN_STATUSES: frozenset[str] = frozenset(
+    KNOWN_SWITCH_MAIN_STATUSES | KNOWN_GIT_PULL_FF_ONLY_STATUSES
+)
+
 VALID_ASSESSMENT_DECISION_STATES = {
     "action_blocked",
     "evidence_missing",
@@ -250,6 +256,14 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
     falsification_refs = _require_string_list(
         assessment.get("falsification_refs", []), "falsification_refs"
     )
+
+    # Reject unknown derived_status values to prevent silent vokabular drift.
+    # Vocabulary mismatch is a control boundary violation, not a planning issue.
+    unknown_statuses = sorted(set(derived_status) - KNOWN_ACTION_PLAN_STATUSES)
+    if unknown_statuses:
+        raise ValueError(
+            f"derived_status contains unknown statuses not in action plan vocabulary: {unknown_statuses}"
+        )
 
     blocked_because: list[str] = [
         status for status in derived_status if status in BLOCKING_GIT_PULL_FF_ONLY_STATUSES

@@ -994,3 +994,26 @@ def test_switch_main_ignores_unrelated_git_pull_tracking_count_statuses():
 
     assert plan["action"] == "switch-main"
     assert plan["decision"] == "not_applicable"
+
+
+def test_git_pull_planner_rejects_unknown_derived_status():
+    """Verify that unknown statuses are rejected with ValueError, not silently ignored."""
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "truly_unknown_status"],
+        decision_state="assessment_clear",
+    )
+
+    with pytest.raises(ValueError, match="unknown statuses not in action plan vocabulary"):
+        plan_git_pull_ff_only(assessment)
+
+
+def test_switch_main_planner_rejects_truly_unknown_derived_status():
+    """Verify that switch-main also rejects unknown statuses (not in KNOWN_ASSESSMENT_STATUSES)."""
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "totally_bogus_status"],
+        decision_state="assessment_clear",
+    )
+
+    with pytest.raises(ValueError, match="unknown derived_status value"):
+        plan_switch_main(assessment)
+
