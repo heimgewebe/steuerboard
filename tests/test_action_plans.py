@@ -1007,6 +1007,50 @@ def test_git_pull_planner_rejects_unknown_derived_status():
         plan_git_pull_ff_only(assessment)
 
 
+def test_git_pull_planner_does_not_mutate_input_assessment():
+    """Verify that planner creates defensive copies and does not mutate input."""
+    assessment = _assessment_with_statuses(
+        ["git_pull_ff_only_local_preflight_clear"],
+        decision_state="assessment_clear",
+    )
+    original_missing_evidence = assessment["missing_evidence"][:]
+    original_rule_refs = assessment["rule_refs"][:]
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    # Input assessment must not be modified
+    assert assessment["missing_evidence"] == original_missing_evidence
+    assert assessment["rule_refs"] == original_rule_refs
+    # But plan may add to its own copies
+    assert isinstance(plan["missing_evidence"], list)
+
+
+@pytest.mark.parametrize(
+    "pull_status",
+    [
+        "git_pull_ff_only_local_preflight_clear",
+        "git_pull_ff_only_blocked_missing_upstream",
+        "git_pull_ff_only_evidence_missing_tracking_counts",
+        "git_pull_ff_only_blocked_branch_ahead",
+        "git_pull_ff_only_blocked_branch_diverged",
+        "git_pull_ff_only_evidence_missing_remote_freshness",
+    ],
+)
+def test_switch_main_tolerates_all_known_pull_statuses(pull_status: str):
+    """Verify switch-main planner tolerates all known git_pull_ff_only_* statuses."""
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", pull_status],
+        decision_state="evidence_missing" if "missing" in pull_status else "assessment_clear",
+    )
+
+    # Must not raise ValueError for unknown status
+    plan = plan_switch_main(assessment)
+
+    # Switch-main should still return "not_applicable" for clean_default_current
+    assert plan["action"] == "switch-main"
+    assert plan["decision"] == "not_applicable"
+
+
 def test_switch_main_planner_rejects_truly_unknown_derived_status():
     """Verify that switch-main also rejects unknown statuses (not in KNOWN_ASSESSMENT_STATUSES)."""
     assessment = _assessment_with_statuses(

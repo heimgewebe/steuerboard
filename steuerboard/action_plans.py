@@ -248,14 +248,15 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("derived_status must not be empty")
 
     source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
-    missing_evidence = _require_string_list(
+    # Defensive copies to ensure pure transformation (no input mutation)
+    missing_evidence = list(_require_string_list(
         assessment.get("missing_evidence", []), "missing_evidence"
-    )
-    rule_refs = _require_string_list(assessment.get("rule_refs", []), "rule_refs")
-    freshness_refs = _require_string_list(assessment.get("freshness_refs", []), "freshness_refs")
-    falsification_refs = _require_string_list(
+    ))
+    rule_refs = list(_require_string_list(assessment.get("rule_refs", []), "rule_refs"))
+    freshness_refs = list(_require_string_list(assessment.get("freshness_refs", []), "freshness_refs"))
+    falsification_refs = list(_require_string_list(
         assessment.get("falsification_refs", []), "falsification_refs"
-    )
+    ))
 
     # Reject unknown derived_status values to prevent silent vokabular drift.
     # Vocabulary mismatch is a control boundary violation, not a planning issue.
