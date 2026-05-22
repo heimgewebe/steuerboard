@@ -241,7 +241,10 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
 
     assessment_id = _require_non_empty_string(assessment.get("assessment_id"), "assessment_id")
     _require_non_empty_string(assessment.get("observation_ref"), "observation_ref")
-    _require_non_empty_string(assessment.get("decision_state"), "decision_state")
+    decision_state = _require_non_empty_string(assessment.get("decision_state"), "decision_state")
+    if decision_state not in VALID_ASSESSMENT_DECISION_STATES:
+        allowed_decision_states = sorted(VALID_ASSESSMENT_DECISION_STATES)
+        raise ValueError(f"decision_state must be one of {allowed_decision_states}")
 
     derived_status = _require_string_list(assessment.get("derived_status"), "derived_status")
     if not derived_status:
@@ -287,6 +290,9 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
     # preview-only and intentionally does not encode execution permission.
     if not blocked_because and has_local_preflight_clear:
         blocked_because.append("git_pull_ff_only_preview_only_execution_out_of_scope")
+        for marker in ("execution_authorization", "runner_contract", "user_approval"):
+            if marker not in missing_evidence:
+                missing_evidence.append(marker)
 
     if "git_pull_ff_only_evidence_missing_remote_freshness" in derived_status:
         if "remote_freshness" not in missing_evidence:

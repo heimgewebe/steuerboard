@@ -943,6 +943,25 @@ def test_git_pull_missing_pull_assessment_blocks_with_missing_evidence_marker():
     assert "git_pull_ff_only_assessment" in plan["missing_evidence"]
 
 
+def test_git_pull_preview_only_blocker_adds_execution_gate_missing_evidence():
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "git_pull_ff_only_local_preflight_clear"],
+        decision_state="assessment_clear",
+    )
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_preview_only_execution_out_of_scope"]
+    assert "execution_authorization" in plan["missing_evidence"]
+    assert "runner_contract" in plan["missing_evidence"]
+    assert "user_approval" in plan["missing_evidence"]
+    assert "would_run" not in plan
+    assert "would_mutate" not in plan
+    assert "command_trace" not in plan
+    assert "run_result" not in plan
+
+
 def test_git_pull_planner_does_not_emit_command_advice_fields():
     assessment = _assessment_with_statuses(["dirty_worktree"])
 
@@ -1007,6 +1026,17 @@ def test_git_pull_planner_rejects_unknown_derived_status():
         plan_git_pull_ff_only(assessment)
 
 
+def test_git_pull_planner_rejects_invalid_decision_state():
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "git_pull_ff_only_local_preflight_clear"],
+        decision_state="assessment_clear",
+    )
+    assessment["decision_state"] = "bogus_state"
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_git_pull_ff_only(assessment)
+
+
 def test_git_pull_planner_does_not_mutate_input_assessment():
     """Verify that planner creates defensive copies and does not mutate input."""
     assessment = _assessment_with_statuses(
@@ -1060,4 +1090,3 @@ def test_switch_main_planner_rejects_truly_unknown_derived_status():
 
     with pytest.raises(ValueError, match="unknown derived_status value"):
         plan_switch_main(assessment)
-
