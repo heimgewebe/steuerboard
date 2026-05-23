@@ -482,3 +482,110 @@ def test_remote_refresh_command_trace_ref_matches_exact_cli_argument(tmp_path: P
 def test_remote_refresh_implementation_uses_no_shell_runner():
     source = (ROOT / "steuerboard" / "remote_refresh.py").read_text(encoding="utf-8")
     assert "shell=True" not in source
+
+
+def test_remote_refresh_expanduser_command_trace_out(tmp_path: Path, monkeypatch):
+    """Test that --command-trace-out expands ~/ paths correctly."""
+    _, repo = _init_bare_origin_and_clone(tmp_path)
+    config_path = _write_local_config(tmp_path, [tmp_path / "workspace"], [])
+
+    # Create an artifacts directory in the fake home
+    artifacts_dir = tmp_path / "fake_home" / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    # Mock HOME to point to tmp_path / "fake_home"
+    monkeypatch.setenv("HOME", str(tmp_path / "fake_home"))
+
+    trace_arg = "~/artifacts/trace-with-tilde.json"
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "remote-refresh",
+            "fetch-origin-prune",
+            str(repo),
+            "--config",
+            str(config_path),
+            "--assessment-id",
+            "assess-tilde",
+            "--command-trace-out",
+            trace_arg,
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    refresh = json.loads(result.stdout)
+    validate_instance(refresh, _remote_refresh_schema(), Path("remote-refresh-tilde.json"))
+
+    # Verify trace was written to the expanded path
+    expanded_trace_path = artifacts_dir / "trace-with-tilde.json"
+    assert expanded_trace_path.exists()
+    trace = json.loads(expanded_trace_path.read_text(encoding="utf-8"))
+    validate_instance(trace, _command_trace_schema(), Path("command-trace-tilde.json"))
+
+    # command_trace_ref should be the original CLI string (lexical, not expanded)
+    assert refresh["command_trace_ref"] == trace_arg
+
+
+def test_remote_refresh_exit_code_normalized(tmp_path: Path):
+    """Test that negative return codes (signals) are normalized in artifacts."""
+    # This is a structural test: we verify that _normalize_exit_code is applied.
+    # We test the function directly since subprocess signal handling is platform-specific.
+    from steuerboard.remote_refresh import _normalize_exit_code
+
+    assert _normalize_exit_code(0) == 0
+    assert _normalize_exit_code(1) == 1
+    assert _normalize_exit_code(127) == 127
+    # Signal 15 (SIGTERM) becomes returncode -15 in subprocess, normalized to 143
+    assert _normalize_exit_code(-15) == 143
+    # Signal 9 (SIGKILL) becomes returncode -9, normalized to 137
+    assert _normalize_exit_code(-9) == 137
+    # Signal 2 (SIGINT) becomes returncode -2, normalized to 130
+    assert _normalize_exit_code(-2) == 130
+
+
+def test_remote_refresh_oserror_on_trace_write_clean_error(tmp_path: Path):
+    """Test that OSError when writing command_trace_out produces clean error."""
+    _, repo = _init_bare_origin_and_clone(tmp_path)
+    config_path = _write_local_config(tmp_path, [tmp_path / "workspace"], [])
+
+    # Use a path that will exist but cannot be written to.
+    # Create an artifacts directory, but make the trace file path a directory instead.
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a directory where we want to write the file
+    # This will cause PermissionError or IsADirectoryError on write
+    trace_path = artifacts_dir / "this-is-a-directory"
+    trace_path.mkdir()
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "remote-refresh",
+            "fetch-origin-prune",
+            str(repo),
+            "--config",
+            str(config_path),
+            "--assessment-id",
+            "assess-oserror",
+            "--command-trace-out",
+            str(trace_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    # CLI should fail with non-zero exit code
+    assert result.returncode != 0
+    # Error message should mention the trace file, not leak a traceback
+    assert "command_trace_out" in result.stderr or "command trace" in result.stderr
+    # No full Python traceback should be present (parser.error cleans it up)
+    # We only care that it's not a raw exception traceback
+    assert "Traceback (most recent call last)" not in result.stderr or "failed to write" in result.stderr

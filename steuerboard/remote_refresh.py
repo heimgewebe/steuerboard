@@ -60,13 +60,20 @@ def _read_git_stdout_if_available(path: Path, *args: str) -> str | None:
 
 
 def _require_existing_parent_and_nonexistent_target(raw_path: str) -> Path:
-    target = Path(raw_path)
+    target = Path(raw_path).expanduser()
     parent = target.parent if str(target.parent) else Path(".")
     if not parent.exists() or not parent.is_dir():
         raise ValueError("command_trace_out parent directory must exist")
     if target.exists():
         raise ValueError("command_trace_out must not already exist")
     return target
+
+
+def _normalize_exit_code(returncode: int) -> int:
+    """Normalize subprocess returncode. Negative codes (signals) become 128 + abs(code)."""
+    if returncode < 0:
+        return 128 + abs(returncode)
+    return returncode
 
 
 def _redact_text(value: str) -> str:
@@ -175,6 +182,9 @@ def run_fetch_origin_prune(
         extra = "\n".join(postcheck_messages)
         stderr_for_trace = f"{stderr_for_trace.rstrip()}\n{extra}".strip()
 
+    # Normalize exit code (convert negative signal codes to positive)
+    exit_code = _normalize_exit_code(exit_code)
+
     trace_payload = {
         "schema_version": "command-trace.v1",
         "trace_id": f"trace-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%SZ')}",
@@ -185,10 +195,13 @@ def run_fetch_origin_prune(
         "redacted": True,
     }
 
-    trace_target.write_text(
-        json.dumps(trace_payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    try:
+        trace_target.write_text(
+            json.dumps(trace_payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as e:
+        raise ValueError(f"failed to write command_trace_out: {e}") from e
 
     return {
         "schema_version": "remote-refresh-result.v1",
