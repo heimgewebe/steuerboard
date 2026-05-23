@@ -220,6 +220,20 @@ def load_and_validate_remote_refresh_result(
             f"got '{remote_freshness}'"
         )
 
+    # Validate exit_code/remote_freshness coupling per schema conditional rules.
+    if exit_code == 0:
+        if remote_freshness != "fresh":
+            raise ValueError(
+                f"exit_code == 0 requires remote_freshness == 'fresh', "
+                f"got '{remote_freshness}'"
+            )
+    else:  # exit_code >= 1
+        if remote_freshness not in ("stale", "unknown", "unavailable"):
+            raise ValueError(
+                f"exit_code >= 1 requires remote_freshness to be one of "
+                f"('stale', 'unknown', 'unavailable'), got '{remote_freshness}'"
+            )
+
     return remote_refresh
 
 

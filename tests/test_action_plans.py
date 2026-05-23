@@ -1275,6 +1275,86 @@ def test_git_pull_planner_rejects_remote_refresh_wrong_operation():
         plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
 
 
+def test_git_pull_planner_rejects_remote_refresh_exit_code_zero_with_unknown_freshness():
+    """E2g: Cross-field validation rejects exit_code==0 with remote_freshness!='fresh'."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["exit_code"] = 0
+    remote_refresh["remote_freshness"] = "unknown"
+
+    with pytest.raises(ValueError, match="exit_code == 0 requires remote_freshness == 'fresh'"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_exit_code_zero_with_stale_freshness():
+    """E2h: Cross-field validation rejects exit_code==0 with remote_freshness=='stale'."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["exit_code"] = 0
+    remote_refresh["remote_freshness"] = "stale"
+
+    with pytest.raises(ValueError, match="exit_code == 0 requires remote_freshness == 'fresh'"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_exit_code_nonzero_with_fresh_freshness():
+    """E2i: Cross-field validation rejects exit_code>=1 with remote_freshness=='fresh'."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+    remote_refresh["exit_code"] = 1
+    remote_refresh["remote_freshness"] = "fresh"
+
+    with pytest.raises(ValueError, match="exit_code >= 1 requires remote_freshness to be one of"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_accepts_valid_success_remote_refresh_example():
+    """E2j: Valid success example (exit_code==0, remote_freshness=='fresh') accepted."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" not in plan["blocked_because"]
+
+
+def test_git_pull_planner_accepts_valid_network_failed_remote_refresh_example():
+    """E2k: Valid failed example (exit_code>=1, remote_freshness in {stale,unknown,unavailable}) accepted."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+
+
 def test_git_pull_planner_rejects_remote_refresh_mutates_refs_non_bool():
     """E2c: Strict validation rejects non-boolean mutates_refs."""
     assessment = _assessment_for_remote_refresh_example(
