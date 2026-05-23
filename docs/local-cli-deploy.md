@@ -8,7 +8,7 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All nine read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All ten read-only CLI entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
@@ -16,8 +16,10 @@ After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHO
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
   - `steuerboard plan switch-main <assessment-json> --json`
+  - `steuerboard plan git-pull-ff-only <assessment-json> --json`
   - `steuerboard omnipull-report show <report-json> --json`
   - `steuerboard omnipull-report latest <run-index-json> --json`
+- Plan preview commands are derivation-only and do not run Git subprocesses or network requests.
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
 
