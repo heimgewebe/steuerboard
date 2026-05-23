@@ -230,10 +230,10 @@ file, validates that the approval binds exactly to the plan at the explicit
 
 `binding_state: binding_valid` means only:
 
-- the approval matches the exact plan
+- the approval matches the exact plan id/action and plan content hash (`plan_content_sha256`)
 - the approval decision is `approved`
 - the approval is time-valid at `checked_at`
-- all required approval boundary booleans are intact
+- both input artifacts are fully schema-valid
 
 It does **not** mean execution is allowed.
 

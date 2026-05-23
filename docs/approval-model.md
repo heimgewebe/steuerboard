@@ -28,11 +28,12 @@ Binding validation checks:
 
 - approval decision is `approved`
 - `approval.plan_ref` matches `plan.plan_id`
+- `approval.plan_content_sha256` matches the canonical SHA-256 of the full `action-plan.v1` artifact
 - `approval.action` matches `plan.action`
 - `approval.decided_at` is not in the future relative to `checked_at`
 - `checked_at` is before `approval.expires_at`
 - `approval.decided_at` is before `approval.expires_at`
-- all approval scope, constraints, and boundary booleans are intact
+- input plan/approval artifacts are fully schema-valid before semantic binding checks run
 
 `binding_state == "binding_valid"` means only that the binding is intact.
 It does **not** mean execution is allowed.

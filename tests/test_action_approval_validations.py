@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -39,11 +40,15 @@ _PLAN = {
         "does_not_authorise_actions": True,
     },
 }
+_PLAN_SHA256 = hashlib.sha256(
+    json.dumps(_PLAN, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+).hexdigest()
 
 _APPROVAL_APPROVED = {
     "schema_version": "action-approval.v1",
     "approval_id": "approval-2026-05-23-git-pull-ff-only-approved-001",
     "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+    "plan_content_sha256": _PLAN_SHA256,
     "action": "git-pull-ff-only",
     "decision": "approved",
     "decided_at": "2026-05-23T10:40:00Z",
@@ -86,7 +91,11 @@ def test_binding_valid_approved_unexpired():
 
 
 def test_binding_invalid_rejected():
-    approval = {**_APPROVAL_APPROVED, "decision": "rejected"}
+    approval = {
+        **_APPROVAL_APPROVED,
+        "decision": "rejected",
+        "reason": "Approval withheld pending execution-runner contract.",
+    }
     result = validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
     assert result["binding_state"] == "binding_invalid"
     assert "approval_rejected" in result["blocked_because"]
@@ -127,18 +136,27 @@ def test_binding_invalid_plan_ref_mismatch():
 
 def test_binding_invalid_action_mismatch():
     # approval action differs from plan action
-    approval = {**_APPROVAL_APPROVED, "action": "switch-main"}
-    # plan also uses switch-main to avoid triggering the plan schema check on the action enum
-    plan = {
-        **_PLAN,
-        "action": "git-pull-ff-only",
-    }
+    approval = dict(_APPROVAL_APPROVED)
+    plan = {**_PLAN, "action": "switch-main"}
     result = validate_action_approval_binding(plan, approval, _CHECKED_AT_VALID)
     assert result["binding_state"] == "binding_invalid"
     assert "action_mismatch" in result["blocked_because"]
 
 
-def test_binding_invalid_approval_scope_false():
+def test_binding_invalid_plan_content_sha256_mismatch():
+    approval = {**_APPROVAL_APPROVED, "plan_content_sha256": "0" * 64}
+    result = validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
+    assert result["binding_state"] == "binding_invalid"
+    assert "plan_content_sha256_mismatch" in result["blocked_because"]
+
+
+def test_binding_validation_id_is_deterministic():
+    first = validate_action_approval_binding(_PLAN, _APPROVAL_APPROVED, _CHECKED_AT_VALID)
+    second = validate_action_approval_binding(_PLAN, _APPROVAL_APPROVED, _CHECKED_AT_VALID)
+    assert first["validation_id"] == second["validation_id"]
+
+
+def test_invalid_approval_scope_false_raises_value_error():
     approval = {
         **_APPROVAL_APPROVED,
         "approval_scope": {
@@ -147,12 +165,11 @@ def test_binding_invalid_approval_scope_false():
             "no_command_substitution": True,
         },
     }
-    result = validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
-    assert result["binding_state"] == "binding_invalid"
-    assert "approval_scope_invalid" in result["blocked_because"]
+    with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
+        validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
 
 
-def test_binding_invalid_constraints_false():
+def test_invalid_constraints_false_raises_value_error():
     approval = {
         **_APPROVAL_APPROVED,
         "constraints": {
@@ -163,12 +180,11 @@ def test_binding_invalid_constraints_false():
             "requires_postcheck": True,
         },
     }
-    result = validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
-    assert result["binding_state"] == "binding_invalid"
-    assert "constraints_invalid" in result["blocked_because"]
+    with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
+        validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
 
 
-def test_binding_invalid_boundary_false():
+def test_invalid_boundary_false_raises_value_error():
     approval = {
         **_APPROVAL_APPROVED,
         "boundary": {
@@ -178,9 +194,14 @@ def test_binding_invalid_boundary_false():
             "does_not_create_runner": True,
         },
     }
-    result = validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
-    assert result["binding_state"] == "binding_invalid"
-    assert "approval_boundary_invalid" in result["blocked_because"]
+    with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
+        validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
+
+
+def test_invalid_approval_timestamp_raises_value_error():
+    approval = {**_APPROVAL_APPROVED, "decided_at": "2026-13-40"}
+    with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
+        validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
 
 
 def test_invalid_plan_raises_value_error():
@@ -308,6 +329,67 @@ def test_cli_invalid_approval_fails_cleanly(tmp_path: Path):
     )
     assert proc.returncode != 0
     assert "approval" in proc.stderr.lower() or "action-approval" in proc.stderr.lower()
+
+
+def test_cli_rejects_approval_with_extra_top_level_field(tmp_path: Path):
+    plan_path = tmp_path / "plan.json"
+    bad_approval_path = tmp_path / "bad_approval.json"
+    bad_approval = {**_APPROVAL_APPROVED, "execution_allowed": True}
+    plan_path.write_text(json.dumps(_PLAN), encoding="utf-8")
+    bad_approval_path.write_text(json.dumps(bad_approval), encoding="utf-8")
+
+    proc = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "approval",
+            "validate",
+            str(bad_approval_path),
+            "--plan",
+            str(plan_path),
+            "--checked-at",
+            _CHECKED_AT_VALID,
+            "--json",
+        ]
+    )
+    assert proc.returncode != 0
+    assert "invalid action-approval.v1 input" in proc.stderr
+    assert "action-approval-validation.v1" not in proc.stdout
+
+
+def test_cli_rejects_plan_with_invalid_boundary_value(tmp_path: Path):
+    bad_plan_path = tmp_path / "bad_plan.json"
+    approval_path = tmp_path / "approval.json"
+    bad_plan = {
+        **_PLAN,
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": False,
+        },
+    }
+    bad_plan_path.write_text(json.dumps(bad_plan), encoding="utf-8")
+    approval_path.write_text(json.dumps(_APPROVAL_APPROVED), encoding="utf-8")
+
+    proc = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "approval",
+            "validate",
+            str(approval_path),
+            "--plan",
+            str(bad_plan_path),
+            "--checked-at",
+            _CHECKED_AT_VALID,
+            "--json",
+        ]
+    )
+    assert proc.returncode != 0
+    assert "invalid action-plan.v1 input" in proc.stderr
+    assert "action-approval-validation.v1" not in proc.stdout
 
 
 def test_cli_output_never_contains_forbidden_fields(tmp_path: Path):

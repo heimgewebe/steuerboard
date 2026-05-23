@@ -374,6 +374,7 @@ def _valid_action_approval(decision: str = "approved") -> dict:
         "schema_version": "action-approval.v1",
         "approval_id": "approval-2026-05-23-pull-ff-only-001",
         "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+        "plan_content_sha256": "0" * 64,
         "action": "git-pull-ff-only",
         "decision": decision,
         "decided_at": "2026-05-23T10:00:00Z",
