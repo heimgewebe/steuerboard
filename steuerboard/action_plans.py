@@ -323,17 +323,17 @@ def plan_git_pull_ff_only(
         # Remove the remote freshness blocker if it exists.
         if "git_pull_ff_only_evidence_missing_remote_freshness" in blocked_because:
             blocked_because.remove("git_pull_ff_only_evidence_missing_remote_freshness")
-        
+
         # Remove remote_freshness from missing_evidence.
         if "remote_freshness" in missing_evidence:
             missing_evidence.remove("remote_freshness")
-        
+
         # Add refresh evidence provenance.
         refresh_id = validated_remote_refresh["refresh_id"]
         source_ref = f"remote_refresh.{refresh_id}"
         if source_ref not in source_refs:
             source_refs.append(source_ref)
-        
+
         # Add freshness marker.
         freshness_marker = "freshness.remote_tracking.fetch_origin_prune.fresh"
         if freshness_marker not in freshness_refs:
@@ -355,7 +355,7 @@ def plan_git_pull_ff_only(
         # Failed/unfresh refresh cannot satisfy remote freshness evidence.
         if "git_pull_ff_only_evidence_missing_remote_freshness" not in blocked_because:
             blocked_because.append("git_pull_ff_only_evidence_missing_remote_freshness")
-        
+
         # Ensure remote_freshness is tracked in missing_evidence.
         if "remote_freshness" not in missing_evidence:
             missing_evidence.append("remote_freshness")

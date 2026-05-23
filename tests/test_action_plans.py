@@ -1156,7 +1156,7 @@ def test_git_pull_planner_with_successful_remote_refresh_removes_freshness_block
     # Freshness blocker must be removed
     assert "git_pull_ff_only_evidence_missing_remote_freshness" not in plan["blocked_because"]
     assert "remote_freshness" not in plan["missing_evidence"]
-    
+
     # But must still be blocked as preview-only
     assert plan["decision"] == "blocked"
     assert "git_pull_ff_only_preview_only_execution_out_of_scope" in plan["blocked_because"]
@@ -1544,7 +1544,7 @@ def test_git_pull_planner_does_not_mutate_input_assessment_with_remote_refresh()
         ],
     )
     remote_refresh = _remote_refresh_result()
-    
+
     original_missing_evidence = assessment["missing_evidence"][:]
     original_source_refs = assessment["source_refs"][:]
     original_remote_refresh = json.loads(json.dumps(remote_refresh))  # Deep copy
@@ -1554,7 +1554,7 @@ def test_git_pull_planner_does_not_mutate_input_assessment_with_remote_refresh()
     # Assessment must not be modified
     assert assessment["missing_evidence"] == original_missing_evidence
     assert assessment["source_refs"] == original_source_refs
-    
+
     # remote_refresh dict must not be modified
     assert remote_refresh == original_remote_refresh
 
@@ -1569,7 +1569,7 @@ def test_cli_git_pull_planner_with_remote_refresh_result(tmp_path: Path):
     )
     assessment_path = tmp_path / "assessment.json"
     assessment_path.write_text(json.dumps(assessment), encoding="utf-8")
-    
+
     remote_refresh = _remote_refresh_result()
     remote_refresh_path = tmp_path / "remote-refresh.json"
     remote_refresh_path.write_text(json.dumps(remote_refresh), encoding="utf-8")
@@ -1608,7 +1608,7 @@ def test_cli_git_pull_planner_rejects_invalid_remote_refresh_json(tmp_path: Path
     )
     assessment_path = tmp_path / "assessment.json"
     assessment_path.write_text(json.dumps(assessment), encoding="utf-8")
-    
+
     bad_refresh_path = tmp_path / "bad-remote-refresh.json"
     bad_refresh_path.write_text("{ invalid json", encoding="utf-8")
 
@@ -1643,7 +1643,7 @@ def test_cli_git_pull_planner_rejects_remote_refresh_mismatch(tmp_path: Path):
     )
     assessment_path = tmp_path / "assessment.json"
     assessment_path.write_text(json.dumps(assessment), encoding="utf-8")
-    
+
     remote_refresh = _remote_refresh_result()
     remote_refresh["repo_ref"] = "repo-completely-wrong"
     remote_refresh_path = tmp_path / "remote-refresh.json"
