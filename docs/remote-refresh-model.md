@@ -22,9 +22,10 @@ without entering pull execution.
 
 ## Operation Scope
 
-This slice narrows refresh to one explicit operation:
+This slice narrows refresh to one explicit operation and remote:
 
-- `git.fetch_origin_prune`
+- operation: `git.fetch_origin_prune`
+- remote_name: `origin`
 
 The artifact records bounded evidence only. It does not authorise pull execution.
 
@@ -39,8 +40,10 @@ The artifact records bounded evidence only. It does not authorise pull execution
 
 ## Interpretation Guidance
 
-- `exit_code == 0` with `remote_freshness = fresh` supports the pull contract gate
-  `remote_freshness_evidence_exists`.
+- For Phase 7b.1, success is defined as `exit_code == 0` and
+  `remote_freshness = fresh`.
+- Failed refresh results (`exit_code != 0`) must not claim `remote_freshness = fresh`.
+- `redacted` is mandatory and must be `true` for this contract slice.
 - Non-zero exit codes should keep pull planning blocked and preserve the failure as
   evidence, not silence it.
 - This artifact is evidence for planning and approval chains, not an execution grant.

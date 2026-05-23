@@ -250,3 +250,110 @@ def test_minimal_validator_rejects_invalid_anyof_head_sha_shape():
 
     with pytest.raises(ValidationError):
         minimal_validate("not-a-sha", schema)
+
+
+def _remote_refresh_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "remote-refresh-result.v1.schema.json")
+
+
+def _valid_remote_refresh_result() -> dict:
+    return {
+        "schema_version": "remote-refresh-result.v1",
+        "refresh_id": "refresh-example-origin-prune-success",
+        "repo_ref": "repo-assess-example-pull-preflight-local-clear-evidence-missing",
+        "operation": "git.fetch_origin_prune",
+        "remote_name": "origin",
+        "started_at": "2026-05-23T09:10:01Z",
+        "completed_at": "2026-05-23T09:10:02Z",
+        "exit_code": 0,
+        "mutates_worktree": False,
+        "mutates_refs": True,
+        "mutates_remote": False,
+        "remote_freshness": "fresh",
+        "command_trace_ref": "examples/evidence/command-trace-redacted.json",
+        "redacted": True,
+        "boundary": {
+            "does_not_pull": True,
+            "does_not_merge": True,
+            "does_not_switch": True,
+            "does_not_reset": True,
+            "does_not_clean": True,
+            "does_not_authorise_pull": True,
+        },
+    }
+
+
+def test_remote_refresh_schema_rejects_exit_code_zero_with_non_fresh_freshness():
+    invalid = _valid_remote_refresh_result()
+    invalid["remote_freshness"] = "unavailable"
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            _remote_refresh_schema(),
+            EXAMPLES_DIR / "invalid-remote-refresh-exit-zero-non-fresh.json",
+        )
+
+
+def test_remote_refresh_schema_rejects_failed_exit_code_with_fresh_freshness():
+    invalid = _valid_remote_refresh_result()
+    invalid["exit_code"] = 128
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            _remote_refresh_schema(),
+            EXAMPLES_DIR / "invalid-remote-refresh-failed-fresh.json",
+        )
+
+
+def test_remote_refresh_schema_rejects_non_origin_remote_for_origin_operation():
+    invalid = _valid_remote_refresh_result()
+    invalid["remote_name"] = "upstream"
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            _remote_refresh_schema(),
+            EXAMPLES_DIR / "invalid-remote-refresh-remote-name.json",
+        )
+
+
+def test_remote_refresh_schema_rejects_redacted_false():
+    invalid = _valid_remote_refresh_result()
+    invalid["redacted"] = False
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            _remote_refresh_schema(),
+            EXAMPLES_DIR / "invalid-remote-refresh-redacted-false.json",
+        )
+
+
+def test_remote_refresh_schema_rejects_boundary_false_and_extra_field():
+    invalid_false = _valid_remote_refresh_result()
+    invalid_false["boundary"] = {
+        **invalid_false["boundary"],
+        "does_not_pull": False,
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid_false,
+            _remote_refresh_schema(),
+            EXAMPLES_DIR / "invalid-remote-refresh-boundary-false.json",
+        )
+
+    invalid_extra = _valid_remote_refresh_result()
+    invalid_extra["boundary"] = {
+        **invalid_extra["boundary"],
+        "extra": True,
+    }
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid_extra,
+            _remote_refresh_schema(),
+            EXAMPLES_DIR / "invalid-remote-refresh-boundary-extra.json",
+        )

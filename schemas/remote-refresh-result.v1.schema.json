@@ -37,9 +37,7 @@
       "const": "git.fetch_origin_prune"
     },
     "remote_name": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^\\S(?:.*\\S)?$"
+      "const": "origin"
     },
     "started_at": {
       "type": "string",
@@ -76,7 +74,7 @@
       "pattern": "^\\S(?:.*\\S)?$"
     },
     "redacted": {
-      "type": "boolean"
+      "const": true
     },
     "boundary": {
       "type": "object",
@@ -111,6 +109,57 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "exit_code": {
+            "const": 0
+          }
+        },
+        "required": [
+          "exit_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "remote_freshness": {
+            "const": "fresh"
+          }
+        },
+        "required": [
+          "remote_freshness"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "exit_code": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "exit_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "remote_freshness": {
+            "enum": [
+              "stale",
+              "unknown",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "remote_freshness"
+        ]
+      }
+    }
+  ],
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/steuerboard/schemas/remote-refresh-result.v1.schema.json"
 }

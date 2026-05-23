@@ -227,6 +227,7 @@ steuerboard/
 │  ├─ security-model.md
 │  ├─ omnipull-integration.md
 │  ├─ git-pull-ff-only-contract.md
+│  ├─ remote-refresh-model.md
 │  └─ roadmap.md
 ├─ schemas/
 │  ├─ falsification-case.v1.schema.json
