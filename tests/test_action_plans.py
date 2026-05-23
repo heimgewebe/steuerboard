@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from scripts.validate_examples import SCHEMAS_DIR, ValidationError, load_json, validate_instance
-from steuerboard.action_plans import plan_switch_main
+from steuerboard.action_plans import plan_git_pull_ff_only, plan_switch_main
 
 
 FORBIDDEN_EXECUTION_FIELDS = {
@@ -761,3 +761,332 @@ def test_cli_plan_switch_main_with_pull_readiness_example(tmp_path: Path):
     plan = json.loads(result.stdout)
     validate_instance(plan, _action_plan_schema(), Path("cli-plan-switch-main-pull-readiness.json"))
     assert plan["decision"] == "not_applicable"
+
+
+# ---------------------------------------------------------------------------
+# Phase 7a.3 git-pull-ff-only plan preview tests
+# ---------------------------------------------------------------------------
+
+def test_schema_accepts_git_pull_ff_only_action():
+    schema = _action_plan_schema()
+    plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-example-git-pull-ff-only",
+        "action": "git-pull-ff-only",
+        "assessment_ref": "assess-example",
+        "decision": "blocked",
+        "blocked_because": ["git_pull_ff_only_evidence_missing_remote_freshness"],
+        "source_refs": ["git.current_branch"],
+        "rule_refs": ["assessment.rule.git_pull_ff_only_evidence_missing_remote_freshness"],
+        "freshness_refs": ["freshness.remote_tracking.not_observed_no_fetch"],
+        "falsification_refs": ["failure-case.origin_main_stale"],
+        "missing_evidence": ["remote_freshness"],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+    validate_instance(plan, schema, Path("plan-git-pull-ff-only-valid.json"))
+
+
+def test_plan_git_pull_ff_only_emits_schema_valid_action_plan_v1():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+        decision_state="evidence_missing",
+    )
+    assessment["missing_evidence"] = ["default_branch_source", "remote_freshness"]
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    validate_instance(plan, _action_plan_schema(), Path("plan-git-pull-ff-only.json"))
+    assert plan["action"] == "git-pull-ff-only"
+    assert plan["decision"] == "blocked"
+
+
+def test_cli_plan_git_pull_ff_only_emits_schema_valid_action_plan_v1(tmp_path: Path):
+    examples_dir = Path(__file__).parent.parent / "examples" / "assessments"
+    assessment_path = examples_dir / "pull-preflight-local-clear-evidence-missing.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "git-pull-ff-only",
+            str(assessment_path),
+            "--json",
+        ],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    plan = json.loads(result.stdout)
+    validate_instance(plan, _action_plan_schema(), Path("cli-plan-git-pull-ff-only.json"))
+    assert plan["action"] == "git-pull-ff-only"
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+
+
+def test_git_pull_remote_freshness_missing_blocks_pull_plan():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+        decision_state="evidence_missing",
+    )
+    assessment["missing_evidence"] = ["remote_freshness"]
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_evidence_missing_remote_freshness"]
+    assert "remote_freshness" in plan["missing_evidence"]
+
+
+def test_git_pull_dirty_worktree_blocks_pull_plan():
+    assessment = _assessment_with_statuses(["dirty_worktree"])
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["dirty_worktree"]
+
+
+def test_git_pull_non_default_branch_blocks_pull_plan():
+    assessment = _assessment_with_statuses(["non_default_branch"], decision_state="evidence_missing")
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["non_default_branch"]
+
+
+def test_git_pull_branch_ahead_blocks_pull_plan():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_blocked_branch_ahead",
+        ],
+        decision_state="action_blocked",
+    )
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_blocked_branch_ahead"]
+
+
+def test_git_pull_branch_diverged_blocks_pull_plan():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_blocked_branch_diverged",
+        ],
+        decision_state="action_blocked",
+    )
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_blocked_branch_diverged"]
+
+
+def test_git_pull_missing_upstream_blocks_pull_plan():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_blocked_missing_upstream",
+        ],
+        decision_state="action_blocked",
+    )
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_blocked_missing_upstream"]
+
+
+def test_git_pull_missing_tracking_counts_blocks_pull_plan():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_evidence_missing_tracking_counts",
+        ],
+        decision_state="evidence_missing",
+    )
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_evidence_missing_tracking_counts"]
+
+
+def test_git_pull_missing_pull_assessment_blocks_with_missing_evidence_marker():
+    assessment = _assessment_with_statuses(["clean_default_current"], decision_state="assessment_clear")
+    assessment["missing_evidence"] = ["default_branch_source"]
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_assessment_missing_preflight"]
+    assert "git_pull_ff_only_assessment" in plan["missing_evidence"]
+
+
+def test_git_pull_preview_only_blocker_adds_execution_gate_missing_evidence():
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "git_pull_ff_only_local_preflight_clear"],
+        decision_state="assessment_clear",
+    )
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_preview_only_execution_out_of_scope"]
+    assert "execution_authorization" in plan["missing_evidence"]
+    assert "runner_contract" in plan["missing_evidence"]
+    assert "user_approval" in plan["missing_evidence"]
+    assert "would_run" not in plan
+    assert "would_mutate" not in plan
+    assert "command_trace" not in plan
+    assert "run_result" not in plan
+
+
+def test_git_pull_planner_does_not_emit_command_advice_fields():
+    assessment = _assessment_with_statuses(["dirty_worktree"])
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert "safe_alternatives" not in plan
+    assert "required_evidence" not in plan
+
+
+def test_git_pull_planner_does_not_emit_execution_fields():
+    assessment = _assessment_with_statuses(["dirty_worktree"])
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert "would_run" not in plan
+    assert "would_mutate" not in plan
+    assert "command_trace" not in plan
+    assert "run_result" not in plan
+
+
+@pytest.mark.parametrize("field,value", [
+    ("action", "switch-main"),
+    ("plan_id", "plan-legacy"),
+    ("would_run", ["git pull --ff-only"]),
+    ("would_mutate", ["refs/heads/main"]),
+    ("safe_alternatives", ["observe repo ."]),
+    ("required_evidence", ["remote_freshness"]),
+    ("command_trace", {"schema_version": "command-trace.v1"}),
+    ("run_result", {"schema_version": "run-result.v1"}),
+])
+def test_git_pull_planner_rejects_forbidden_input_fields(field: str, value: object):
+    assessment = _assessment_with_statuses(["dirty_worktree"])
+    assessment[field] = value
+
+    with pytest.raises(ValueError, match="forbidden"):
+        plan_git_pull_ff_only(assessment)
+
+
+def test_switch_main_ignores_unrelated_git_pull_tracking_count_statuses():
+    assessment = _assessment_with_statuses(
+        [
+            "clean_default_current",
+            "git_pull_ff_only_evidence_missing_tracking_counts",
+        ],
+        decision_state="evidence_missing",
+    )
+
+    plan = plan_switch_main(assessment)
+
+    assert plan["action"] == "switch-main"
+    assert plan["decision"] == "not_applicable"
+
+
+def test_git_pull_planner_rejects_unknown_derived_status():
+    """Verify that unknown statuses are rejected with ValueError, not silently ignored."""
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "truly_unknown_status"],
+        decision_state="assessment_clear",
+    )
+
+    with pytest.raises(ValueError, match="unknown statuses not in action plan vocabulary"):
+        plan_git_pull_ff_only(assessment)
+
+
+def test_git_pull_planner_rejects_invalid_decision_state():
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "git_pull_ff_only_local_preflight_clear"],
+        decision_state="assessment_clear",
+    )
+    assessment["decision_state"] = "bogus_state"
+
+    with pytest.raises(ValueError, match="decision_state"):
+        plan_git_pull_ff_only(assessment)
+
+
+def test_git_pull_planner_does_not_mutate_input_assessment():
+    """Verify that planner creates defensive copies and does not mutate input."""
+    assessment = _assessment_with_statuses(
+        ["git_pull_ff_only_local_preflight_clear"],
+        decision_state="assessment_clear",
+    )
+    original_missing_evidence = assessment["missing_evidence"][:]
+    original_rule_refs = assessment["rule_refs"][:]
+
+    plan = plan_git_pull_ff_only(assessment)
+
+    # Input assessment must not be modified
+    assert assessment["missing_evidence"] == original_missing_evidence
+    assert assessment["rule_refs"] == original_rule_refs
+    # But plan may add to its own copies
+    assert isinstance(plan["missing_evidence"], list)
+
+
+@pytest.mark.parametrize(
+    "pull_status",
+    [
+        "git_pull_ff_only_local_preflight_clear",
+        "git_pull_ff_only_blocked_missing_upstream",
+        "git_pull_ff_only_evidence_missing_tracking_counts",
+        "git_pull_ff_only_blocked_branch_ahead",
+        "git_pull_ff_only_blocked_branch_diverged",
+        "git_pull_ff_only_evidence_missing_remote_freshness",
+    ],
+)
+def test_switch_main_tolerates_all_known_pull_statuses(pull_status: str):
+    """Verify switch-main planner tolerates all known git_pull_ff_only_* statuses."""
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", pull_status],
+        decision_state="evidence_missing" if "missing" in pull_status else "assessment_clear",
+    )
+
+    # Must not raise ValueError for unknown status
+    plan = plan_switch_main(assessment)
+
+    # Switch-main should still return "not_applicable" for clean_default_current
+    assert plan["action"] == "switch-main"
+    assert plan["decision"] == "not_applicable"
+
+
+def test_switch_main_planner_rejects_truly_unknown_derived_status():
+    """Verify that switch-main also rejects unknown statuses (not in KNOWN_ASSESSMENT_STATUSES)."""
+    assessment = _assessment_with_statuses(
+        ["clean_default_current", "totally_bogus_status"],
+        decision_state="assessment_clear",
+    )
+
+    with pytest.raises(ValueError, match="unknown derived_status value"):
+        plan_switch_main(assessment)

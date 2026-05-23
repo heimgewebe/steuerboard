@@ -39,6 +39,7 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard assess repo <path> --json`
 - `python -m steuerboard assess explain <assessment-json> --json`
 - `python -m steuerboard plan switch-main <assessment-json> --json`
+- `python -m steuerboard plan git-pull-ff-only <assessment-json> --json`
 - `python -m steuerboard omnipull-report show <report-json> --json`
 - `python -m steuerboard omnipull-report latest <run-index-json> --json`
 
@@ -46,6 +47,10 @@ Observation, scope, inventory, and assessment commands are read-only: they must 
 
 The `plan switch-main` command emits a preview-only plan artifact from an existing assessment. It does not execute Git, does not mutate repositories, and does not authorise actions.
 It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and does not provide command advice.
+
+The `plan git-pull-ff-only` command emits a preview-only plan artifact for fast-forward-only Git pulls from an existing assessment. It does not execute Git, does not mutate repositories, does not fetch or pull, and does not authorise actions.
+It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and blocks on missing remote freshness evidence or other pull-blocking conditions.
+This slice remains preview-only and does not provide execution permission.
 
 The `omnipull-report show` command is a read-only artifact adapter: it loads exactly one provided
 `omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement

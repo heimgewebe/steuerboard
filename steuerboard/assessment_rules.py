@@ -115,6 +115,13 @@ ASSESSMENT_PROVENANCE: dict[str, dict[str, list[str]]] = {
             "freshness.local_git_upstream.current_invocation",
         ],
     },
+    "git_pull_ff_only_evidence_missing_tracking_counts": {
+        "rule_refs": ["assessment.rule.git_pull_ff_only_evidence_missing_tracking_counts"],
+        "falsification_refs": [],
+        "freshness_refs": [
+            "freshness.local_git_tracking.current_invocation",
+        ],
+    },
     "git_pull_ff_only_blocked_branch_ahead": {
         "rule_refs": ["assessment.rule.git_pull_ff_only_blocked_branch_ahead"],
         "falsification_refs": ["failure-case.branch_local_only"],

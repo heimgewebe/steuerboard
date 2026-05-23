@@ -25,7 +25,10 @@
       "pattern": "^\\S(?:.*\\S)?$"
     },
     "action": {
-      "const": "switch-main"
+      "enum": [
+        "switch-main",
+        "git-pull-ff-only"
+      ]
     },
     "assessment_ref": {
       "type": "string",

@@ -276,8 +276,9 @@ Scope:
 
 Subtasks:
 
-- 7a.1 contract blueprint (current): `docs/git-pull-ff-only-contract.md`
-- 7a.2 pull-readiness assessment (current): read-only derivation in `assess repo`
+- 7a.1 contract blueprint (complete): `docs/git-pull-ff-only-contract.md`
+- 7a.2 pull-readiness assessment (complete): read-only derivation in `assess repo`
+- 7a.3 plan preview (implemented): `plan git-pull-ff-only <assessment-json> --json`
 
 7a.2 scope:
 
@@ -297,14 +298,15 @@ Not part of 7a.1 (later phases):
 - execution runner
 - UI integration
 
-Planned future command shape:
+Implemented command shape:
 
 ```bash
 python -m steuerboard plan git-pull-ff-only <assessment-json> --json
 ```
 
-This is only a planned future shape.
-It must not be implemented in this phase.
+7a.3 scope is preview-only transformation from assessment artifact to
+action-plan artifact. It does not execute Git and can remain blocked while
+remote freshness evidence is missing.
 
 Explicitly not yet:
 

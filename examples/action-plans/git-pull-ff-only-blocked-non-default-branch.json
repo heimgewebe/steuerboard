@@ -1,0 +1,36 @@
+{
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-assess-example-feature-branch-clean-blocked-git-pull-ff-only",
+  "action": "git-pull-ff-only",
+  "assessment_ref": "assess-example-feature-branch-clean-blocked",
+  "decision": "blocked",
+  "blocked_because": [
+    "non_default_branch"
+  ],
+  "source_refs": [
+    "git.current_branch",
+    "git.status.porcelain",
+    "git.upstream",
+    "git.default_branch_candidate_source"
+  ],
+  "rule_refs": [
+    "assessment.rule.non_default_branch_requires_lifecycle_evidence"
+  ],
+  "freshness_refs": [
+    "freshness.local_git_branch.current_invocation",
+    "freshness.remote_branch_lifecycle.not_observed_no_fetch"
+  ],
+  "falsification_refs": [
+    "failure-case.feature_branch_unmerged",
+    "failure-case.origin_main_stale"
+  ],
+  "missing_evidence": [
+    "branch_contains_origin_main_or_pr_merged",
+    "fresh_origin_main"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

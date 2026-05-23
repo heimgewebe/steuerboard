@@ -45,6 +45,9 @@ REQUIRED_FAILURE_CASES = {
 
 REQUIRED_SCHEMA_EXAMPLES = {
     "action-capabilities/git-fetch-all-prune.json",
+    "action-plans/git-pull-ff-only-blocked-dirty-worktree.json",
+    "action-plans/git-pull-ff-only-blocked-non-default-branch.json",
+    "action-plans/git-pull-ff-only-blocked-remote-freshness.json",
     "action-plans/switch-main-blocked.json",
     "action-plans/switch-main-not-applicable.json",
     "assessment-explanations/clean-default-current.json",

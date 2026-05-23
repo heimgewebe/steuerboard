@@ -15,6 +15,14 @@ Scope of this contract:
 This is a documentation contract only. It does not authorize or implement
 execution.
 
+Phase 7a.3 implementation note:
+
+- the `plan git-pull-ff-only` command now exists as a preview-only planner
+  slice that transforms `repo-assessment.v1` into `action-plan.v1`
+- it does not execute Git and intentionally blocks when pull-readiness evidence
+  is incomplete (for example missing remote freshness)
+- no approval or execution runner is introduced in this slice
+
 ## Non-goals
 
 The following are explicitly out of scope for this contract slice:
