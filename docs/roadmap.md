@@ -465,7 +465,7 @@ Boundary for this slice:
 
 ## Phase 7b.4 — Pull Readiness End-to-End Proof
 
-Status: started.
+Status: complete.
 
 Phase 7b.4 proves the non-mutating pull-antechamber chain end-to-end:
 
@@ -485,7 +485,8 @@ Scope in this slice:
   remote-freshness planning blocker
 - explicit assertion that planner output remains preview-only and blocked for
   execution scope (`execution_authorization`, `runner_contract`,
-  `user_approval` still missing)
+  `user_approval` still missing; concrete future approval artifact form is
+  `action-approval.v1`)
 
 Boundary for this slice:
 
@@ -498,3 +499,29 @@ Boundary for this slice:
 - no generic Git command execution surface
 - no Omnipull execution
 - no action-plan semantics change that would authorize execution
+
+## Phase 7c.1 — Action Approval Artifact Contract
+
+Status: started.
+
+Phase 7c.1 introduces a narrow, expiring, plan-bound approval artifact:
+
+- schema: `action-approval.v1`
+- examples: approved and rejected approval artifacts
+- validation/test wiring for approval schema and examples
+- documentation model for approval semantics and boundary
+
+Scope in this slice:
+
+- schema, examples, validation, and docs only
+- `action-approval.v1` as artifact, not command
+- rejected approvals are first-class artifacts
+
+Boundary for this slice:
+
+- no runner
+- no pull
+- no execution
+- no UI
+- no generic subprocess surface
+- no generic Git execution surface

@@ -1,0 +1,163 @@
+{
+  "title": "Action Approval v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "approval_id",
+    "plan_ref",
+    "action",
+    "decision",
+    "decided_at",
+    "approver_ref",
+    "approval_scope",
+    "expires_at",
+    "constraints",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "action-approval.v1"
+    },
+    "approval_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "action": {
+      "enum": [
+        "git-pull-ff-only"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "approved",
+        "rejected"
+      ]
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approver_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "approval_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "single_plan_only",
+        "no_plan_substitution",
+        "no_command_substitution"
+      ],
+      "properties": {
+        "single_plan_only": {
+          "const": true
+        },
+        "no_plan_substitution": {
+          "const": true
+        },
+        "no_command_substitution": {
+          "const": true
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requires_same_plan_id",
+        "requires_same_action",
+        "requires_revalidation_before_execution",
+        "requires_runner_contract",
+        "requires_postcheck"
+      ],
+      "properties": {
+        "requires_same_plan_id": {
+          "const": true
+        },
+        "requires_same_action": {
+          "const": true
+        },
+        "requires_revalidation_before_execution": {
+          "const": true
+        },
+        "requires_runner_contract": {
+          "const": true
+        },
+        "requires_postcheck": {
+          "const": true
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_unplanned_action",
+        "does_not_create_runner"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_unplanned_action": {
+          "const": true
+        },
+        "does_not_create_runner": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "required": [
+          "reason"
+        ]
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/action-approval.v1.schema.json"
+}

@@ -45,6 +45,8 @@ REQUIRED_FAILURE_CASES = {
 
 REQUIRED_SCHEMA_EXAMPLES = {
     "action-capabilities/git-fetch-all-prune.json",
+    "action-approvals/git-pull-ff-only-approved.json",
+    "action-approvals/git-pull-ff-only-rejected.json",
     "action-plans/git-pull-ff-only-blocked-dirty-worktree.json",
     "action-plans/git-pull-ff-only-blocked-non-default-branch.json",
     "action-plans/git-pull-ff-only-blocked-remote-freshness.json",
@@ -357,3 +359,163 @@ def test_remote_refresh_schema_rejects_boundary_false_and_extra_field():
             _remote_refresh_schema(),
             EXAMPLES_DIR / "invalid-remote-refresh-boundary-extra.json",
         )
+
+
+def _action_approval_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "action-approval.v1.schema.json")
+
+
+def _valid_action_approval(decision: str = "approved") -> dict:
+    approval = {
+        "schema_version": "action-approval.v1",
+        "approval_id": "approval-2026-05-23-pull-ff-only-001",
+        "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+        "action": "git-pull-ff-only",
+        "decision": decision,
+        "decided_at": "2026-05-23T10:00:00Z",
+        "approver_ref": "user:alex",
+        "approval_scope": {
+            "single_plan_only": True,
+            "no_plan_substitution": True,
+            "no_command_substitution": True,
+        },
+        "expires_at": "2026-05-23T18:00:00Z",
+        "constraints": {
+            "requires_same_plan_id": True,
+            "requires_same_action": True,
+            "requires_revalidation_before_execution": True,
+            "requires_runner_contract": True,
+            "requires_postcheck": True,
+        },
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_unplanned_action": True,
+            "does_not_create_runner": True,
+        },
+    }
+    if decision == "rejected":
+        approval["reason"] = "Approval withheld pending manual confirmation of execution boundary."
+    return approval
+
+
+def test_action_approval_examples_validate():
+    schema = _action_approval_schema()
+    approved = load_json(EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved.json")
+    rejected = load_json(EXAMPLES_DIR / "action-approvals/git-pull-ff-only-rejected.json")
+
+    validate_instance(approved, schema, EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved.json")
+    validate_instance(rejected, schema, EXAMPLES_DIR / "action-approvals/git-pull-ff-only-rejected.json")
+
+
+def test_action_approval_schema_allows_approved_without_reason():
+    approved_without_reason = _valid_action_approval(decision="approved")
+    approved_without_reason.pop("reason", None)
+
+    validate_instance(
+        approved_without_reason,
+        _action_approval_schema(),
+        EXAMPLES_DIR / "valid-action-approval-approved-without-reason.json",
+    )
+
+
+def test_action_approval_schema_rejects_missing_plan_ref():
+    invalid = _valid_action_approval()
+    del invalid["plan_ref"]
+
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-missing-plan-ref.json")
+
+
+def test_action_approval_schema_rejects_unknown_action():
+    invalid = _valid_action_approval()
+    invalid["action"] = "git-merge"
+
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-unknown-action.json")
+
+
+def test_action_approval_schema_rejects_unknown_decision():
+    invalid = _valid_action_approval()
+    invalid["decision"] = "pending"
+
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-unknown-decision.json")
+
+
+def test_action_approval_schema_rejects_rejected_without_reason():
+    invalid = _valid_action_approval(decision="rejected")
+    invalid.pop("reason", None)
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            _action_approval_schema(),
+            EXAMPLES_DIR / "invalid-action-approval-rejected-missing-reason.json",
+        )
+
+
+def test_action_approval_schema_rejects_rejected_with_empty_or_whitespace_reason():
+    invalid_empty = _valid_action_approval(decision="rejected")
+    invalid_empty["reason"] = ""
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid_empty,
+            _action_approval_schema(),
+            EXAMPLES_DIR / "invalid-action-approval-rejected-empty-reason.json",
+        )
+
+    invalid_whitespace = _valid_action_approval(decision="rejected")
+    invalid_whitespace["reason"] = " rejected for now "
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid_whitespace,
+            _action_approval_schema(),
+            EXAMPLES_DIR / "invalid-action-approval-rejected-whitespace-reason.json",
+        )
+
+
+def test_action_approval_schema_rejects_extra_top_level_field():
+    invalid = _valid_action_approval()
+    invalid["extra"] = True
+
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-extra-field.json")
+
+
+def test_action_approval_schema_rejects_false_scope_constraints_and_boundary_values():
+    invalid_scope = _valid_action_approval()
+    invalid_scope["approval_scope"] = {
+        **invalid_scope["approval_scope"],
+        "single_plan_only": False,
+    }
+    with pytest.raises(ValidationError):
+        validate_instance(invalid_scope, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-scope-false.json")
+
+    invalid_constraints = _valid_action_approval()
+    invalid_constraints["constraints"] = {
+        **invalid_constraints["constraints"],
+        "requires_postcheck": False,
+    }
+    with pytest.raises(ValidationError):
+        validate_instance(invalid_constraints, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-constraints-false.json")
+
+    invalid_boundary = _valid_action_approval()
+    invalid_boundary["boundary"] = {
+        **invalid_boundary["boundary"],
+        "does_not_execute": False,
+    }
+    with pytest.raises(ValidationError):
+        validate_instance(invalid_boundary, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-boundary-false.json")
+
+
+def test_action_approval_schema_rejects_whitespace_padded_identifiers():
+    invalid_approval_id = _valid_action_approval()
+    invalid_approval_id["approval_id"] = " approval-2026-05-23 "
+    with pytest.raises(ValidationError):
+        validate_instance(invalid_approval_id, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-whitespace-approval-id.json")
+
+    invalid_plan_ref = _valid_action_approval()
+    invalid_plan_ref["plan_ref"] = " plan-git-pull-ff-only-2026-05-23-001 "
+    with pytest.raises(ValidationError):
+        validate_instance(invalid_plan_ref, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-whitespace-plan-ref.json")
