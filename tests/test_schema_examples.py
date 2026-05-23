@@ -408,6 +408,17 @@ def test_action_approval_examples_validate():
     validate_instance(rejected, schema, EXAMPLES_DIR / "action-approvals/git-pull-ff-only-rejected.json")
 
 
+def test_action_approval_schema_allows_approved_without_reason():
+    approved_without_reason = _valid_action_approval(decision="approved")
+    approved_without_reason.pop("reason", None)
+
+    validate_instance(
+        approved_without_reason,
+        _action_approval_schema(),
+        EXAMPLES_DIR / "valid-action-approval-approved-without-reason.json",
+    )
+
+
 def test_action_approval_schema_rejects_missing_plan_ref():
     invalid = _valid_action_approval()
     del invalid["plan_ref"]
@@ -430,6 +441,38 @@ def test_action_approval_schema_rejects_unknown_decision():
 
     with pytest.raises(ValidationError):
         validate_instance(invalid, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-unknown-decision.json")
+
+
+def test_action_approval_schema_rejects_rejected_without_reason():
+    invalid = _valid_action_approval(decision="rejected")
+    invalid.pop("reason", None)
+
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            _action_approval_schema(),
+            EXAMPLES_DIR / "invalid-action-approval-rejected-missing-reason.json",
+        )
+
+
+def test_action_approval_schema_rejects_rejected_with_empty_or_whitespace_reason():
+    invalid_empty = _valid_action_approval(decision="rejected")
+    invalid_empty["reason"] = ""
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid_empty,
+            _action_approval_schema(),
+            EXAMPLES_DIR / "invalid-action-approval-rejected-empty-reason.json",
+        )
+
+    invalid_whitespace = _valid_action_approval(decision="rejected")
+    invalid_whitespace["reason"] = " rejected for now "
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid_whitespace,
+            _action_approval_schema(),
+            EXAMPLES_DIR / "invalid-action-approval-rejected-whitespace-reason.json",
+        )
 
 
 def test_action_approval_schema_rejects_extra_top_level_field():

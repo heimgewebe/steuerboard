@@ -54,7 +54,9 @@
       "format": "date-time"
     },
     "reason": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "source_refs": {
       "type": "array",
@@ -137,6 +139,25 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "required": [
+          "reason"
+        ]
+      }
+    }
+  ],
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/steuerboard/schemas/action-approval.v1.schema.json"
 }

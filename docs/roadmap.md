@@ -485,7 +485,8 @@ Scope in this slice:
   remote-freshness planning blocker
 - explicit assertion that planner output remains preview-only and blocked for
   execution scope (`execution_authorization`, `runner_contract`,
-  `user_approval` still missing)
+  `user_approval` still missing; concrete future approval artifact form is
+  `action-approval.v1`)
 
 Boundary for this slice:
 
@@ -513,7 +514,7 @@ Phase 7c.1 introduces a narrow, expiring, plan-bound approval artifact:
 Scope in this slice:
 
 - schema, examples, validation, and docs only
-- approval as artifact, not command
+- `action-approval.v1` as artifact, not command
 - rejected approvals are first-class artifacts
 
 Boundary for this slice:

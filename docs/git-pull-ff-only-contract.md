@@ -87,7 +87,7 @@ artifact form for satisfying that gap.
 | feature branch             | blocked        | non_default_branch       | default_branch_checkout_intent |
 | remote stale               | blocked        | remote_freshness_unknown | fresh_remote_refs              |
 | clean default, ff possible | plan_candidate | none                     | none                           |
-| plan exists, no approval   | execution_blocked | approval_missing        | user_approval                  |
+| plan exists, no approval   | execution_blocked | approval_missing        | action_approval_exists         |
 
 ## Postcheck Evidence
 
