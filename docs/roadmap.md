@@ -427,7 +427,7 @@ Boundary for this slice:
 
 ## Phase 7b.3 — Fetch-only Remote Refresh Producer
 
-Status: implementation in progress.
+Status: complete.
 
 Phase 7b.3 adds a bounded Stage B producer command that runs exactly one
 fetch-only Git subprocess and emits evidence artifacts.
@@ -462,3 +462,39 @@ Boundary for this slice:
 - no approval runner
 - no action authorization
 - no omnipull execution
+
+## Phase 7b.4 — Pull Readiness End-to-End Proof
+
+Status: started.
+
+Phase 7b.4 proves the non-mutating pull-antechamber chain end-to-end:
+
+```text
+assess repo
+-> remote-refresh fetch-origin-prune
+-> plan git-pull-ff-only --remote-refresh-result
+```
+
+Scope in this slice:
+
+- reproducible local E2E tests with temporary Git repositories and a local bare
+  origin only
+- positive chain proof: successful fetch-only remote freshness evidence removes
+  the remote-freshness planning blocker
+- negative chain proof: failed/unavailable refresh evidence keeps the
+  remote-freshness planning blocker
+- explicit assertion that planner output remains preview-only and blocked for
+  execution scope (`execution_authorization`, `runner_contract`,
+  `user_approval` still missing)
+
+Boundary for this slice:
+
+- no pull, merge, rebase, switch, reset, clean
+- no approval runner
+- no execution runner
+- no UI
+- no free shell execution
+- no generic subprocess execution surface
+- no generic Git command execution surface
+- no Omnipull execution
+- no action-plan semantics change that would authorize execution

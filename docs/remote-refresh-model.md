@@ -71,3 +71,17 @@ Producer constraints in this slice:
 - Non-zero exit codes should keep pull planning blocked and preserve the failure as
   evidence, not silence it.
 - This artifact is evidence for planning and approval chains, not an execution grant.
+
+## Pull Readiness Flow Note
+
+The bounded evidence chain for pull readiness is:
+
+```text
+assess repo
+-> remote-refresh fetch-origin-prune
+-> plan git-pull-ff-only --remote-refresh-result
+```
+
+In this chain, successful refresh evidence satisfies only the planner's remote
+freshness gate. The resulting plan remains preview-only and does not authorize
+execution.
