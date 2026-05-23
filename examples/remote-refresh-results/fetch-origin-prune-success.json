@@ -1,0 +1,24 @@
+{
+  "schema_version": "remote-refresh-result.v1",
+  "refresh_id": "refresh-example-origin-prune-success",
+  "repo_ref": "repo-assess-example-pull-preflight-local-clear-evidence-missing",
+  "operation": "git.fetch_origin_prune",
+  "remote_name": "origin",
+  "started_at": "2026-05-23T09:10:01Z",
+  "completed_at": "2026-05-23T09:10:02Z",
+  "exit_code": 0,
+  "mutates_worktree": false,
+  "mutates_refs": true,
+  "mutates_remote": false,
+  "remote_freshness": "fresh",
+  "command_trace_ref": "examples/evidence/command-trace-redacted.json",
+  "redacted": true,
+  "boundary": {
+    "does_not_pull": true,
+    "does_not_merge": true,
+    "does_not_switch": true,
+    "does_not_reset": true,
+    "does_not_clean": true,
+    "does_not_authorise_pull": true
+  }
+}

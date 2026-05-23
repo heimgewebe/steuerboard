@@ -1,0 +1,165 @@
+{
+  "title": "Remote Refresh Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "refresh_id",
+    "repo_ref",
+    "operation",
+    "remote_name",
+    "started_at",
+    "completed_at",
+    "exit_code",
+    "mutates_worktree",
+    "mutates_refs",
+    "mutates_remote",
+    "remote_freshness",
+    "command_trace_ref",
+    "redacted",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "remote-refresh-result.v1"
+    },
+    "refresh_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "repo_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "operation": {
+      "const": "git.fetch_origin_prune"
+    },
+    "remote_name": {
+      "const": "origin"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "exit_code": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mutates_worktree": {
+      "const": false
+    },
+    "mutates_refs": {
+      "type": "boolean"
+    },
+    "mutates_remote": {
+      "const": false
+    },
+    "remote_freshness": {
+      "enum": [
+        "fresh",
+        "stale",
+        "unknown",
+        "unavailable"
+      ]
+    },
+    "command_trace_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "redacted": {
+      "const": true
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_pull",
+        "does_not_merge",
+        "does_not_switch",
+        "does_not_reset",
+        "does_not_clean",
+        "does_not_authorise_pull"
+      ],
+      "properties": {
+        "does_not_pull": {
+          "const": true
+        },
+        "does_not_merge": {
+          "const": true
+        },
+        "does_not_switch": {
+          "const": true
+        },
+        "does_not_reset": {
+          "const": true
+        },
+        "does_not_clean": {
+          "const": true
+        },
+        "does_not_authorise_pull": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "exit_code": {
+            "const": 0
+          }
+        },
+        "required": [
+          "exit_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "remote_freshness": {
+            "const": "fresh"
+          }
+        },
+        "required": [
+          "remote_freshness"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "exit_code": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "exit_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "remote_freshness": {
+            "enum": [
+              "stale",
+              "unknown",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "remote_freshness"
+        ]
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/remote-refresh-result.v1.schema.json"
+}
