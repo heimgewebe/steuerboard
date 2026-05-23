@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from steuerboard.assessment_rules import ASSESSMENT_PROVENANCE
+from steuerboard.remote_refresh_results import (
+    load_and_validate_remote_refresh_result,
+    is_remote_refresh_success,
+)
 
 # Globally known assessment status vocabulary, derived from the provenance registry.
 # Used to distinguish "known but irrelevant to switch-main" from "truly unknown".
@@ -222,11 +226,22 @@ def plan_switch_main(assessment: dict[str, Any]) -> dict[str, Any]:
     return plan
 
 
-def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
+def plan_git_pull_ff_only(
+    assessment: dict[str, Any],
+    remote_refresh_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Derive a preview-only git-pull-ff-only action-plan.v1 from repo-assessment.v1.
+
+    Optionally consumes a remote-refresh-result.v1 artifact to satisfy remote freshness
+    evidence gate in the planner. The presence of a valid, successful remote-refresh result
+    does NOT authorize pull execution; it only provides remote freshness evidence for planning.
 
     This function never executes commands, never mutates repositories, and never
     authorises action execution.
+
+    Args:
+        assessment: repo-assessment.v1 object
+        remote_refresh_result: optional remote-refresh-result.v1 object for remote freshness
     """
     if not isinstance(assessment, dict):
         raise ValueError("assessment must be an object")
@@ -250,8 +265,8 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
     if not derived_status:
         raise ValueError("derived_status must not be empty")
 
-    source_refs = _require_non_empty_string_list(assessment.get("source_refs"), "source_refs")
     # Defensive copies to ensure pure transformation (no input mutation)
+    source_refs = list(_require_non_empty_string_list(assessment.get("source_refs"), "source_refs"))
     missing_evidence = list(_require_string_list(
         assessment.get("missing_evidence", []), "missing_evidence"
     ))
@@ -268,6 +283,22 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"derived_status contains unknown statuses not in action plan vocabulary: {unknown_statuses}"
         )
+
+    # Process optional remote-refresh-result artifact.
+    # Validates strictly and binds via repo_ref equality.
+    validated_remote_refresh: dict[str, Any] | None = None
+    if remote_refresh_result is not None:
+        # Strict validation against schema and constraints
+        validated_remote_refresh = load_and_validate_remote_refresh_result(remote_refresh_result)
+
+        # Enforce explicit matching rule: repo_ref must equal f"repo-{assessment_id}"
+        expected_repo_ref = f"repo-{assessment_id}"
+        actual_repo_ref = validated_remote_refresh["repo_ref"]
+        if actual_repo_ref != expected_repo_ref:
+            raise ValueError(
+                f"remote_refresh_result.repo_ref mismatch: expected '{expected_repo_ref}', "
+                f"got '{actual_repo_ref}'"
+            )
 
     blocked_because: list[str] = [
         status for status in derived_status if status in BLOCKING_GIT_PULL_FF_ONLY_STATUSES
@@ -286,6 +317,43 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
         if "git_pull_ff_only_assessment" not in missing_evidence:
             missing_evidence.append("git_pull_ff_only_assessment")
 
+    # Process remote freshness evidence if a successful remote-refresh result was provided.
+    if validated_remote_refresh is not None and is_remote_refresh_success(validated_remote_refresh):
+        # Successful remote refresh: evidence gate can be satisfied.
+        # Remove the remote freshness blocker if it exists.
+        if "git_pull_ff_only_evidence_missing_remote_freshness" in blocked_because:
+            blocked_because.remove("git_pull_ff_only_evidence_missing_remote_freshness")
+        
+        # Remove remote_freshness from missing_evidence.
+        if "remote_freshness" in missing_evidence:
+            missing_evidence.remove("remote_freshness")
+        
+        # Add refresh evidence provenance.
+        refresh_id = validated_remote_refresh["refresh_id"]
+        source_ref = f"remote_refresh.{refresh_id}"
+        if source_ref not in source_refs:
+            source_refs.append(source_ref)
+        
+        # Add freshness marker.
+        freshness_marker = "freshness.remote_tracking.fetch_origin_prune.fresh"
+        if freshness_marker not in freshness_refs:
+            freshness_refs.append(freshness_marker)
+    elif validated_remote_refresh is not None:
+        # Failed or unfresh remote refresh: keep blocker, add provenance.
+        refresh_id = validated_remote_refresh["refresh_id"]
+        source_ref = f"remote_refresh.{refresh_id}"
+        if source_ref not in source_refs:
+            source_refs.append(source_ref)
+        
+        # Ensure remote_freshness is tracked in missing_evidence.
+        if "remote_freshness" not in missing_evidence:
+            missing_evidence.append("remote_freshness")
+    else:
+        # No remote-refresh result provided: maintain original remote freshness blocking logic.
+        if "git_pull_ff_only_evidence_missing_remote_freshness" in derived_status:
+            if "remote_freshness" not in missing_evidence:
+                missing_evidence.append("remote_freshness")
+
     # Even with complete future local/remote pull evidence, this slice remains
     # preview-only and intentionally does not encode execution permission.
     if not blocked_because and has_local_preflight_clear:
@@ -293,10 +361,6 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
         for marker in ("execution_authorization", "runner_contract", "user_approval"):
             if marker not in missing_evidence:
                 missing_evidence.append(marker)
-
-    if "git_pull_ff_only_evidence_missing_remote_freshness" in derived_status:
-        if "remote_freshness" not in missing_evidence:
-            missing_evidence.append("remote_freshness")
 
     plan: dict[str, Any] = {
         "schema_version": "action-plan.v1",

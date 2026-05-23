@@ -384,3 +384,43 @@ Boundary for this slice:
 - no action authorization
 - no execution runner
 - no UI trigger
+
+## Phase 7b.2 — Planner Consumes Remote-Refresh Evidence
+
+Status: implementation in progress.
+
+Phase 7b.2 extends the `plan git-pull-ff-only` command with optional
+remote freshness evidence consumption.
+
+New command shape:
+
+```bash
+python -m steuerboard plan git-pull-ff-only <assessment-json> \
+  --remote-refresh-result <remote-refresh-json> --json
+```
+
+Scope in this slice:
+
+- Strict validation of `remote-refresh-result.v1` artifacts
+- Explicit repo_ref binding enforcement
+- Planning gate satisfaction: successful remote refresh satisfies remote
+  freshness evidence requirement in planner
+- Provenance tracking: refresh evidence recorded in plan source_refs and
+  freshness_refs
+- Backward compatibility: existing behavior without `--remote-refresh-result`
+  unchanged
+
+Boundary for this slice:
+
+- Planner remains preview-only; no execution authorization despite complete
+  remote freshness evidence
+- No fetch execution
+- No pull execution
+- No approval runner
+- No command advice (no `would_run`, `would_mutate`, `safe_alternatives`,
+  `required_evidence`)
+- No Git subprocess
+- No network access
+- No repository mutation
+- Pure artifact transformation: assessment + optional refresh evidence →
+  action-plan
