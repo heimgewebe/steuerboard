@@ -24,9 +24,9 @@ Current minimal slice:
 - pure transformation from `repo-assessment.v1` to `action-plan.v1`
 - no repository observation, no config read, no network, no Git subprocess
 - this slice is still preview-only; `git-pull-ff-only` plans may remain blocked
-	when remote freshness evidence is missing
+  when remote freshness evidence is missing
 - no action implies execution permission; additional execution semantics remain
-	out of scope for this slice
+  out of scope for this slice
 
 `decision` in this contract is not an execution permission:
 

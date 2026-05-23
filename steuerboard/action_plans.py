@@ -261,7 +261,7 @@ def plan_git_pull_ff_only(assessment: dict[str, Any]) -> dict[str, Any]:
         assessment.get("falsification_refs", []), "falsification_refs"
     ))
 
-    # Reject unknown derived_status values to prevent silent vokabular drift.
+    # Reject unknown derived_status values to prevent silent vocabulary drift.
     # Vocabulary mismatch is a control boundary violation, not a planning issue.
     unknown_statuses = sorted(set(derived_status) - KNOWN_ACTION_PLAN_STATUSES)
     if unknown_statuses:
