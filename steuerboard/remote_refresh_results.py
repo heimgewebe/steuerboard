@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 
@@ -61,6 +62,26 @@ def _require_boolean_false(value: Any, field_name: str) -> bool:
     if value is not False:
         raise ValueError(f"{field_name} must be exactly false")
     return value
+
+
+def _require_boolean(value: Any, field_name: str) -> bool:
+    """Validate that a field is a real boolean value."""
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _require_datetime_string(value: Any, field_name: str) -> str:
+    """Validate RFC3339-like date-time with timezone offset or Z suffix."""
+    text = _require_non_empty_string(value, field_name)
+    candidate = f"{text[:-1]}+00:00" if text.endswith("Z") else text
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a valid date-time string") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{field_name} must include a timezone offset or 'Z'")
+    return text
 
 
 def load_and_validate_remote_refresh_result(
@@ -136,6 +157,13 @@ def load_and_validate_remote_refresh_result(
             f"remote_name must be 'origin', got '{remote_name}'"
         )
 
+    # Validate metadata fields used by provenance linking.
+    _require_datetime_string(remote_refresh.get("started_at"), "started_at")
+    _require_datetime_string(remote_refresh.get("completed_at"), "completed_at")
+    _require_non_empty_string(
+        remote_refresh.get("command_trace_ref"), "command_trace_ref"
+    )
+
     # Validate exit code
     exit_code = _require_integer_gte_zero(
         remote_refresh.get("exit_code"), "exit_code"
@@ -147,6 +175,9 @@ def load_and_validate_remote_refresh_result(
     )
     _require_boolean_false(
         remote_refresh.get("mutates_remote"), "mutates_remote"
+    )
+    _require_boolean(
+        remote_refresh.get("mutates_refs"), "mutates_refs"
     )
 
     # Validate redaction status (planner input must be redacted)

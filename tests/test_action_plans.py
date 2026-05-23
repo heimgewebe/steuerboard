@@ -1197,6 +1197,20 @@ def test_git_pull_planner_with_failed_remote_refresh_keeps_blocker():
     assert "remote_freshness" in plan["missing_evidence"]
 
 
+def test_git_pull_planner_with_failed_remote_refresh_adds_blocker_when_missing_in_assessment():
+    """C1b: Failed/unfresh refresh must add freshness blocker even if absent initially."""
+    assessment = _assessment_for_remote_refresh_example(
+        ["git_pull_ff_only_local_preflight_clear"],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+    assert "remote_freshness" in plan["missing_evidence"]
+
+
 def test_git_pull_planner_with_failed_remote_refresh_adds_provenance():
     """C2: Failed remote-refresh adds provenance so failure is explainable."""
     assessment = _assessment_for_remote_refresh_example(
@@ -1257,6 +1271,67 @@ def test_git_pull_planner_rejects_remote_refresh_wrong_operation():
     remote_refresh["operation"] = "git.pull"
 
     with pytest.raises(ValueError, match="operation"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_mutates_refs_non_bool():
+    """E2c: Strict validation rejects non-boolean mutates_refs."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["mutates_refs"] = "banana"
+
+    with pytest.raises(ValueError, match="mutates_refs"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_started_at_invalid_datetime():
+    """E2d: Strict validation rejects invalid started_at date-time."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["started_at"] = "gestern nach dem kaesebrot"
+
+    with pytest.raises(ValueError, match="started_at"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_completed_at_invalid_datetime():
+    """E2e: Strict validation rejects invalid completed_at date-time."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["completed_at"] = "definitely-not-a-datetime"
+
+    with pytest.raises(ValueError, match="completed_at"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+@pytest.mark.parametrize("bad_trace_ref", ["", " command-trace.example "])
+def test_git_pull_planner_rejects_remote_refresh_invalid_command_trace_ref(bad_trace_ref: str):
+    """E2f: Strict validation rejects blank or padded command_trace_ref."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["command_trace_ref"] = bad_trace_ref
+
+    with pytest.raises(ValueError, match="command_trace_ref"):
         plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
 
 
