@@ -170,7 +170,6 @@ def run_fetch_origin_prune(
         postcheck_messages.append("postcheck_failure: worktree status changed during fetch-only stage")
 
     exit_code = fetch_result.returncode
-    remote_freshness = "fresh" if exit_code == 0 else "unavailable"
     mutates_refs = exit_code == 0
 
     stderr_for_trace = fetch_result.stderr
@@ -184,6 +183,7 @@ def run_fetch_origin_prune(
 
     # Normalize exit code (convert negative signal codes to positive)
     exit_code = _normalize_exit_code(exit_code)
+    remote_freshness = "fresh" if exit_code == 0 else "unavailable"
 
     trace_payload = {
         "schema_version": "command-trace.v1",

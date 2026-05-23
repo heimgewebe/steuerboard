@@ -548,6 +548,53 @@ def test_remote_refresh_exit_code_normalized(tmp_path: Path):
     assert _normalize_exit_code(-2) == 130
 
 
+def test_remote_refresh_negative_fetch_exit_code_normalized_in_artifacts(tmp_path: Path, monkeypatch):
+    """Negative fetch return code is normalized in command-trace and refresh result artifacts."""
+    import steuerboard.remote_refresh as remote_refresh
+
+    repo = tmp_path / "repo"
+    repo.mkdir(parents=True, exist_ok=True)
+    config_path = _write_local_config(tmp_path, [tmp_path], [])
+    trace_path = tmp_path / "artifacts" / "trace-signal.json"
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(remote_refresh, "explain_scope", lambda _repo, config_path: {"scope": "scope_canonical"})
+
+    def _fake_run_git(path: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        if args == ("rev-parse", "--is-inside-work-tree"):
+            return subprocess.CompletedProcess(["git", *args], 0, stdout="true\n", stderr="")
+        if args == ("rev-parse", "--show-toplevel"):
+            return subprocess.CompletedProcess(["git", *args], 0, stdout=f"{repo}\n", stderr="")
+        if args == ("config", "--get", "remote.origin.url"):
+            return subprocess.CompletedProcess(["git", *args], 0, stdout="git@example.invalid:repo.git\n", stderr="")
+        if args == ("rev-parse", "HEAD"):
+            return subprocess.CompletedProcess(["git", *args], 0, stdout="abcdef1234567890\n", stderr="")
+        if args == ("branch", "--show-current"):
+            return subprocess.CompletedProcess(["git", *args], 0, stdout="main\n", stderr="")
+        if args == ("status", "--porcelain"):
+            return subprocess.CompletedProcess(["git", *args], 0, stdout="", stderr="")
+        if args == ("fetch", "origin", "--prune"):
+            return subprocess.CompletedProcess(["git", *args], -15, stdout="", stderr="terminated by signal")
+        return subprocess.CompletedProcess(["git", *args], 0, stdout="", stderr="")
+
+    monkeypatch.setattr(remote_refresh, "_run_git", _fake_run_git)
+
+    refresh = remote_refresh.run_fetch_origin_prune(
+        repo_path=str(repo),
+        config_path=str(config_path),
+        assessment_id="assess-signal",
+        command_trace_out=str(trace_path),
+    )
+
+    validate_instance(refresh, _remote_refresh_schema(), Path("remote-refresh-signal-normalized.json"))
+    assert refresh["exit_code"] == 143
+    assert refresh["remote_freshness"] == "unavailable"
+
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    validate_instance(trace, _command_trace_schema(), Path("command-trace-signal-normalized.json"))
+    assert trace["exit_code"] == 143
+
+
 def test_remote_refresh_oserror_on_trace_write_clean_error(tmp_path: Path):
     """Test that OSError when writing command_trace_out produces clean error."""
     _, repo = _init_bare_origin_and_clone(tmp_path)
