@@ -79,6 +79,7 @@ def _init_bare_origin_and_clone(tmp_path: Path) -> tuple[Path, Path]:
     _run(["git", "remote", "add", "origin", str(origin)], seed)
     _run_with_env(["git", "push", "-u", "origin", "main"], seed, {"ALLOW_MAIN_PUSH": "1"})
     _run(["git", "clone", str(origin), str(clone)], tmp_path)
+    _run(["git", "-C", str(clone), "branch", "--set-upstream-to=origin/main", "main"], tmp_path)
     return origin, clone
 
 
