@@ -30,7 +30,7 @@ Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
-Executable code currently covers schema/example validation, read-only observation/scope surfaces, and a minimal read-only assessment engine:
+Executable code currently covers schema/example validation, read-only observation/scope surfaces, a minimal read-only assessment/planning engine, and one bounded Stage B fetch-only producer:
 
 - `python -m steuerboard observe repo <path> --json`
 - `python -m steuerboard inventory --json`
@@ -40,6 +40,7 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard assess explain <assessment-json> --json`
 - `python -m steuerboard plan switch-main <assessment-json> --json`
 - `python -m steuerboard plan git-pull-ff-only <assessment-json> [--remote-refresh-result <remote-refresh-json>] --json`
+- `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <local-config-json> --assessment-id <assessment-id> --command-trace-out <trace-json> --json`
 - `python -m steuerboard omnipull-report show <report-json> --json`
 - `python -m steuerboard omnipull-report latest <run-index-json> --json`
 
@@ -51,6 +52,9 @@ It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and do
 The `plan git-pull-ff-only` command emits a preview-only plan artifact for fast-forward-only Git pulls from an existing assessment. It does not execute Git, does not mutate repositories, does not fetch or pull, and does not authorise actions.
 It is a pure transformation from `repo-assessment.v1` to `action-plan.v1` and blocks on missing remote freshness evidence or other pull-blocking conditions.
 This slice remains preview-only and does not provide execution permission.
+
+The `remote-refresh fetch-origin-prune` command is Stage B fetch-only evidence production. It runs exactly one bounded command (`git fetch origin --prune`), writes a redacted `command-trace.v1` artifact, and emits `remote-refresh-result.v1`.
+It does not perform pull, merge, switch, reset, clean, generic command execution, or action authorization.
 
 The `omnipull-report show` command is a read-only artifact adapter: it loads exactly one provided
 `omnipull-report.v1` JSON file and emits a validated report artifact. It does not implement
