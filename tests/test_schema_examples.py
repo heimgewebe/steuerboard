@@ -76,6 +76,8 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "observations/clean-default-current-tracking-behind.json",
     "observations/feature-branch-clean.json",
     "redaction-policies/default-redaction-policy.json",
+    "remote-refresh-results/fetch-origin-prune-network-failed.json",
+    "remote-refresh-results/fetch-origin-prune-success.json",
     "run-indexes/minimal-run-index.json",
     "run-results/run-blocked.json",
     "scope-explanations/backup.json",

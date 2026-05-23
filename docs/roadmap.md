@@ -320,6 +320,31 @@ Explicitly not yet:
 - branch deletion
 - reset/clean
 
+## Phase 7b.1 — Remote Refresh Evidence Contract (fetch-only)
+
+Status: minimal contract slice started.
+
+Phase 7b.1 adds a bounded Stage B evidence artifact for remote freshness:
+
+- model: `docs/remote-refresh-model.md`
+- schema: `remote-refresh-result.v1`
+- examples: fetch success and network-failed refresh outcomes
+
+Scope in this slice:
+
+- documentation for fetch-only remote freshness evidence
+- JSON schema contract for refresh result artifacts
+- static example artifacts for success/failure evidence
+- validation and tests for schema/example integrity
+
+Boundary for this slice:
+
+- no productive fetch execution path in CLI yet
+- no pull, merge, switch, reset, or clean
+- no action authorization
+- no execution runner
+- no UI trigger
+
 Required future gates for `git-pull-ff-only`:
 
 Preflight gates:

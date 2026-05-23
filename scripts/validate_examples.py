@@ -33,6 +33,7 @@ SCHEMA_MAP = {
     "omnipull-run-indexes": SCHEMAS_DIR / "omnipull-run-index.v1.schema.json",
     "observations": SCHEMAS_DIR / "repo-observation.v1.schema.json",
     "redaction-policies": SCHEMAS_DIR / "redaction-policy.v1.schema.json",
+    "remote-refresh-results": SCHEMAS_DIR / "remote-refresh-result.v1.schema.json",
     "run-indexes": SCHEMAS_DIR / "run-index.v1.schema.json",
     "run-results": SCHEMAS_DIR / "run-result.v1.schema.json",
     "scope-explanations": SCHEMAS_DIR / "scope-explanation.v1.schema.json",
