@@ -1208,6 +1208,7 @@ def test_git_pull_planner_with_failed_remote_refresh_adds_blocker_when_missing_i
 
     assert plan["decision"] == "blocked"
     assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+    assert "git_pull_ff_only_preview_only_execution_out_of_scope" not in plan["blocked_because"]
     assert "remote_freshness" in plan["missing_evidence"]
 
 
