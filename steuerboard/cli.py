@@ -12,6 +12,7 @@ from .inventory import build_duplicates_report, build_inventory, explain_scope
 from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
+from .remote_refresh import run_fetch_origin_prune
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -143,6 +144,48 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         required=True,
         help="Emit action-plan.v1 JSON.",
+    )
+
+    remote_refresh_parser = subparsers.add_parser(
+        "remote-refresh",
+        help="Bounded Stage-B remote refresh evidence commands.",
+    )
+    remote_refresh_subparsers = remote_refresh_parser.add_subparsers(
+        dest="remote_refresh_command",
+        required=True,
+    )
+
+    fetch_origin_prune_parser = remote_refresh_subparsers.add_parser(
+        "fetch-origin-prune",
+        help=(
+            "Run exactly one bounded command (git fetch origin --prune), "
+            "write command-trace.v1, and emit remote-refresh-result.v1 JSON."
+        ),
+    )
+    fetch_origin_prune_parser.add_argument(
+        "repo_path",
+        help="Explicit repository path to refresh.",
+    )
+    fetch_origin_prune_parser.add_argument(
+        "--config",
+        required=True,
+        help="Path to local-config.v1 JSON for canonical scope gating.",
+    )
+    fetch_origin_prune_parser.add_argument(
+        "--assessment-id",
+        required=True,
+        help="Assessment id used to bind repo_ref as repo-<assessment-id>.",
+    )
+    fetch_origin_prune_parser.add_argument(
+        "--command-trace-out",
+        required=True,
+        help="Path for command-trace.v1 output. Must not already exist.",
+    )
+    fetch_origin_prune_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit remote-refresh-result.v1 JSON.",
     )
 
     scope_parser = subparsers.add_parser("scope", help="Read-only scope explanation commands.")
@@ -295,6 +338,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "remote-refresh" and args.remote_refresh_command == "fetch-origin-prune":
+        try:
+            refresh_result = run_fetch_origin_prune(
+                repo_path=args.repo_path,
+                config_path=args.config,
+                assessment_id=args.assessment_id,
+                command_trace_out=args.command_trace_out,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(refresh_result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "scope" and args.scope_command == "explain":

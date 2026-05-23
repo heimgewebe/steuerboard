@@ -1,6 +1,6 @@
 # Local CLI deploy readiness
 
-This document describes the **local read-only CLI deploy** of steuerboard.
+This document describes the **local CLI deploy-check gate** of steuerboard.
 It is not a product deploy. There is no backend, no UI, no server, no cloud target.
 
 ## What this proves
@@ -8,7 +8,7 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All ten read-only CLI entrypoints emit valid JSON and exit with status 0:
+- All ten read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
@@ -25,6 +25,10 @@ After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHO
 
 The smoke path invokes only read-only CLI commands and contains no fetch, pull, switch,
 reset, clean, or network command. It does not instrument system calls.
+
+Note: Phase 7b.3 adds a bounded Stage B command
+`steuerboard remote-refresh fetch-origin-prune ...` that is fetch-only (not read-only).
+That command is intentionally out of scope for `make smoke`.
 
 ## What this does not prove
 

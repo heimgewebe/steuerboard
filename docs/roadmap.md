@@ -387,7 +387,7 @@ Boundary for this slice:
 
 ## Phase 7b.2 — Planner Consumes Remote-Refresh Evidence
 
-Status: implementation in progress.
+Status: complete.
 
 Phase 7b.2 extends the `plan git-pull-ff-only` command with optional
 remote freshness evidence consumption.
@@ -424,3 +424,41 @@ Boundary for this slice:
 - No repository mutation
 - Pure artifact transformation: assessment + optional refresh evidence →
   action-plan
+
+## Phase 7b.3 — Fetch-only Remote Refresh Producer
+
+Status: implementation in progress.
+
+Phase 7b.3 adds a bounded Stage B producer command that runs exactly one
+fetch-only Git subprocess and emits evidence artifacts.
+
+Command shape:
+
+```bash
+python -m steuerboard remote-refresh fetch-origin-prune <repo-path> \
+  --config <local-config-json> \
+  --assessment-id <assessment-id> \
+  --command-trace-out <trace-json> --json
+```
+
+Scope in this slice:
+
+- preflight gates before fetch (explicit repo/config/assessment/trace args,
+  canonical scope gate, origin/HEAD/branch/worktree readability)
+- blocked scope classes: `scope_backup`, `scope_gdrive`, `scope_shadow`,
+  `scope_unknown`, `scope_excluded`
+- exact execution surface:
+  - `git -C <repo-toplevel> fetch origin --prune`
+- redacted `command-trace.v1` artifact output
+- emitted `remote-refresh-result.v1` artifact with explicit
+  `repo_ref = repo-<assessment-id>` binding
+- postcheck invariants for HEAD, current branch, and worktree status
+
+Boundary for this slice:
+
+- no pull, merge, rebase, switch, reset, clean
+- no generic subprocess runner
+- no generic git command execution surface
+- no approval runner
+- no action authorization
+- no omnipull execution

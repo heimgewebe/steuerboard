@@ -124,6 +124,48 @@ Boundary for Phase 7b.2:
 - Planner remains pure transformation artifact-only
 - No Git subprocess, no network, no repository mutation
 
+Phase 7b.3 adds a bounded Stage B producer command for remote-refresh evidence.
+
+Command:
+
+    python -m steuerboard remote-refresh fetch-origin-prune <repo-path> \
+      --config <local-config-json> \
+      --assessment-id <assessment-id> \
+      --command-trace-out <trace-json> --json
+
+Preflight gates:
+
+- explicit `repo-path`, `--config`, `--assessment-id`, and `--command-trace-out`
+- `--command-trace-out` parent directory must exist
+- `--command-trace-out` target must not already exist
+- input path must resolve to a Git worktree and an explicit Git toplevel
+- repo scope must be canonical under the provided local config
+- blocked scope classes (`scope_backup`, `scope_gdrive`, `scope_shadow`, `scope_unknown`, `scope_excluded`) fail fast
+- `origin` remote URL must be readable
+- pre-fetch HEAD, current branch, and worktree porcelain must be readable
+
+Execution boundary:
+
+- exactly one productive Git command is run:
+  - `git -C <repo-toplevel> fetch origin --prune`
+- command trace output is redacted (`command-trace.v1`)
+- command output excerpts are bounded
+- emitted result is `remote-refresh-result.v1`
+
+Postcheck boundary:
+
+- HEAD, current branch, and worktree porcelain are re-read after fetch
+- if any postcheck invariant changes unexpectedly, the command emits a failed
+  remote-refresh result (`remote_freshness = unavailable`) and keeps bounded
+  postcheck evidence in command trace stderr excerpt
+
+Non-goals remain unchanged:
+
+- no pull, merge, rebase, switch, reset, clean
+- no generic subprocess runner
+- no generic Git command execution surface
+- no action execution authorization
+
 Phase 6a introduces a minimal read-only Omnipull report adapter.
 
 Command:

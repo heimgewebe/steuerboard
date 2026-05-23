@@ -29,6 +29,30 @@ This slice narrows refresh to one explicit operation and remote:
 
 The artifact records bounded evidence only. It does not authorise pull execution.
 
+## Phase 7b.3 Producer Command
+
+Phase 7b.3 adds one bounded productive command that writes Stage B evidence:
+
+```bash
+python -m steuerboard remote-refresh fetch-origin-prune <repo-path> \
+  --config <local-config-json> \
+  --assessment-id <assessment-id> \
+  --command-trace-out <trace-json> \
+  --json
+```
+
+Producer constraints in this slice:
+
+- exactly one productive Git command:
+  - `git -C <repo-toplevel> fetch origin --prune`
+- no pull, merge, switch, reset, clean, or action authorisation
+- preflight gate requires canonical scope and blocks
+  `scope_backup`, `scope_gdrive`, `scope_shadow`, `scope_unknown`, `scope_excluded`
+- output `repo_ref` is explicitly bound to `repo-<assessment-id>`
+- command trace ref must lexically equal the CLI `--command-trace-out` argument
+- failed fetches or postcheck mismatches remain explicit evidence
+  (`remote_freshness = unavailable`)
+
 ## Required Evidence Fields
 
 - operation metadata (`operation`, `remote_name`, timestamps, exit code)
