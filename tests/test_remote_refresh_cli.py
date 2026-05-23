@@ -387,6 +387,68 @@ def test_remote_refresh_requires_assessment_id_option(tmp_path: Path):
     assert "--assessment-id" in result.stderr
 
 
+def test_remote_refresh_preflight_blocks_command_trace_out_inside_repo(tmp_path: Path):
+    _, repo = _init_bare_origin_and_clone(tmp_path)
+    config_path = _write_local_config(tmp_path, [tmp_path / "workspace"], [])
+    trace_path = repo / "artifacts" / "trace.json"
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "remote-refresh",
+            "fetch-origin-prune",
+            str(repo),
+            "--config",
+            str(config_path),
+            "--assessment-id",
+            "assess-worktree-guard",
+            "--command-trace-out",
+            str(trace_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode != 0
+    assert "command_trace_out" in result.stderr or "worktree" in result.stderr
+    assert not trace_path.exists()
+
+
+def test_remote_refresh_command_trace_out_outside_repo_succeeds(tmp_path: Path):
+    _, repo = _init_bare_origin_and_clone(tmp_path)
+    config_path = _write_local_config(tmp_path, [tmp_path / "workspace"], [])
+    trace_path = tmp_path / "external-artifacts" / "trace-outside.json"
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "remote-refresh",
+            "fetch-origin-prune",
+            str(repo),
+            "--config",
+            str(config_path),
+            "--assessment-id",
+            "assess-outside-trace",
+            "--command-trace-out",
+            str(trace_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    refresh = json.loads(result.stdout)
+    validate_instance(refresh, _remote_refresh_schema(), Path("remote-refresh-outside-trace.json"))
+    assert refresh["mutates_worktree"] is False
+    assert trace_path.exists()
+
+
 def test_remote_refresh_command_trace_ref_matches_exact_cli_argument(tmp_path: Path):
     _, repo = _init_bare_origin_and_clone(tmp_path)
     config_path = _write_local_config(tmp_path, [tmp_path / "workspace"], [])

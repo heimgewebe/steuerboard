@@ -105,6 +105,18 @@ def run_fetch_origin_prune(
     repo_toplevel_text = _require_git_stdout(repo_input, "repo toplevel", "rev-parse", "--show-toplevel")
     repo_toplevel = Path(repo_toplevel_text)
 
+    # Preflight: command_trace_out must be outside the target repository worktree
+    trace_abs = trace_target.expanduser().resolve()
+    repo_abs = repo_toplevel.resolve()
+    try:
+        trace_abs.relative_to(repo_abs)
+    except ValueError:
+        # trace_abs is outside repo_abs, which is correct
+        pass
+    else:
+        # trace_abs is inside repo_abs, which would mutate the worktree after postcheck
+        raise ValueError("command_trace_out must be outside the target repository worktree")
+
     scope_explanation = explain_scope(repo_toplevel, config_path=Path(config_path))
     scope = scope_explanation["scope"]
     if scope in _BLOCKED_SCOPES:
