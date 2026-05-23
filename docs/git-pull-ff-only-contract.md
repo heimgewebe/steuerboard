@@ -75,6 +75,9 @@ A future runner may execute only if all of the following exist:
 
 `action-approval.v1` is a plan-bound approval artifact only.
 It does not execute `git pull --ff-only` and does not authorize execution by itself.
+In existing planner `missing_evidence` vocabulary, `user_approval` can remain the
+runtime gap marker; Phase 7c.1 defines `action-approval.v1` as the concrete future
+artifact form for satisfying that gap.
 
 ## Decision Table
 
