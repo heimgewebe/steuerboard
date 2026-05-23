@@ -51,6 +51,14 @@ def _require_git_stdout(path: Path, field_name: str, *args: str) -> str:
     return output
 
 
+def _read_git_stdout_if_available(path: Path, *args: str) -> str | None:
+    result = _run_git(path, *args)
+    output = result.stdout.strip()
+    if result.returncode != 0 or not output:
+        return None
+    return output
+
+
 def _require_existing_parent_and_nonexistent_target(raw_path: str) -> Path:
     target = Path(raw_path)
     parent = target.parent if str(target.parent) else Path(".")
@@ -125,7 +133,7 @@ def run_fetch_origin_prune(
         raise ValueError(f"repository must be in canonical scope, got: {scope}")
 
     _require_git_stdout(repo_toplevel, "origin remote URL", "config", "--get", "remote.origin.url")
-    head_before = _require_git_stdout(repo_toplevel, "HEAD", "rev-parse", "HEAD")
+    head_before = _read_git_stdout_if_available(repo_toplevel, "rev-parse", "HEAD")
     branch_before = _require_git_stdout(repo_toplevel, "current branch", "branch", "--show-current")
 
     status_before_result = _run_git(repo_toplevel, "status", "--porcelain")
@@ -140,8 +148,8 @@ def run_fetch_origin_prune(
     command = ["git", "-C", str(repo_toplevel), *_FETCH_ARGS]
     postcheck_messages: list[str] = []
 
-    head_after = _require_git_stdout(repo_toplevel, "postcheck HEAD", "rev-parse", "HEAD")
-    if head_after != head_before:
+    head_after = _read_git_stdout_if_available(repo_toplevel, "rev-parse", "HEAD")
+    if head_before is not None and head_after is not None and head_after != head_before:
         postcheck_messages.append("postcheck_failure: HEAD changed during fetch-only stage")
 
     branch_after = _require_git_stdout(repo_toplevel, "postcheck current branch", "branch", "--show-current")
