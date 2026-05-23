@@ -3,6 +3,34 @@ from __future__ import annotations
 from typing import Any
 
 
+_ALLOWED_REMOTE_REFRESH_KEYS = {
+    "schema_version",
+    "refresh_id",
+    "repo_ref",
+    "operation",
+    "remote_name",
+    "started_at",
+    "completed_at",
+    "exit_code",
+    "mutates_worktree",
+    "mutates_refs",
+    "mutates_remote",
+    "remote_freshness",
+    "command_trace_ref",
+    "redacted",
+    "boundary",
+}
+
+_ALLOWED_BOUNDARY_KEYS = {
+    "does_not_pull",
+    "does_not_merge",
+    "does_not_switch",
+    "does_not_reset",
+    "does_not_clean",
+    "does_not_authorise_pull",
+}
+
+
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     """Validate and extract a non-empty, non-whitespace string field."""
     if not isinstance(value, str) or not value.strip():
@@ -65,6 +93,21 @@ def load_and_validate_remote_refresh_result(
     if not isinstance(remote_refresh, dict):
         raise ValueError("remote_refresh must be an object")
 
+    top_level_keys = set(remote_refresh)
+    unknown_top_level = sorted(top_level_keys - _ALLOWED_REMOTE_REFRESH_KEYS)
+    if unknown_top_level:
+        raise ValueError(
+            "remote-refresh-result contains unknown top-level fields: "
+            f"{unknown_top_level}"
+        )
+
+    missing_top_level = sorted(_ALLOWED_REMOTE_REFRESH_KEYS - top_level_keys)
+    if missing_top_level:
+        raise ValueError(
+            "remote-refresh-result is missing required top-level fields: "
+            f"{missing_top_level}"
+        )
+
     # Strict schema version check
     schema_version = remote_refresh.get("schema_version")
     if schema_version != "remote-refresh-result.v1":
@@ -116,16 +159,25 @@ def load_and_validate_remote_refresh_result(
     if not isinstance(boundary, dict):
         raise ValueError("boundary must be an object")
 
-    required_boundary_markers = {
-        "does_not_pull",
-        "does_not_merge",
-        "does_not_switch",
-        "does_not_reset",
-        "does_not_clean",
-        "does_not_authorise_pull",
-    }
+    boundary_keys = set(boundary)
+    unknown_boundary = sorted(boundary_keys - _ALLOWED_BOUNDARY_KEYS)
+    if unknown_boundary:
+        raise ValueError(
+            f"boundary contains unknown fields: {unknown_boundary}"
+        )
 
-    for marker in required_boundary_markers:
+    missing_boundary = sorted(_ALLOWED_BOUNDARY_KEYS - boundary_keys)
+    if missing_boundary:
+        raise ValueError(
+            f"boundary is missing required fields: {missing_boundary}"
+        )
+
+    if boundary_keys != _ALLOWED_BOUNDARY_KEYS:
+        raise ValueError(
+            "boundary must exactly match remote-refresh boundary markers"
+        )
+
+    for marker in _ALLOWED_BOUNDARY_KEYS:
         value = boundary.get(marker)
         _require_boolean_true(value, f"boundary.{marker}")
 

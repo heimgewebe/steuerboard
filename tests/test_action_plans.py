@@ -1260,6 +1260,21 @@ def test_git_pull_planner_rejects_remote_refresh_wrong_operation():
         plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
 
 
+def test_git_pull_planner_rejects_remote_refresh_unknown_top_level_field():
+    """E2b: Strict validation rejects unknown top-level fields."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["executor_hint"] = "should-not-be-here"
+
+    with pytest.raises(ValueError, match="unknown top-level"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
 def test_git_pull_planner_rejects_remote_refresh_mutates_worktree_true():
     """E3: Defensive validation rejects mutates_worktree=true."""
     assessment = _assessment_for_remote_refresh_example(
@@ -1272,6 +1287,36 @@ def test_git_pull_planner_rejects_remote_refresh_mutates_worktree_true():
     remote_refresh["mutates_worktree"] = True
 
     with pytest.raises(ValueError, match="mutates_worktree"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_mutates_remote_true():
+    """E3b: Defensive validation rejects mutates_remote=true."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["mutates_remote"] = True
+
+    with pytest.raises(ValueError, match="mutates_remote"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_remote_name_not_origin():
+    """E3c: Defensive validation rejects remote_name values other than origin."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["remote_name"] = "upstream"
+
+    with pytest.raises(ValueError, match="remote_name"):
         plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
 
 
@@ -1303,6 +1348,35 @@ def test_git_pull_planner_rejects_remote_refresh_boundary_mismatch():
 
     with pytest.raises(ValueError, match="boundary"):
         plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_boundary_with_extra_field():
+    """E5b: Strict validation rejects unknown boundary fields."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["boundary"]["does_not_force_push"] = True
+
+    with pytest.raises(ValueError, match="boundary"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_successful_refresh_without_local_preflight_keeps_non_empty_blockers():
+    """Coherence: successful refresh must not yield blocked decision with empty blocked_because."""
+    assessment = _assessment_for_remote_refresh_example(
+        ["git_pull_ff_only_evidence_missing_remote_freshness"],
+    )
+    remote_refresh = _remote_refresh_result()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_assessment_missing_preflight"]
+    assert "git_pull_ff_only_assessment" in plan["missing_evidence"]
 
 
 def test_git_pull_planner_does_not_mutate_input_assessment_with_remote_refresh():

@@ -338,6 +338,13 @@ def plan_git_pull_ff_only(
         freshness_marker = "freshness.remote_tracking.fetch_origin_prune.fresh"
         if freshness_marker not in freshness_refs:
             freshness_refs.append(freshness_marker)
+
+        # Coherence guard: if successful refresh removed the last blocker,
+        # require local preflight clear to avoid an empty blocked reason list.
+        if not blocked_because and not has_local_preflight_clear:
+            blocked_because.append("git_pull_ff_only_assessment_missing_preflight")
+            if "git_pull_ff_only_assessment" not in missing_evidence:
+                missing_evidence.append("git_pull_ff_only_assessment")
     elif validated_remote_refresh is not None:
         # Failed or unfresh remote refresh: keep blocker, add provenance.
         refresh_id = validated_remote_refresh["refresh_id"]
