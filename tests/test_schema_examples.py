@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 import pytest
 
 from scripts.validate_examples import (
@@ -369,12 +372,37 @@ def _action_approval_schema() -> dict:
     return load_json(SCHEMAS_DIR / "action-approval.v1.schema.json")
 
 
+_ACTION_APPROVAL_PLAN = {
+    "schema_version": "action-plan.v1",
+    "plan_id": "plan-git-pull-ff-only-2026-05-23-001",
+    "action": "git-pull-ff-only",
+    "assessment_ref": "assess-example-001",
+    "decision": "blocked",
+    "blocked_because": ["git_pull_ff_only_evidence_missing_remote_freshness"],
+    "source_refs": ["git.current_branch"],
+    "rule_refs": [],
+    "freshness_refs": [],
+    "falsification_refs": [],
+    "missing_evidence": [],
+    "boundary": {
+        "does_not_execute": True,
+        "does_not_mutate": True,
+        "does_not_authorise_actions": True,
+    },
+}
+_ACTION_APPROVAL_PLAN_SHA256 = hashlib.sha256(
+    json.dumps(_ACTION_APPROVAL_PLAN, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
+).hexdigest()
+
+
 def _valid_action_approval(decision: str = "approved") -> dict:
     approval = {
         "schema_version": "action-approval.v1",
         "approval_id": "approval-2026-05-23-pull-ff-only-001",
         "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
-        "plan_content_sha256": "0" * 64,
+        "plan_content_sha256": _ACTION_APPROVAL_PLAN_SHA256,
         "action": "git-pull-ff-only",
         "decision": decision,
         "decided_at": "2026-05-23T10:00:00Z",
