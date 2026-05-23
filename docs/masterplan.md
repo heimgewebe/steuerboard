@@ -240,13 +240,17 @@ steuerboard/
 │  ├─ command-trace.v1.schema.json
 │  ├─ run-result.v1.schema.json
 │  ├─ run-index.v1.schema.json
-│  └─ redaction-policy.v1.schema.json
+│  ├─ redaction-policy.v1.schema.json
+│  └─ remote-refresh-result.v1.schema.json
 ├─ examples/
 │  ├─ failure-cases/
 │  ├─ observations/
 │  ├─ assessments/
 │  ├─ action-plans/
-│  └─ evidence/
+│  ├─ evidence/
+│  └─ remote-refresh-results/
+│     ├─ fetch-origin-prune-success.json
+│     └─ fetch-origin-prune-network-failed.json
 ├─ cli/
 ├─ backend/
 ├─ frontend/
