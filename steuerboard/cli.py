@@ -135,6 +135,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to a repo-assessment.v1 JSON file.",
     )
     plan_git_pull_ff_only_parser.add_argument(
+        "--remote-refresh-result",
+        help="Path to an optional remote-refresh-result.v1 JSON file for remote freshness evidence.",
+    )
+    plan_git_pull_ff_only_parser.add_argument(
         "--json",
         action="store_true",
         required=True,
@@ -278,8 +282,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, json.JSONDecodeError) as exc:
             parser.error(f"invalid assessment JSON: {exc}")
 
+        remote_refresh_result = None
+        if args.remote_refresh_result:
+            try:
+                with Path(args.remote_refresh_result).open("r", encoding="utf-8") as handle:
+                    remote_refresh_result = json.load(handle)
+            except (OSError, json.JSONDecodeError) as exc:
+                parser.error(f"invalid remote-refresh-result JSON: {exc}")
+
         try:
-            plan = plan_git_pull_ff_only(assessment)
+            plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh_result)
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))

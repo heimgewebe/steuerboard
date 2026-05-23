@@ -197,6 +197,22 @@ def _assessment_with_statuses(statuses: list[str], decision_state: str | None = 
     }
 
 
+def _assessment_for_remote_refresh_example(statuses: list[str]) -> dict:
+    """Helper: assessment matching example remote-refresh-result.v1 repo_ref."""
+    return {
+        "schema_version": "repo-assessment.v1",
+        "assessment_id": "assess-example-pull-preflight-local-clear-evidence-missing",
+        "observation_ref": "observe-example-pull-preflight-local-clear-evidence-missing",
+        "derived_status": statuses,
+        "source_refs": ["local.git.status"],
+        "decision_state": "evidence_missing",
+        "missing_evidence": ["remote_freshness"],
+        "rule_refs": ["assessment.rule.example"],
+        "freshness_refs": ["freshness.example"],
+        "falsification_refs": ["failure-case.feature_branch_unmerged"],
+    }
+
+
 def test_schema_rejects_empty_source_refs():
     schema = _action_plan_schema()
     plan = {
@@ -1090,3 +1106,565 @@ def test_switch_main_planner_rejects_truly_unknown_derived_status():
 
     with pytest.raises(ValueError, match="unknown derived_status value"):
         plan_switch_main(assessment)
+
+
+# ---------------------------------------------------------------------------
+# Phase 7b.2 remote-refresh-result integration tests
+# Verify planner behavior with optional remote-refresh-result.v1 artifacts
+# ---------------------------------------------------------------------------
+
+def _remote_refresh_result() -> dict:
+    """Helper: load example remote-refresh-result.v1 (success case)."""
+    return load_json(Path(__file__).parent.parent / "examples" / "remote-refresh-results" / "fetch-origin-prune-success.json")
+
+
+def _remote_refresh_result_failed() -> dict:
+    """Helper: load example remote-refresh-result.v1 (network failure case)."""
+    return load_json(Path(__file__).parent.parent / "examples" / "remote-refresh-results" / "fetch-origin-prune-network-failed.json")
+
+
+def test_git_pull_planner_without_remote_refresh_still_blocks_on_missing_remote_freshness():
+    """A: Backward compatibility. Without --remote-refresh-result, behavior unchanged."""
+    assessment = _assessment_with_statuses(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+        decision_state="evidence_missing",
+    )
+
+    # No remote_refresh_result argument
+    plan = plan_git_pull_ff_only(assessment)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+    assert "remote_freshness" in plan["missing_evidence"]
+
+
+def test_git_pull_planner_with_successful_remote_refresh_removes_freshness_blocker():
+    """B1: Successful remote-refresh result removes remote freshness blocker."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    # Freshness blocker must be removed
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" not in plan["blocked_because"]
+    assert "remote_freshness" not in plan["missing_evidence"]
+
+    # But must still be blocked as preview-only
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_preview_only_execution_out_of_scope" in plan["blocked_because"]
+
+
+def test_git_pull_planner_with_successful_remote_refresh_adds_provenance():
+    """B2: Successful remote-refresh adds refresh evidence to source_refs and freshness_refs."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    refresh_id = remote_refresh["refresh_id"]
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    # Refresh provenance must be added
+    assert f"remote_refresh.{refresh_id}" in plan["source_refs"]
+    assert "freshness.remote_tracking.fetch_origin_prune.fresh" in plan["freshness_refs"]
+
+
+def test_git_pull_planner_with_failed_remote_refresh_keeps_blocker():
+    """C1: Failed remote-refresh keeps remote freshness blocker."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+    assert "remote_freshness" in plan["missing_evidence"]
+
+
+def test_git_pull_planner_with_failed_remote_refresh_adds_blocker_when_missing_in_assessment():
+    """C1b: Failed/unfresh refresh must add freshness blocker even if absent initially."""
+    assessment = _assessment_for_remote_refresh_example(
+        ["git_pull_ff_only_local_preflight_clear"],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+    assert "git_pull_ff_only_preview_only_execution_out_of_scope" not in plan["blocked_because"]
+    assert "remote_freshness" in plan["missing_evidence"]
+
+
+def test_git_pull_planner_with_failed_remote_refresh_adds_provenance():
+    """C2: Failed remote-refresh adds provenance so failure is explainable."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+    refresh_id = remote_refresh["refresh_id"]
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    # Refresh provenance must still be added for audit trail
+    assert f"remote_refresh.{refresh_id}" in plan["source_refs"]
+
+
+def test_git_pull_planner_rejects_remote_refresh_repo_ref_mismatch():
+    """D1: repo_ref mismatch raises ValueError with clear message."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    # Corrupt the repo_ref
+    remote_refresh["repo_ref"] = "repo-completely-different"
+
+    with pytest.raises(ValueError, match="repo_ref mismatch"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_wrong_schema_version():
+    """E1: Defensive validation rejects wrong schema_version."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["schema_version"] = "remote-refresh-result.v2"
+
+    with pytest.raises(ValueError, match="schema_version"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_wrong_operation():
+    """E2: Defensive validation rejects wrong operation."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["operation"] = "git.pull"
+
+    with pytest.raises(ValueError, match="operation"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_exit_code_zero_with_unknown_freshness():
+    """E2g: Cross-field validation rejects exit_code==0 with remote_freshness!='fresh'."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["exit_code"] = 0
+    remote_refresh["remote_freshness"] = "unknown"
+
+    with pytest.raises(ValueError, match="exit_code == 0 requires remote_freshness == 'fresh'"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_exit_code_zero_with_stale_freshness():
+    """E2h: Cross-field validation rejects exit_code==0 with remote_freshness=='stale'."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["exit_code"] = 0
+    remote_refresh["remote_freshness"] = "stale"
+
+    with pytest.raises(ValueError, match="exit_code == 0 requires remote_freshness == 'fresh'"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_exit_code_nonzero_with_fresh_freshness():
+    """E2i: Cross-field validation rejects exit_code>=1 with remote_freshness=='fresh'."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+    remote_refresh["exit_code"] = 1
+    remote_refresh["remote_freshness"] = "fresh"
+
+    with pytest.raises(ValueError, match="exit_code >= 1 requires remote_freshness to be one of"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_accepts_valid_success_remote_refresh_example():
+    """E2j: Valid success example (exit_code==0, remote_freshness=='fresh') accepted."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" not in plan["blocked_because"]
+
+
+def test_git_pull_planner_accepts_valid_network_failed_remote_refresh_example():
+    """E2k: Valid failed example (exit_code>=1, remote_freshness in {stale,unknown,unavailable}) accepted."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result_failed()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" in plan["blocked_because"]
+
+
+def test_git_pull_planner_rejects_remote_refresh_mutates_refs_non_bool():
+    """E2c: Strict validation rejects non-boolean mutates_refs."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["mutates_refs"] = "banana"
+
+    with pytest.raises(ValueError, match="mutates_refs"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_started_at_invalid_datetime():
+    """E2d: Strict validation rejects invalid started_at date-time."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["started_at"] = "gestern nach dem kaesebrot"
+
+    with pytest.raises(ValueError, match="started_at"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_completed_at_invalid_datetime():
+    """E2e: Strict validation rejects invalid completed_at date-time."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["completed_at"] = "definitely-not-a-datetime"
+
+    with pytest.raises(ValueError, match="completed_at"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+@pytest.mark.parametrize("bad_trace_ref", ["", " command-trace.example "])
+def test_git_pull_planner_rejects_remote_refresh_invalid_command_trace_ref(bad_trace_ref: str):
+    """E2f: Strict validation rejects blank or padded command_trace_ref."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["command_trace_ref"] = bad_trace_ref
+
+    with pytest.raises(ValueError, match="command_trace_ref"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_unknown_top_level_field():
+    """E2b: Strict validation rejects unknown top-level fields."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["executor_hint"] = "should-not-be-here"
+
+    with pytest.raises(ValueError, match="unknown top-level"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_mutates_worktree_true():
+    """E3: Defensive validation rejects mutates_worktree=true."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["mutates_worktree"] = True
+
+    with pytest.raises(ValueError, match="mutates_worktree"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_mutates_remote_true():
+    """E3b: Defensive validation rejects mutates_remote=true."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["mutates_remote"] = True
+
+    with pytest.raises(ValueError, match="mutates_remote"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_remote_name_not_origin():
+    """E3c: Defensive validation rejects remote_name values other than origin."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["remote_name"] = "upstream"
+
+    with pytest.raises(ValueError, match="remote_name"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_redacted_false():
+    """E4: Defensive validation rejects redacted=false."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["redacted"] = False
+
+    with pytest.raises(ValueError, match="redacted"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_boundary_mismatch():
+    """E5: Defensive validation rejects incorrect boundary markers."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["boundary"]["does_not_pull"] = False
+
+    with pytest.raises(ValueError, match="boundary"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_rejects_remote_refresh_boundary_with_extra_field():
+    """E5b: Strict validation rejects unknown boundary fields."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["boundary"]["does_not_force_push"] = True
+
+    with pytest.raises(ValueError, match="boundary"):
+        plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+
+def test_git_pull_planner_successful_refresh_without_local_preflight_keeps_non_empty_blockers():
+    """Coherence: successful refresh must not yield blocked decision with empty blocked_because."""
+    assessment = _assessment_for_remote_refresh_example(
+        ["git_pull_ff_only_evidence_missing_remote_freshness"],
+    )
+    remote_refresh = _remote_refresh_result()
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    assert plan["decision"] == "blocked"
+    assert plan["blocked_because"] == ["git_pull_ff_only_assessment_missing_preflight"]
+    assert "git_pull_ff_only_assessment" in plan["missing_evidence"]
+
+
+def test_git_pull_planner_does_not_mutate_input_assessment_with_remote_refresh():
+    """F: Input purity with remote-refresh argument."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    remote_refresh = _remote_refresh_result()
+
+    original_missing_evidence = assessment["missing_evidence"][:]
+    original_source_refs = assessment["source_refs"][:]
+    original_remote_refresh = json.loads(json.dumps(remote_refresh))  # Deep copy
+
+    plan = plan_git_pull_ff_only(assessment, remote_refresh_result=remote_refresh)
+
+    # Assessment must not be modified
+    assert assessment["missing_evidence"] == original_missing_evidence
+    assert assessment["source_refs"] == original_source_refs
+
+    # remote_refresh dict must not be modified
+    assert remote_refresh == original_remote_refresh
+
+
+def test_cli_git_pull_planner_with_remote_refresh_result(tmp_path: Path):
+    """CLI integration: --remote-refresh-result option works end-to-end."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    assessment_path = tmp_path / "assessment.json"
+    assessment_path.write_text(json.dumps(assessment), encoding="utf-8")
+
+    remote_refresh = _remote_refresh_result()
+    remote_refresh_path = tmp_path / "remote-refresh.json"
+    remote_refresh_path.write_text(json.dumps(remote_refresh), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "git-pull-ff-only",
+            str(assessment_path),
+            "--remote-refresh-result",
+            str(remote_refresh_path),
+            "--json",
+        ],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    plan = json.loads(result.stdout)
+    validate_instance(plan, _action_plan_schema(), Path("cli-plan-git-pull-ff-only-with-refresh.json"))
+    assert "git_pull_ff_only_evidence_missing_remote_freshness" not in plan["blocked_because"]
+    assert "remote_freshness" not in plan["missing_evidence"]
+
+
+def test_cli_git_pull_planner_rejects_invalid_remote_refresh_json(tmp_path: Path):
+    """CLI: invalid remote-refresh JSON triggers parser.error."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    assessment_path = tmp_path / "assessment.json"
+    assessment_path.write_text(json.dumps(assessment), encoding="utf-8")
+
+    bad_refresh_path = tmp_path / "bad-remote-refresh.json"
+    bad_refresh_path.write_text("{ invalid json", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "git-pull-ff-only",
+            str(assessment_path),
+            "--remote-refresh-result",
+            str(bad_refresh_path),
+            "--json",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+    assert "invalid remote-refresh-result JSON" in result.stderr
+
+
+def test_cli_git_pull_planner_rejects_remote_refresh_mismatch(tmp_path: Path):
+    """CLI: repo_ref mismatch triggers parser.error."""
+    assessment = _assessment_for_remote_refresh_example(
+        [
+            "git_pull_ff_only_local_preflight_clear",
+            "git_pull_ff_only_evidence_missing_remote_freshness",
+        ],
+    )
+    assessment_path = tmp_path / "assessment.json"
+    assessment_path.write_text(json.dumps(assessment), encoding="utf-8")
+
+    remote_refresh = _remote_refresh_result()
+    remote_refresh["repo_ref"] = "repo-completely-wrong"
+    remote_refresh_path = tmp_path / "remote-refresh.json"
+    remote_refresh_path.write_text(json.dumps(remote_refresh), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "plan",
+            "git-pull-ff-only",
+            str(assessment_path),
+            "--remote-refresh-result",
+            str(remote_refresh_path),
+            "--json",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode != 0
+    assert "repo_ref" in result.stderr or "mismatch" in result.stderr

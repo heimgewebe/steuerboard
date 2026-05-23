@@ -86,6 +86,44 @@ to `action-plan.v1`. It remains preview-only, does not execute Git, and may
 return `decision: blocked` when pull preflight evidence is incomplete (notably
 missing remote freshness evidence).
 
+Phase 7b.1 introduces the `remote-refresh-result.v1` evidence artifact schema
+for remote freshness observation.
+
+Phase 7b.2 extends the `git-pull-ff-only` planner with optional remote freshness
+evidence consumption.
+
+Command:
+
+    python -m steuerboard plan git-pull-ff-only <assessment-json> \
+      [--remote-refresh-result <remote-refresh-json>] --json
+
+When `--remote-refresh-result` is provided, the planner:
+
+- Strictly validates the remote-refresh-result.v1 artifact
+- Enforces explicit repo_ref matching: `remote_refresh.repo_ref == f"repo-{assessment_id}"`
+- On successful remote refresh (exit_code == 0, remote_freshness == "fresh"):
+  - Removes the `git_pull_ff_only_evidence_missing_remote_freshness` blocker
+  - Removes `remote_freshness` from `missing_evidence`
+  - Adds refresh provenance to `source_refs` and `freshness_refs`
+- On failed or unfresh remote refresh:
+  - Keeps the `git_pull_ff_only_evidence_missing_remote_freshness` blocker
+  - Preserves `remote_freshness` in `missing_evidence`
+  - Adds refresh provenance for audit trail
+
+**Important:** The planner remains preview-only and intentionally does not authorise pull execution.
+`decision: blocked` with `git_pull_ff_only_preview_only_execution_out_of_scope` is still emitted
+even with successful remote freshness evidence. Remote freshness evidence satisfies only the
+planning gate for freshness, not execution authorisation.
+
+Boundary for Phase 7b.2:
+
+- No fetch execution
+- No pull execution
+- No approval runner
+- No command advice (no `would_run`, `would_mutate`, `safe_alternatives`, `required_evidence`)
+- Planner remains pure transformation artifact-only
+- No Git subprocess, no network, no repository mutation
+
 Phase 6a introduces a minimal read-only Omnipull report adapter.
 
 Command:

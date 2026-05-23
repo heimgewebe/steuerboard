@@ -39,7 +39,7 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard assess repo <path> --json`
 - `python -m steuerboard assess explain <assessment-json> --json`
 - `python -m steuerboard plan switch-main <assessment-json> --json`
-- `python -m steuerboard plan git-pull-ff-only <assessment-json> --json`
+- `python -m steuerboard plan git-pull-ff-only <assessment-json> [--remote-refresh-result <remote-refresh-json>] --json`
 - `python -m steuerboard omnipull-report show <report-json> --json`
 - `python -m steuerboard omnipull-report latest <run-index-json> --json`
 
