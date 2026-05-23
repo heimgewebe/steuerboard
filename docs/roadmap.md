@@ -502,7 +502,7 @@ Boundary for this slice:
 
 ## Phase 7c.1 — Action Approval Artifact Contract
 
-Status: started.
+Status: complete.
 
 Phase 7c.1 introduces a narrow, expiring, plan-bound approval artifact:
 
@@ -525,3 +525,37 @@ Boundary for this slice:
 - no UI
 - no generic subprocess surface
 - no generic Git execution surface
+
+## Phase 7c.2 — Action Approval Binding Validation
+
+Status: started.
+
+Phase 7c.2 adds a pure artifact validation slice that proves one approval binds
+exactly to one plan:
+
+- schema: `action-approval-validation.v1`
+- module: `steuerboard/action_approval_validations.py` (pure function, no I/O)
+- CLI: `python -m steuerboard approval validate <approval-json> --plan <plan-json> --checked-at <utc> --json`
+- examples: binding-valid, rejected, expired, plan-mismatch
+- validation/test wiring for new schema and examples
+
+Scope in this slice:
+
+- pure artifact validation only
+- `checked_at` is always explicit; no hidden system time
+- `binding_state: binding_valid` means only: approval matches plan, is approved,
+  and is time-valid at `checked_at`; it does NOT mean execution is allowed
+
+Boundary for this slice:
+
+- no runner
+- no pull
+- no execution
+- no UI
+- no repo observation
+- no config read
+- no Git subprocess
+- no network
+- no mutation
+- no command advice
+- no execution authorisation

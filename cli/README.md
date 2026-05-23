@@ -209,3 +209,41 @@ Boundary for the Omnipull adapter (both `show` and `latest`):
 - no action execution and no action authorization
 - no new plan generation from Omnipull report or run-index input
 - no command advice
+
+Phase 7c.1 defines `action-approval.v1` as a plan-bound approval artifact contract.
+No CLI command is introduced in Phase 7c.1.
+
+Phase 7c.2 adds a pure artifact approval binding validation command.
+
+Command:
+
+    python -m steuerboard approval validate <approval-json> \
+      --plan <action-plan-json> \
+      --checked-at <utc-date-time> \
+      --json
+
+The command reads one `action-approval.v1` JSON file and one `action-plan.v1` JSON
+file, validates that the approval binds exactly to the plan at the explicit
+`checked_at` timestamp, and emits an `action-approval-validation.v1` artifact.
+
+`checked_at` is required and explicit. No hidden system time is used.
+
+`binding_state: binding_valid` means only:
+
+- the approval matches the exact plan
+- the approval decision is `approved`
+- the approval is time-valid at `checked_at`
+- all required approval boundary booleans are intact
+
+It does **not** mean execution is allowed.
+
+Boundary for Phase 7c.2:
+
+- reads only the two explicit JSON files passed on the command line
+- no repo observation
+- no config read
+- no Git subprocess
+- no network
+- no mutation
+- no command advice
+- no execution authorisation

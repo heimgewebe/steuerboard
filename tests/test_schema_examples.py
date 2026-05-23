@@ -44,6 +44,10 @@ REQUIRED_FAILURE_CASES = {
 }
 
 REQUIRED_SCHEMA_EXAMPLES = {
+    "action-approval-validations/git-pull-ff-only-binding-valid.json",
+    "action-approval-validations/git-pull-ff-only-rejected.json",
+    "action-approval-validations/git-pull-ff-only-expired.json",
+    "action-approval-validations/git-pull-ff-only-plan-mismatch.json",
     "action-capabilities/git-fetch-all-prune.json",
     "action-approvals/git-pull-ff-only-approved.json",
     "action-approvals/git-pull-ff-only-rejected.json",

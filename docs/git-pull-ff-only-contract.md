@@ -71,6 +71,7 @@ A future runner may execute only if all of the following exist:
 
 - `action_plan_exists`
 - `action_approval_exists` (`action-approval.v1`)
+- `action_approval_binding_validated` (`action-approval-validation.v1`, Phase 7c.2)
 - `runner_contract_exists`
 
 `action-approval.v1` is a plan-bound approval artifact only.
@@ -78,6 +79,10 @@ It does not execute `git pull --ff-only` and does not authorize execution by its
 In existing planner `missing_evidence` vocabulary, `user_approval` can remain the
 runtime gap marker; Phase 7c.1 defines `action-approval.v1` as the concrete future
 artifact form for satisfying that gap.
+
+Phase 7c.2 adds `action-approval-validation.v1` as a pure pre-run gate.
+Binding validation proves that the approval matches exactly the plan at an explicit
+`checked_at` timestamp. `binding_state == "binding_valid"` still does not execute pull.
 
 ## Decision Table
 
