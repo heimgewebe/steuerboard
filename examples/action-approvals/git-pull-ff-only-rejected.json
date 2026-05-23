@@ -1,0 +1,32 @@
+{
+  "schema_version": "action-approval.v1",
+  "approval_id": "approval-2026-05-23-git-pull-ff-only-rejected-001",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-002",
+  "action": "git-pull-ff-only",
+  "decision": "rejected",
+  "decided_at": "2026-05-23T10:45:00Z",
+  "approver_ref": "user:alex",
+  "reason": "Approval withheld until a dedicated execution runner contract exists and is validated.",
+  "source_refs": [
+    "docs/git-pull-ff-only-contract.md"
+  ],
+  "approval_scope": {
+    "single_plan_only": true,
+    "no_plan_substitution": true,
+    "no_command_substitution": true
+  },
+  "expires_at": "2026-05-23T18:45:00Z",
+  "constraints": {
+    "requires_same_plan_id": true,
+    "requires_same_action": true,
+    "requires_revalidation_before_execution": true,
+    "requires_runner_contract": true,
+    "requires_postcheck": true
+  },
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_unplanned_action": true,
+    "does_not_create_runner": true
+  }
+}
