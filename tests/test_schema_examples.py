@@ -53,7 +53,9 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "action-approval-validations/git-pull-ff-only-plan-mismatch.json",
     "action-capabilities/git-fetch-all-prune.json",
     "action-approvals/git-pull-ff-only-approved.json",
+    "action-approvals/git-pull-ff-only-approved-plan-mismatch.json",
     "action-approvals/git-pull-ff-only-rejected.json",
+    "action-plans/git-pull-ff-only-approval-binding-base.json",
     "action-plans/git-pull-ff-only-blocked-dirty-worktree.json",
     "action-plans/git-pull-ff-only-blocked-non-default-branch.json",
     "action-plans/git-pull-ff-only-blocked-remote-freshness.json",
@@ -435,9 +437,17 @@ def _valid_action_approval(decision: str = "approved") -> dict:
 def test_action_approval_examples_validate():
     schema = _action_approval_schema()
     approved = load_json(EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved.json")
+    approved_plan_mismatch = load_json(
+        EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved-plan-mismatch.json"
+    )
     rejected = load_json(EXAMPLES_DIR / "action-approvals/git-pull-ff-only-rejected.json")
 
     validate_instance(approved, schema, EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved.json")
+    validate_instance(
+        approved_plan_mismatch,
+        schema,
+        EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved-plan-mismatch.json",
+    )
     validate_instance(rejected, schema, EXAMPLES_DIR / "action-approvals/git-pull-ff-only-rejected.json")
 
 

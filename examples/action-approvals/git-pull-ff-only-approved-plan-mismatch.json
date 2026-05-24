@@ -1,14 +1,14 @@
 {
   "schema_version": "action-approval.v1",
-  "approval_id": "approval-2026-05-23-git-pull-ff-only-approved-001",
-  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "approval_id": "approval-2026-05-23-git-pull-ff-only-approved-plan-mismatch-001",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-002",
   "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
   "action": "git-pull-ff-only",
   "decision": "approved",
   "decided_at": "2026-05-23T10:40:00Z",
   "approver_ref": "user:alex",
   "source_refs": [
-    "examples/action-plans/git-pull-ff-only-blocked-remote-freshness.json"
+    "examples/action-plans/git-pull-ff-only-approval-binding-base.json"
   ],
   "approval_scope": {
     "single_plan_only": true,

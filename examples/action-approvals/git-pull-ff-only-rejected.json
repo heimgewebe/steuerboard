@@ -1,8 +1,8 @@
 {
   "schema_version": "action-approval.v1",
   "approval_id": "approval-2026-05-23-git-pull-ff-only-rejected-001",
-  "plan_ref": "plan-git-pull-ff-only-2026-05-23-002",
-  "plan_content_sha256": "6cef7ac326c993ec66915678eb63320bc7ed954474ccf1f29c670b406a66731e",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
   "action": "git-pull-ff-only",
   "decision": "rejected",
   "decided_at": "2026-05-23T10:45:00Z",

@@ -326,7 +326,7 @@ def validate_action_approval_binding(
         "validation_id": validation_id,
         "plan_ref": plan["plan_id"],
         "approval_ref": approval["approval_id"],
-        "action": plan["action"],
+        "action": approval["action"],
         "checked_at": checked_at,
         "binding_state": binding_state,
         "blocked_because": blocked_because,

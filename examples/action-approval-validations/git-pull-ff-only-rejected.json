@@ -1,6 +1,6 @@
 {
   "schema_version": "action-approval-validation.v1",
-  "validation_id": "validation-git-pull-ff-only-rejected-2026-05-23-001",
+  "validation_id": "validation-61cad68673993bbfba044294b099ed34a0efc5839d9e5822c6b4a1e2f5b1dc96",
   "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
   "approval_ref": "approval-2026-05-23-git-pull-ff-only-rejected-001",
   "action": "git-pull-ff-only",
@@ -9,10 +9,7 @@
   "blocked_because": [
     "approval_rejected"
   ],
-  "source_refs": [
-    "examples/action-plans/git-pull-ff-only-blocked-remote-freshness.json",
-    "examples/action-approvals/git-pull-ff-only-rejected.json"
-  ],
+  "source_refs": [],
   "boundary": {
     "does_not_execute": true,
     "does_not_mutate": true,

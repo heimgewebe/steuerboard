@@ -77,6 +77,7 @@ _APPROVAL_APPROVED = {
 
 _CHECKED_AT_VALID = "2026-05-23T12:00:00Z"
 _CHECKED_AT_AFTER_EXPIRY = "2026-05-23T20:00:00Z"
+_EXAMPLES_DIR = ROOT / "examples"
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +142,14 @@ def test_binding_invalid_action_mismatch():
     result = validate_action_approval_binding(plan, approval, _CHECKED_AT_VALID)
     assert result["binding_state"] == "binding_invalid"
     assert "action_mismatch" in result["blocked_because"]
+
+
+def test_binding_invalid_action_mismatch_output_stays_schema_valid():
+    approval = dict(_APPROVAL_APPROVED)
+    plan = {**_PLAN, "action": "switch-main"}
+    result = validate_action_approval_binding(plan, approval, _CHECKED_AT_VALID)
+    schema = load_json(SCHEMAS_DIR / "action-approval-validation.v1.schema.json")
+    validate_instance(result, schema, Path("action-mismatch-output"))
 
 
 def test_binding_invalid_plan_content_sha256_mismatch():
@@ -417,3 +426,22 @@ def test_cli_output_never_contains_forbidden_fields(tmp_path: Path):
     result = json.loads(proc.stdout)
     for field in FORBIDDEN_OUTPUT_FIELDS:
         assert field not in result, f"Forbidden field present in CLI output: {field}"
+
+
+def test_validation_examples_match_runtime_outputs():
+    plan = load_json(_EXAMPLES_DIR / "action-plans/git-pull-ff-only-approval-binding-base.json")
+    approved = load_json(_EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved.json")
+    rejected = load_json(_EXAMPLES_DIR / "action-approvals/git-pull-ff-only-rejected.json")
+    mismatch = load_json(_EXAMPLES_DIR / "action-approvals/git-pull-ff-only-approved-plan-mismatch.json")
+
+    scenarios = [
+        (approved, "2026-05-23T12:00:00Z", "git-pull-ff-only-binding-valid.json"),
+        (rejected, "2026-05-23T12:00:00Z", "git-pull-ff-only-rejected.json"),
+        (approved, "2026-05-23T20:00:00Z", "git-pull-ff-only-expired.json"),
+        (mismatch, "2026-05-23T12:00:00Z", "git-pull-ff-only-plan-mismatch.json"),
+    ]
+
+    for approval, checked_at, fixture_name in scenarios:
+        expected = load_json(_EXAMPLES_DIR / "action-approval-validations" / fixture_name)
+        actual = validate_action_approval_binding(plan, approval, checked_at)
+        assert actual == expected
