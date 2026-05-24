@@ -224,7 +224,7 @@ def test_invalid_approval_timestamp_raises_value_error():
     ],
 )
 def test_non_rfc3339_approval_decided_at_raises_value_error(bad_ts: str):
-    """Malformed timestamps must be rejected as invalid input, not semanticised."""
+    """Malformed timestamps must be rejected as invalid input, not semanticized."""
     approval = {**_APPROVAL_APPROVED, "decided_at": bad_ts}
     with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
         validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
