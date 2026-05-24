@@ -213,6 +213,61 @@ def test_invalid_approval_timestamp_raises_value_error():
         validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
 
 
+@pytest.mark.parametrize(
+    "bad_ts",
+    [
+        "2026-05-23 12:00:00Z",     # space separator — not RFC 3339
+        "2026-05-23T12:00:00",      # naive timestamp — no offset
+        "2026-05-23",               # date only
+        "not-a-date",               # garbage
+        "",                         # empty string
+    ],
+)
+def test_non_rfc3339_approval_decided_at_raises_value_error(bad_ts: str):
+    """Malformed timestamps must be rejected as invalid input, not semanticised."""
+    approval = {**_APPROVAL_APPROVED, "decided_at": bad_ts}
+    with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
+        validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
+
+
+@pytest.mark.parametrize(
+    "bad_ts",
+    [
+        "2026-05-23 18:40:00Z",     # space separator — not RFC 3339
+        "2026-05-23T18:40:00",      # naive timestamp — no offset
+        "not-a-date",               # garbage
+    ],
+)
+def test_non_rfc3339_approval_expires_at_raises_value_error(bad_ts: str):
+    """Malformed expires_at must be rejected as invalid input."""
+    approval = {**_APPROVAL_APPROVED, "expires_at": bad_ts}
+    with pytest.raises(ValueError, match="invalid action-approval.v1 input"):
+        validate_action_approval_binding(_PLAN, approval, _CHECKED_AT_VALID)
+
+
+@pytest.mark.parametrize(
+    "bad_ts",
+    [
+        "2026-05-23 12:00:00Z",     # space separator — not RFC 3339
+        "2026-05-23T12:00:00",      # naive timestamp — no offset
+        "not-a-date",               # garbage
+    ],
+)
+def test_non_rfc3339_checked_at_raises_value_error(bad_ts: str):
+    """Malformed checked_at must be rejected cleanly."""
+    with pytest.raises(ValueError, match="checked_at"):
+        validate_action_approval_binding(_PLAN, _APPROVAL_APPROVED, bad_ts)
+
+
+def test_non_utc_offset_checked_at_is_accepted():
+    """checked_at with a non-UTC offset (e.g. +02:00) is valid RFC 3339."""
+    # 2026-05-23T14:00:00+02:00 == 2026-05-23T12:00:00Z, still within approval window
+    result = validate_action_approval_binding(
+        _PLAN, _APPROVAL_APPROVED, "2026-05-23T14:00:00+02:00"
+    )
+    assert result["binding_state"] == "binding_valid"
+
+
 def test_invalid_plan_raises_value_error():
     bad_plan = {"schema_version": "action-plan.v1"}  # missing plan_id
     with pytest.raises(ValueError, match="action-plan.v1"):

@@ -278,7 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     approval_validate_parser.add_argument(
         "--checked-at",
         required=True,
-        help="Explicit UTC date-time string (RFC 3339) used as the validation reference time.",
+        help="Explicit RFC 3339 date-time string used as the validation reference time.",
     )
     approval_validate_parser.add_argument(
         "--json",

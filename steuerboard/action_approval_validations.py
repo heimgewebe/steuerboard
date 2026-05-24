@@ -8,6 +8,9 @@ from typing import Any
 
 _NONEMPTY_NONPADDED_RE = re.compile(r"^\S(?:.*\S)?$")
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+_RFC3339_DATE_TIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 def _canonical_json_sha256(payload: dict[str, Any]) -> str:
@@ -49,19 +52,21 @@ def _validate_const_true_object(value: Any, field_name: str, required_keys: set[
 
 
 def _parse_dt(value: str, field_name: str) -> datetime:
-    """Parse an ISO 8601 / RFC 3339 date-time string into a timezone-aware datetime."""
-    # Try common suffixes accepted by fromisoformat (Python 3.11+) and a manual Z path.
-    if isinstance(value, str) and value.endswith("Z"):
-        value = value[:-1] + "+00:00"
+    """Parse an RFC 3339 date-time string into a timezone-aware datetime.
+
+    The value must match RFC 3339 shape exactly (``T`` separator, explicit
+    timezone offset or ``Z`` suffix).  A space separator or naive timestamp is
+    rejected as invalid input so that downstream comparisons operate on
+    well-formed contract values only.
+    """
+    if not isinstance(value, str) or _RFC3339_DATE_TIME_RE.fullmatch(value) is None:
+        raise ValueError(
+            f"{field_name}: {value!r} is not a valid RFC 3339 date-time"
+        )
     try:
-        dt = datetime.fromisoformat(value)
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, TypeError) as exc:
         raise ValueError(f"{field_name}: cannot parse date-time {value!r}: {exc}") from exc
-    if dt.tzinfo is None:
-        raise ValueError(
-            f"{field_name}: naive timestamp {value!r} is not accepted; "
-            "provide an explicit UTC offset or Z suffix"
-        )
     return dt
 
 
@@ -256,7 +261,7 @@ def validate_action_approval_binding(
     approval:
         A dict representing a schema-valid action-approval.v1 object.
     checked_at:
-        An explicit UTC-aware date-time string (RFC 3339).
+        An explicit RFC 3339 date-time string used as the validation reference time.
 
     Returns
     -------
