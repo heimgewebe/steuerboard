@@ -43,7 +43,7 @@ Executable code currently covers schema/example validation, read-only observatio
 - `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <local-config-json> --assessment-id <assessment-id> --command-trace-out <trace-json> --json`
 - `python -m steuerboard omnipull-report show <report-json> --json`
 - `python -m steuerboard omnipull-report latest <run-index-json> --json`
-- `python -m steuerboard approval validate <approval-json> --plan <action-plan-json> --checked-at <utc> --json`
+- `python -m steuerboard approval validate <approval-json> --plan <action-plan-json> --checked-at <YYYY-MM-DDTHH:MM:SSZ> --json`
 
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.
 

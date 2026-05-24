@@ -219,7 +219,7 @@ Command:
 
     python -m steuerboard approval validate <approval-json> \
       --plan <action-plan-json> \
-      --checked-at <utc-date-time> \
+      --checked-at <YYYY-MM-DDTHH:MM:SSZ> \
       --json
 
 The command reads one `action-approval.v1` JSON file and one `action-plan.v1` JSON

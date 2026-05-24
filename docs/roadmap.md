@@ -535,7 +535,7 @@ exactly to one plan:
 
 - schema: `action-approval-validation.v1`
 - module: `steuerboard/action_approval_validations.py` (pure function, no I/O)
-- CLI: `python -m steuerboard approval validate <approval-json> --plan <plan-json> --checked-at <utc> --json`
+- CLI: `python -m steuerboard approval validate <approval-json> --plan <plan-json> --checked-at <YYYY-MM-DDTHH:MM:SSZ> --json`
 - examples: binding-valid, rejected, expired, plan-mismatch
 - validation/test wiring for new schema and examples
 
