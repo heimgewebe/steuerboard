@@ -8,7 +8,7 @@
   "decided_at": "2026-05-23T10:40:00Z",
   "approver_ref": "user:alex",
   "source_refs": [
-    "examples/action-plans/git-pull-ff-only-blocked-remote-freshness.json"
+    "examples/action-plans/git-pull-ff-only-approval-binding-base.json"
   ],
   "approval_scope": {
     "single_plan_only": true,

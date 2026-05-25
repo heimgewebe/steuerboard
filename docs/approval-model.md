@@ -40,6 +40,10 @@ It does **not** mean execution is allowed.
 
 `checked_at` is always explicit. No hidden system time is used.
 
+All timestamps in `action-approval.v1` and `action-approval-validation.v1` use the canonical UTC format `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339 with literal `Z` suffix, no fractional seconds, no offset variants).
+Examples: `2026-05-23T12:00:00Z`, `2026-05-23T18:45:00Z`.
+Non-canonical forms (e.g. `+00:00`, `+02:00`, `.000Z`, space separator, naive time) are rejected as invalid input.
+
 ## Out of Scope in This Slice
 
 Phase 7c.1 does not introduce an approval runner, execution runner, or UI approval flow.
