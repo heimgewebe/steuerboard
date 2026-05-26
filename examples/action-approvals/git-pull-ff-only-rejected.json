@@ -9,6 +9,7 @@
   "approver_ref": "user:alex",
   "reason": "Approval withheld until a dedicated execution runner contract exists and is validated.",
   "source_refs": [
+    "examples/action-plans/git-pull-ff-only-approval-binding-base.json",
     "docs/git-pull-ff-only-contract.md"
   ],
   "approval_scope": {

@@ -221,6 +221,7 @@ def test_invalid_approval_timestamp_raises_value_error():
         "2026-05-23",                   # date only
         "not-a-date",                   # garbage
         "",                             # empty string
+        "2026-05-23T10:40Z",            # missing seconds
         "2026-05-23T10:40:00.000Z",     # fractional seconds — not canonical
         "2026-05-23T10:40:00+00:00",    # explicit UTC offset — only Z is accepted
         "2026-05-23T10:40:00+02:00",    # non-UTC offset
@@ -239,6 +240,7 @@ def test_non_rfc3339_approval_decided_at_raises_value_error(bad_ts: str):
         "2026-05-23 18:40:00Z",         # space separator — not RFC 3339
         "2026-05-23T18:40:00",          # naive timestamp — no offset
         "not-a-date",                   # garbage
+        "2026-05-23T18:40Z",            # missing seconds
         "2026-05-23T18:40:00.000Z",     # fractional seconds — not canonical
         "2026-05-23T18:40:00+00:00",    # explicit UTC offset — only Z is accepted
         "2026-05-23T18:40:00+02:00",    # non-UTC offset
@@ -257,6 +259,7 @@ def test_non_rfc3339_approval_expires_at_raises_value_error(bad_ts: str):
         "2026-05-23 12:00:00Z",         # space separator — not RFC 3339
         "2026-05-23T12:00:00",          # naive timestamp — no offset
         "not-a-date",                   # garbage
+        "2026-05-23T12:00Z",            # missing seconds
         "2026-05-23T12:00:00.000Z",     # fractional seconds — not canonical
         "2026-05-23T12:00:00+00:00",    # explicit UTC offset — only Z is accepted
         "2026-05-23T14:00:00+02:00",    # non-UTC offset (even if semantically UTC)
