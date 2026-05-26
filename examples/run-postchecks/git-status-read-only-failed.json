@@ -12,8 +12,8 @@
   "postcheck_id": "postcheck-read-only-example-failed-001",
   "redaction_verified": true,
   "repo_toplevel": "/path/to/repo",
-  "run_id": "run-read-only-example-failed-001",
-  "run_result_ref": "run-read-only-example-failed-001",
+  "run_id": "run-read-only-example-pilot-001",
+  "run_result_ref": "run-read-only-example-pilot-001",
   "schema_version": "run-postcheck.v1",
   "source_refs": [
     "git.status_porcelain",
