@@ -323,7 +323,8 @@ The command:
   `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
 - requires `command-trace.v1.exit_code == 0`
 - requires `command-trace.v1.stdout_excerpt` for output comparison
-- validates `redaction_verified == true` on both input artifacts
+- requires `run-result.v1.redaction_verified == true`
+- requires `command-trace.v1.redacted == true`
 - verifies `--repo-path` resolves to the same git toplevel as in the trace command
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
 - compares new status output against original trace `stdout_excerpt`

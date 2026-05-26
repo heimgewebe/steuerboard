@@ -142,6 +142,8 @@ The postcheck:
 - validates that the trace command is exactly the hardened git status command
 - requires `command-trace.v1.exit_code == 0`
 - requires `command-trace.v1.stdout_excerpt` for comparison
+- requires `run-result.v1.redaction_verified == true`
+- requires `command-trace.v1.redacted == true`
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
   (the same bounded read-only command as Phase 8A)
 - compares the new output against the original trace `stdout_excerpt`

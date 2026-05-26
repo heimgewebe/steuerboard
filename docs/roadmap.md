@@ -645,7 +645,8 @@ Scope in this slice:
 - validates the trace command is exactly the hardened git status command
 - requires `command-trace.v1.exit_code == 0`
 - requires `command-trace.v1.stdout_excerpt` for deterministic comparison
-- validates `redaction_verified == true` on both input artifacts
+- requires `run-result.v1.redaction_verified == true`
+- requires `command-trace.v1.redacted == true`
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
 - compares new status output against original trace `stdout_excerpt`
 - `status: passed` when outputs match
