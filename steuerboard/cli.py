@@ -585,7 +585,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "run_id": "unknown",
                         "trace_ref": "unknown",
                         "run_result_ref": "unknown",
-                        "action": "unknown",
+                        "action": "git-status-read-only",
                         "repo_toplevel": "unknown",
                         "checked_at": _now_str,
                         "status": "inconclusive",

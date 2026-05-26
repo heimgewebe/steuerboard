@@ -316,8 +316,13 @@ The command:
 
 - reads one `run-result.v1` JSON file and validates it fully against its schema
 - reads one `command-trace.v1` JSON file and validates it fully against its schema
+- requires `run-result.v1.status == success`
+- requires `run-result.v1.evidence_paths` to include the supplied
+  `command-trace.v1` path
 - validates that the trace command is exactly the hardened git status command:
   `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+- requires `command-trace.v1.exit_code == 0`
+- requires `command-trace.v1.stdout_excerpt` for output comparison
 - validates `redaction_verified == true` on both input artifacts
 - verifies `--repo-path` resolves to the same git toplevel as in the trace command
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
@@ -329,7 +334,8 @@ Status values:
 
 - `passed` — new status output matches the original trace excerpt
 - `failed` — new status output differs (reason: `worktree_changed_after_run`)
-- `inconclusive` — emitted on precondition failures (no output file written)
+- `inconclusive` — precondition failure or recheck command failure
+  (reason: `postcheck_command_failed` for command failure)
 
 On precondition failure the command emits a sentinel `run-postcheck.v1` JSON on
 stdout with `status: inconclusive` and exits with code 1.

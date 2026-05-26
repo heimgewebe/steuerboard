@@ -639,12 +639,19 @@ Scope in this slice:
 - new module: `steuerboard/run_postchecks.py`
 - only the `git-status-read-only` action is supported
 - reads and fully schema-validates `run-result.v1` and `command-trace.v1`
+- requires `run-result.v1.status == success`
+- requires `run-result.v1.evidence_paths` to include the supplied
+  `command-trace.v1` path (record binding)
 - validates the trace command is exactly the hardened git status command
+- requires `command-trace.v1.exit_code == 0`
+- requires `command-trace.v1.stdout_excerpt` for deterministic comparison
 - validates `redaction_verified == true` on both input artifacts
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
 - compares new status output against original trace `stdout_excerpt`
-- `status: passed` when outputs match; `status: failed` with reason
-  `worktree_changed_after_run` when they differ
+- `status: passed` when outputs match
+- `status: failed` with reason `worktree_changed_after_run` when they differ
+- `status: inconclusive` with reason `postcheck_command_failed` when recheck
+  command fails
 - writes `run-postcheck.v1` via temp file + `os.replace()` (atomic)
 - on any precondition failure: no output written; schema-valid
   `run-postcheck.v1` with `status: inconclusive` emitted to stdout

@@ -299,6 +299,54 @@ def test_blocked_run_result_schema_invalid(tmp_path: Path):
     assert not (postchecks / "postcheck.json").exists()
 
 
+def test_blocked_run_result_status_not_success(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    run_result["status"] = "failure"
+
+    with pytest.raises(ValueError, match="status must be 'success'"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+    assert not (postchecks / "postcheck.json").exists()
+
+
+def test_blocked_run_result_missing_trace_evidence_path(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    run_result["evidence_paths"] = [str(result_path)]
+
+    with pytest.raises(ValueError, match="evidence_paths must include"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+    assert not (postchecks / "postcheck.json").exists()
+
+
 # ---------------------------------------------------------------------------
 # Blocked: command-trace.v1 schema-invalid
 # ---------------------------------------------------------------------------
@@ -322,6 +370,54 @@ def test_blocked_command_trace_schema_invalid(tmp_path: Path):
         run_read_only_postcheck(
             run_result=run_result,
             command_trace=bad_trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+    assert not (postchecks / "postcheck.json").exists()
+
+
+def test_blocked_command_trace_exit_code_nonzero(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    trace["exit_code"] = 1
+
+    with pytest.raises(ValueError, match="exit_code must be 0"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+    assert not (postchecks / "postcheck.json").exists()
+
+
+def test_blocked_command_trace_missing_stdout_excerpt(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    trace.pop("stdout_excerpt", None)
+
+    with pytest.raises(ValueError, match="stdout_excerpt is required"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
             repo_path=str(repo),
             postcheck_out=str(postchecks / "postcheck.json"),
             command_trace_path=str(trace_path),
@@ -429,6 +525,47 @@ def test_failed_when_worktree_changes_after_run(tmp_path: Path):
 
     # Must still be schema-valid
     validate_instance(postcheck, _postcheck_schema(), Path("postcheck-failed.json"))
+
+
+def test_inconclusive_when_recheck_git_status_fails(tmp_path: Path, monkeypatch):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    import steuerboard.run_postchecks as _module
+
+    original_run = _module.subprocess.run
+
+    class _ProcResult:
+        def __init__(self, returncode: int, stdout: str, stderr: str):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def patched_run(args, **kwargs):
+        if args[:3] == ["git", "--no-optional-locks", "-C"] and "status" in args:
+            return _ProcResult(1, "", "fatal: status failed")
+        return original_run(args, **kwargs)
+
+    monkeypatch.setattr(_module.subprocess, "run", patched_run)
+
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postchecks / "postcheck.json"),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "inconclusive"
+    assert "postcheck_command_failed" in postcheck.get("failure_reasons", [])
+    validate_instance(postcheck, _postcheck_schema(), Path("postcheck-inconclusive.json"))
 
 
 # ---------------------------------------------------------------------------
@@ -626,3 +763,13 @@ def test_example_run_postcheck_inconclusive_is_valid():
     validate_instance(postcheck, schema, postcheck_path)
     assert postcheck["status"] == "inconclusive"
     assert postcheck["action"] == "git-status-read-only"
+
+
+def test_example_run_postcheck_failed_is_valid():
+    postcheck_path = ROOT / "examples" / "run-postchecks" / "git-status-read-only-failed.json"
+    assert postcheck_path.exists(), f"example not found: {postcheck_path}"
+    postcheck = load_json(postcheck_path)
+    schema = load_json(SCHEMAS_DIR / "run-postcheck.v1.schema.json")
+    validate_instance(postcheck, schema, postcheck_path)
+    assert postcheck["status"] == "failed"
+    assert "worktree_changed_after_run" in postcheck.get("failure_reasons", [])

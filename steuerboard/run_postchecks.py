@@ -136,6 +136,11 @@ def _write_postcheck_atomic(target: Path, data: dict[str, Any]) -> None:
         raise
 
 
+def _normalize_path_string(path_str: str) -> str:
+    """Normalize a path string for stable evidence-path comparisons."""
+    return str(Path(path_str).expanduser().resolve(strict=False))
+
+
 def run_read_only_postcheck(
     run_result: dict[str, Any],
     command_trace: dict[str, Any],
@@ -179,6 +184,25 @@ def run_read_only_postcheck(
     _validate_against_schema(run_result, _load_run_result_schema(), "run-result.v1")
     _validate_against_schema(command_trace, _load_command_trace_schema(), "command-trace.v1")
 
+    # --- Bind run-result + command-trace to the same successful Phase 8A run ---
+    if run_result.get("status") != "success":
+        raise ValueError("run-result.v1 status must be 'success' for postcheck")
+
+    evidence_paths = run_result.get("evidence_paths")
+    if not isinstance(evidence_paths, list):
+        raise ValueError("run-result.v1 evidence_paths must be present for postcheck binding")
+
+    normalized_trace_input = _normalize_path_string(command_trace_path)
+    normalized_evidence_paths = {
+        _normalize_path_string(entry)
+        for entry in evidence_paths
+        if isinstance(entry, str) and entry
+    }
+    if normalized_trace_input not in normalized_evidence_paths:
+        raise ValueError(
+            "run-result.v1 evidence_paths must include the provided command-trace path"
+        )
+
     # --- Validate trace command is exactly the hardened git status command ---
     trace_toplevel_str = _validate_trace_command(command_trace.get("command"))
 
@@ -187,6 +211,16 @@ def run_read_only_postcheck(
         raise ValueError("run-result.v1 redaction_verified must be true")
     if command_trace.get("redacted") is not True:
         raise ValueError("command-trace.v1 redacted must be true")
+    if command_trace.get("exit_code") != 0:
+        raise ValueError("command-trace.v1 exit_code must be 0 for postcheck")
+
+    if "stdout_excerpt" not in command_trace:
+        raise ValueError(
+            "command-trace.v1 stdout_excerpt is required for postcheck comparison"
+        )
+    original_excerpt = command_trace["stdout_excerpt"]
+    if not isinstance(original_excerpt, str):
+        raise ValueError("command-trace.v1 stdout_excerpt must be a string")
 
     # --- Resolve repo_path and cross-check against trace toplevel ---
     repo = Path(repo_path).expanduser().resolve()
@@ -254,7 +288,6 @@ def run_read_only_postcheck(
     )
 
     new_excerpt = _excerpt(_redact_text(proc.stdout))
-    original_excerpt = command_trace.get("stdout_excerpt", "")
 
     observations: list[str] = []
     failure_reasons: list[str] = []
@@ -264,7 +297,13 @@ def run_read_only_postcheck(
             "stdout_excerpt_truncated: comparison limited to excerpt boundary"
         )
 
-    if new_excerpt == original_excerpt:
+    if proc.returncode != 0:
+        status = "inconclusive"
+        failure_reasons.append("postcheck_command_failed")
+        stderr_excerpt = _excerpt(_redact_text(proc.stderr))
+        if stderr_excerpt:
+            observations.append(f"postcheck_stderr_excerpt={stderr_excerpt}")
+    elif new_excerpt == original_excerpt:
         status = "passed"
     else:
         status = "failed"

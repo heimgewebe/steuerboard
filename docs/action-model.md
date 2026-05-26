@@ -136,11 +136,17 @@ The postcheck:
 
 - reads an existing `run-result.v1` artifact and `command-trace.v1` artifact
 - validates both fully against their JSON Schemas
+- requires `run-result.v1.status == success`
+- requires `run-result.v1.evidence_paths` to include the provided
+  `command-trace.v1` path (run-record binding)
 - validates that the trace command is exactly the hardened git status command
+- requires `command-trace.v1.exit_code == 0`
+- requires `command-trace.v1.stdout_excerpt` for comparison
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
   (the same bounded read-only command as Phase 8A)
 - compares the new output against the original trace `stdout_excerpt`
-- emits a `run-postcheck.v1` artifact with `status: passed | failed | inconclusive`
+- emits a `run-postcheck.v1` artifact with
+  `status: passed | failed | inconclusive`
 - writes no files into the inspected repository
 - performs no network access, no pull, no fetch, no branch switch, no mutation
 
@@ -168,6 +174,14 @@ Boundary:
 - output must be outside the inspected repository worktree
 - on any precondition failure: no output file is written; schema-valid
   `run-postcheck.v1` with `status: inconclusive` is emitted to stdout
+
+Status contract:
+
+- `passed`: recheck command succeeded and excerpts match
+- `failed`: recheck command succeeded, excerpts differ
+  (`worktree_changed_after_run`)
+- `inconclusive`: precondition failure or recheck command failure
+  (`postcheck_command_failed`)
 
 Trace + run-result + postcheck form a verifiable, auditable chain:
 

@@ -6,10 +6,10 @@
     "examples/run-results/run-read-only-success.json"
   ],
   "failure_reasons": [
-    "postcheck_command_failed"
+    "worktree_changed_after_run"
   ],
   "observations": [],
-  "postcheck_id": "postcheck-read-only-example-inconclusive-001",
+  "postcheck_id": "postcheck-read-only-example-failed-001",
   "redaction_verified": true,
   "repo_toplevel": "/path/to/repo",
   "run_id": "run-read-only-example-pilot-001",
@@ -20,6 +20,6 @@
     "run-result.v1",
     "command-trace.v1"
   ],
-  "status": "inconclusive",
+  "status": "failed",
   "trace_ref": "trace-read-only-example-pilot-001"
 }
