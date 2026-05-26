@@ -265,6 +265,30 @@ def test_cli_emits_schema_valid_output(tmp_path: Path):
     assert postcheck_path.exists()
 
 
+class _FakeSubprocessModule:
+    """Minimal subprocess module replacement for monkeypatching run_postchecks.
+
+    Passes the first ``pass_through_calls`` calls to the real subprocess.run,
+    then returns ``recheck_result`` for all subsequent calls.  ``PIPE`` is
+    forwarded from the real subprocess module so that the production code can
+    use ``stdout=subprocess.PIPE`` without AttributeError.
+    """
+
+    PIPE = subprocess.PIPE
+
+    def __init__(self, real_run, recheck_result: subprocess.CompletedProcess, *, pass_through_calls: int = 2):
+        self._real_run = real_run
+        self._recheck_result = recheck_result
+        self._call_count = 0
+        self._pass_through_calls = pass_through_calls
+
+    def run(self, cmd, **kwargs):
+        self._call_count += 1
+        if self._call_count <= self._pass_through_calls:
+            return self._real_run(cmd, **kwargs)
+        return self._recheck_result
+
+
 def test_inconclusive_when_new_status_output_is_truncated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -279,25 +303,18 @@ def test_inconclusive_when_new_status_output_is_truncated(
 
     import steuerboard.run_postchecks as rpc
 
-    original_run = rpc.subprocess.run
-    call_count = 0
-
-    def fake_run(cmd, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count <= 2:
-            return original_run(cmd, **kwargs)
-        # Simulate truncated recheck stdout
-        return subprocess.CompletedProcess(
-            cmd,
-            returncode=0,
-            stdout="M file.txt\n" * (_EXCERPT_LIMIT + 1),
-            stderr="",
-        )
-
     monkeypatch.setattr(
-        rpc, "subprocess",
-        type("_M", (), {"run": staticmethod(fake_run), "PIPE": subprocess.PIPE})(),
+        rpc,
+        "subprocess",
+        _FakeSubprocessModule(
+            rpc.subprocess.run,
+            recheck_result=subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="M file.txt\n" * (_EXCERPT_LIMIT + 1),
+                stderr="",
+            ),
+        ),
     )
 
     postcheck_path = postchecks / "postcheck.json"
@@ -354,25 +371,18 @@ def test_inconclusive_when_recheck_git_status_fails(
 
     import steuerboard.run_postchecks as rpc
 
-    original_run = rpc.subprocess.run
-    call_count = 0
-
-    def fake_run(cmd, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count <= 2:
-            return original_run(cmd, **kwargs)
-        # Fail the git status recheck
-        return subprocess.CompletedProcess(
-            cmd,
-            returncode=128,
-            stdout="",
-            stderr="fatal: not a git repository",
-        )
-
     monkeypatch.setattr(
-        rpc, "subprocess",
-        type("_M", (), {"run": staticmethod(fake_run), "PIPE": subprocess.PIPE})(),
+        rpc,
+        "subprocess",
+        _FakeSubprocessModule(
+            rpc.subprocess.run,
+            recheck_result=subprocess.CompletedProcess(
+                args=[],
+                returncode=128,
+                stdout="",
+                stderr="fatal: not a git repository",
+            ),
+        ),
     )
 
     postcheck_path = postchecks / "postcheck.json"
