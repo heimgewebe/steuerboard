@@ -299,6 +299,29 @@ Boundary for Phase 8A:
 - output files must not pre-exist; parent directories must exist
 - stdout/stderr excerpts bounded to 2000 characters each
 
+Phase 8B introduces a bounded read-only postcheck for an existing read-only run.
+It validates `command-trace.v1` and `run-result.v1`, re-runs the hardened
+read-only git status command, and emits `run-postcheck.v1`.
+
+Command:
+
+    python -m steuerboard action postcheck-read-only <run-result-json> \
+      --command-trace <trace-json> \
+      --repo-path <repo-path> \
+      --postcheck-out <postcheck-json> \
+      --json
+
+Boundary for Phase 8B:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- output must be outside the inspected repository worktree
+- output file must not pre-exist; parent directory must exist
+
 Phase 8C introduces a read-only evidence-chain verifier for the artifacts already
 produced by earlier run-evidence slices. Phase 8C is **not** an execution step,
 **not** an approval runner, and **not** a pull gate. It validates internal chain
@@ -328,14 +351,17 @@ The command:
 - requires `run-postcheck.v1.run_id`, `trace_ref`, and `run_result_ref` to bind
   to the same run/trace/result chain
 - requires `run-postcheck.v1.redaction_verified == true`
+- records `plan_binding_unavailable` when the supplied artifacts do not prove a
+  causal plan-to-run binding
 - writes one `run-evidence-chain.v1` artifact to `--chain-out`
 - emits `run-evidence-chain.v1` JSON on stdout
 
 Status contract:
 
-- `valid` means only: the four evidence artifacts are internally coherent
+- `valid` is reserved for a coherent chain with proven plan binding
 - `invalid` means the chain is contradictory or the postcheck failed
-- `inconclusive` means the chain could not be established from the supplied artifacts
+- `inconclusive` means the chain could not be established from the supplied artifacts,
+  including when plan binding is unavailable
 
 Important boundary note:
 

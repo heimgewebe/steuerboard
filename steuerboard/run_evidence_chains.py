@@ -27,87 +27,6 @@ from .action_runs import _is_path_inside, _require_output_path, _utc_rfc3339_now
 
 _SCHEMA_CACHE: dict[str, dict[str, Any]] = {}
 
-_EMBEDDED_RUN_POSTCHECK_SCHEMA: dict[str, Any] = {
-    "$id": "https://example.invalid/steuerboard/schemas/run-postcheck.v1.schema.json",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": False,
-    "allOf": [
-        {
-            "if": {"properties": {"status": {"const": "passed"}}},
-            "then": {
-                "properties": {
-                    "failure_reasons": {"maxItems": 0},
-                    "redaction_verified": {"const": True},
-                }
-            },
-        },
-        {
-            "if": {"properties": {"status": {"const": "failed"}}},
-            "then": {
-                "properties": {
-                    "failure_reasons": {
-                        "items": {"type": "string"},
-                        "minItems": 1,
-                        "type": "array",
-                    },
-                    "redaction_verified": {"const": True},
-                },
-                "required": ["failure_reasons"],
-            },
-        },
-        {
-            "if": {"properties": {"status": {"const": "inconclusive"}}},
-            "then": {
-                "properties": {
-                    "failure_reasons": {
-                        "items": {"type": "string"},
-                        "minItems": 1,
-                        "type": "array",
-                    }
-                },
-                "required": ["failure_reasons"],
-            },
-        },
-    ],
-    "properties": {
-        "action": {"const": "git-status-read-only"},
-        "checked_at": {"format": "date-time", "type": "string"},
-        "evidence_paths": {"items": {"type": "string"}, "type": "array"},
-        "failure_reasons": {
-            "items": {"type": "string"},
-            "minItems": 1,
-            "type": "array",
-        },
-        "observations": {"items": {"type": "string"}, "type": "array"},
-        "postcheck_id": {"minLength": 1, "type": "string"},
-        "redaction_verified": {"type": "boolean"},
-        "repo_toplevel": {"minLength": 1, "type": "string"},
-        "run_id": {"minLength": 1, "type": "string"},
-        "run_result_ref": {"minLength": 1, "type": "string"},
-        "schema_version": {"const": "run-postcheck.v1"},
-        "source_refs": {"items": {"type": "string"}, "type": "array"},
-        "status": {"enum": ["passed", "failed", "inconclusive"]},
-        "trace_ref": {"minLength": 1, "type": "string"},
-    },
-    "required": [
-        "schema_version",
-        "postcheck_id",
-        "run_id",
-        "trace_ref",
-        "run_result_ref",
-        "action",
-        "repo_toplevel",
-        "checked_at",
-        "status",
-        "observations",
-        "redaction_verified",
-        "source_refs",
-        "evidence_paths",
-    ],
-    "title": "Run Postcheck v1",
-    "type": "object",
-}
-
 _HARDENED_COMMAND_LEN = 6
 _HARDENED_COMMAND_FIXED: dict[int, str] = {
     0: "git",
@@ -122,9 +41,6 @@ def _load_schema(filename: str) -> dict[str, Any]:
     cached = _SCHEMA_CACHE.get(filename)
     if cached is not None:
         return cached
-    if filename == "run-postcheck.v1.schema.json":
-        _SCHEMA_CACHE[filename] = _EMBEDDED_RUN_POSTCHECK_SCHEMA
-        return _EMBEDDED_RUN_POSTCHECK_SCHEMA
     path = Path(__file__).resolve().parent.parent / "schemas" / filename
     with path.open("r", encoding="utf-8") as handle:
         schema = json.load(handle)
@@ -394,6 +310,17 @@ def validate_run_evidence_chain(
         actual=str(postcheck_status),
     )
 
+    plan_binding_proven = False
+    _record_check(
+        checks,
+        check="plan_binding_available",
+        passed=plan_binding_proven,
+        expected="plan_ref or plan_content_sha256",
+        actual="absent",
+    )
+    if not plan_binding_proven:
+        failure_reasons.append("plan_binding_unavailable")
+
     redaction_verified = trace_redacted and run_result_redaction and postcheck_redaction
 
     unique_failure_reasons = _dedupe_preserve_order(failure_reasons)
@@ -405,6 +332,8 @@ def validate_run_evidence_chain(
     elif postcheck_status == "failed":
         status = "invalid"
         unique_failure_reasons = _dedupe_preserve_order(["postcheck_failed", *unique_failure_reasons])
+    elif "plan_binding_unavailable" in unique_failure_reasons:
+        status = "inconclusive"
     elif unique_failure_reasons:
         status = "invalid"
     else:

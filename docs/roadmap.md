@@ -609,6 +609,31 @@ Boundary for this slice:
 - `does_not_execute`, `does_not_mutate`, `does_not_authorise_actions` remain
   true in plan artifacts produced by Phase 5/7a planners
 
+## Phase 8B — Run Postcheck + Run Record Binding
+
+Status: started.
+
+Phase 8B introduces a bounded read-only postcheck that validates prior run
+evidence and emits `run-postcheck.v1`.
+
+Scope in this slice:
+
+- new schema: `run-postcheck.v1`
+- new module: `steuerboard/run_postchecks.py`
+- CLI: `python -m steuerboard action postcheck-read-only ... --json`
+- examples and tests for passed/failed/inconclusive postcheck outputs
+
+Boundary for this slice:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- no UI
+- output must be outside the inspected repository worktree
+
 ## Phase 8C — Run Evidence Chain Verifier
 
 Status: started.
@@ -648,6 +673,8 @@ Scope in this slice:
 - verifies `run-result.v1.evidence_paths` includes the supplied trace path
 - verifies `run-postcheck.v1.trace_ref == command-trace.v1.trace_id`
 - verifies `run-postcheck.v1.run_result_ref == run-result.v1.run_id`
+- emits `plan_binding_unavailable` when plan-to-run binding is not provable from
+  the available artifacts
 - maps postcheck outcomes onto chain `status: valid | invalid | inconclusive`
 
 Meaning of `valid` in this phase:
@@ -655,6 +682,7 @@ Meaning of `valid` in this phase:
 - the evidence chain is internally coherent
 - it is not execution permission
 - it does not authorise pull
+- without proven plan binding the chain remains `inconclusive`, not `valid`
 
 Boundary for this slice:
 

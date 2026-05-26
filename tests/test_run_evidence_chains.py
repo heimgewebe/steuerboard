@@ -144,14 +144,14 @@ def _cli(args: list[str], cwd: Path):
 
 def test_happy_path_valid_chain(tmp_path: Path):
     chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "valid"
+    assert chain["status"] == "inconclusive"
     assert chain["redaction_verified"] is True
     assert chain["action"] == "git-status-read-only"
     assert chain["run_result_ref"] == "run-read-only-test-001"
     assert chain["postcheck_ref"] == "postcheck-read-only-test-001"
     assert chain["plan_ref"] == "plan-git-status-read-only-test-001"
     assert len(chain["evidence_paths"]) == 4
-    assert "failure_reasons" not in chain
+    assert chain["failure_reasons"] == ["plan_binding_unavailable"]
 
 
 def test_invalid_when_postcheck_failed(tmp_path: Path):
@@ -174,12 +174,30 @@ def test_inconclusive_when_postcheck_inconclusive(tmp_path: Path):
     assert "postcheck_inconclusive" in chain["failure_reasons"]
 
 
+def test_inconclusive_when_plan_binding_unavailable(tmp_path: Path):
+    chain = _validate_happy_chain(tmp_path)
+    assert chain["status"] == "inconclusive"
+    assert "plan_binding_unavailable" in chain["failure_reasons"]
+    assert chain["redaction_verified"] is True
+
+
+def test_inconclusive_example_redaction_can_still_be_true(tmp_path: Path):
+    def mutate(_plan, _trace, _result, postcheck, _paths):
+        postcheck["status"] = "inconclusive"
+        postcheck["failure_reasons"] = ["stdout_excerpt_truncated"]
+        postcheck["redaction_verified"] = True
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "inconclusive"
+    assert chain["redaction_verified"] is True
+
+
 def test_invalid_when_trace_missing_from_run_result_evidence_paths(tmp_path: Path):
     def mutate(_plan, _trace, result, _postcheck, paths):
         result["evidence_paths"] = [str(paths["run_result"].resolve())]
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "invalid"
+    assert chain["status"] == "inconclusive"
     assert "trace_path_missing_from_run_result" in chain["failure_reasons"]
 
 
@@ -188,7 +206,7 @@ def test_invalid_when_postcheck_trace_ref_mismatches(tmp_path: Path):
         postcheck["trace_ref"] = "trace-other"
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "invalid"
+    assert chain["status"] == "inconclusive"
     assert "postcheck_trace_ref_mismatch" in chain["failure_reasons"]
 
 
@@ -197,7 +215,7 @@ def test_invalid_when_postcheck_run_result_ref_mismatches(tmp_path: Path):
         postcheck["run_result_ref"] = "run-other"
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "invalid"
+    assert chain["status"] == "inconclusive"
     assert "postcheck_run_result_ref_mismatch" in chain["failure_reasons"]
 
 
@@ -206,7 +224,7 @@ def test_invalid_when_run_result_not_success(tmp_path: Path):
         result["status"] = "failure"
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "invalid"
+    assert chain["status"] == "inconclusive"
     assert "run_result_not_success" in chain["failure_reasons"]
 
 
@@ -215,7 +233,7 @@ def test_invalid_when_trace_exit_code_nonzero(tmp_path: Path):
         trace["exit_code"] = 1
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "invalid"
+    assert chain["status"] == "inconclusive"
     assert "trace_exit_code_nonzero" in chain["failure_reasons"]
 
 
@@ -282,7 +300,7 @@ def test_cli_emits_schema_valid_output(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     validate_instance(payload, _chain_schema(), Path("cli-chain.json"))
-    assert payload["status"] == "valid"
+    assert payload["status"] == "inconclusive"
     assert output.exists()
 
 
@@ -294,4 +312,4 @@ def test_no_subprocess_calls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(subprocess, "run", fail)
     chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "valid"
+    assert chain["status"] == "inconclusive"

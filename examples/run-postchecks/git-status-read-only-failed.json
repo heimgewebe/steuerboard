@@ -1,0 +1,25 @@
+{
+  "action": "git-status-read-only",
+  "checked_at": "2026-05-26T10:00:05Z",
+  "evidence_paths": [
+    "examples/evidence/command-trace-read-only-pilot.json",
+    "examples/run-results/run-read-only-success.json"
+  ],
+  "failure_reasons": [
+    "worktree_changed_after_run"
+  ],
+  "observations": [],
+  "postcheck_id": "postcheck-read-only-example-failed-001",
+  "redaction_verified": true,
+  "repo_toplevel": "/path/to/repo",
+  "run_id": "run-read-only-example-failed-001",
+  "run_result_ref": "run-read-only-example-failed-001",
+  "schema_version": "run-postcheck.v1",
+  "source_refs": [
+    "git.status_porcelain",
+    "run-result.v1",
+    "command-trace.v1"
+  ],
+  "status": "failed",
+  "trace_ref": "trace-read-only-example-pilot-001"
+}

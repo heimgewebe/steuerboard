@@ -1,0 +1,264 @@
+"""Tests for Phase 8B: run_postchecks.py — read-only postcheck for git-status-read-only."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
+from steuerboard.action_runs import run_read_only_action
+from steuerboard.run_postchecks import _validate_trace_command, run_read_only_postcheck
+
+
+def _run(command: list[str], cwd: Path) -> None:
+    import subprocess
+
+    subprocess.run(command, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def _init_repo(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    _run(["git", "init", "-b", "main"], path)
+    _run(["git", "config", "user.email", "test@example.invalid"], path)
+    _run(["git", "config", "user.name", "Test User"], path)
+    _run(["git", "config", "commit.gpgsign", "false"], path)
+    (path / "README.md").write_text("# Test\n", encoding="utf-8")
+    _run(["git", "add", "README.md"], path)
+    _run(["git", "commit", "-m", "init"], path)
+
+
+def _pilot_plan(action: str = "git-status-read-only") -> dict:
+    return {
+        "schema_version": "action-plan.v1",
+        "plan_id": f"plan-{action}-test-001",
+        "action": action,
+        "assessment_ref": "assess-test-001",
+        "decision": "not_applicable",
+        "source_refs": ["git.status_porcelain"],
+        "rule_refs": [],
+        "freshness_refs": [],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+
+def _trace_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "command-trace.v1.schema.json")
+
+
+def _run_result_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
+
+
+def _postcheck_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "run-postcheck.v1.schema.json")
+
+
+def _cli(args: list[str], cwd: Path):
+    import os
+    import subprocess
+
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(ROOT) if not existing else f"{ROOT}:{existing}"
+    return subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+
+
+def _run_action_and_get_artifacts(repo: Path, artifacts_dir: Path) -> tuple[dict, dict, Path, Path]:
+    trace_path = artifacts_dir / "trace.json"
+    result_path = artifacts_dir / "run-result.json"
+    run_read_only_action(
+        action_plan=_pilot_plan(),
+        repo_path=str(repo),
+        command_trace_out=str(trace_path),
+        run_result_out=str(result_path),
+    )
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    run_result = json.loads(result_path.read_text(encoding="utf-8"))
+    return run_result, trace, trace_path, result_path
+
+
+def test_validate_trace_command_happy_path():
+    cmd = ["git", "--no-optional-locks", "-C", "/some/repo", "status", "--porcelain=v1"]
+    toplevel = _validate_trace_command(cmd)
+    assert toplevel == "/some/repo"
+
+
+def test_validate_trace_command_wrong_length():
+    with pytest.raises(ValueError, match="exactly"):
+        _validate_trace_command(["git", "status"])
+
+
+def test_validate_trace_command_wrong_subcommand():
+    cmd = ["git", "--no-optional-locks", "-C", "/repo", "fetch", "--porcelain=v1"]
+    with pytest.raises(ValueError, match="command\[4\]"):
+        _validate_trace_command(cmd)
+
+
+def test_validate_trace_command_empty_toplevel():
+    cmd = ["git", "--no-optional-locks", "-C", "", "status", "--porcelain=v1"]
+    with pytest.raises(ValueError, match="non-empty"):
+        _validate_trace_command(cmd)
+
+
+def test_happy_path_produces_valid_postcheck_passed(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    postcheck_path = postchecks / "postcheck.json"
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postcheck_path),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck_path.exists()
+    written = json.loads(postcheck_path.read_text(encoding="utf-8"))
+    validate_instance(postcheck, _postcheck_schema(), Path("postcheck.json"))
+    validate_instance(written, _postcheck_schema(), Path("postcheck-written.json"))
+    assert postcheck == written
+    assert postcheck["status"] == "passed"
+    assert postcheck["redaction_verified"] is True
+    assert postcheck["run_id"] == run_result["run_id"]
+    assert postcheck["trace_ref"] == trace["trace_id"]
+    assert str(trace_path) in postcheck["evidence_paths"]
+    assert str(result_path) in postcheck["evidence_paths"]
+
+
+def test_blocked_postcheck_out_already_exists(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    existing = postchecks / "postcheck.json"
+    existing.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must not already exist"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(existing),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+
+def test_blocked_postcheck_out_parent_missing(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    with pytest.raises(ValueError, match="parent directory must exist"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(tmp_path / "missing" / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+
+def test_blocked_run_result_status_not_success(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    run_result["status"] = "failure"
+
+    with pytest.raises(ValueError, match="status must be 'success'"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+
+def test_blocked_command_trace_exit_code_nonzero(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    trace["exit_code"] = 1
+
+    with pytest.raises(ValueError, match="exit_code must be 0"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+
+def test_cli_emits_schema_valid_output(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    postcheck_path = postchecks / "postcheck-cli.json"
+
+    run_result_path = artifacts / "run-result.json"
+    trace_path = artifacts / "trace.json"
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "postcheck-read-only",
+            str(run_result_path),
+            "--command-trace",
+            str(trace_path),
+            "--repo-path",
+            str(repo),
+            "--postcheck-out",
+            str(postcheck_path),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _postcheck_schema(), Path("cli-postcheck.json"))
+    assert payload["status"] == "passed"
+    assert postcheck_path.exists()

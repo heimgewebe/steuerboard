@@ -64,6 +64,12 @@
       "passed": true
     },
     {
+      "actual": "absent",
+      "check": "plan_binding_available",
+      "expected": "plan_ref or plan_content_sha256",
+      "passed": false
+    },
+    {
       "actual": "true",
       "check": "postcheck_redaction_verified",
       "expected": "true",
@@ -82,6 +88,9 @@
     "/workspace/examples/run-results/run-read-only-success.json",
     "/workspace/examples/run-postchecks/git-status-read-only-passed.json"
   ],
+  "failure_reasons": [
+    "plan_binding_unavailable"
+  ],
   "plan_ref": "plan-git-status-read-only-2026-05-26-001",
   "postcheck_ref": "postcheck-read-only-example-pilot-001",
   "redaction_verified": true,
@@ -95,6 +104,6 @@
     "action-plan.v1",
     "run-postcheck.v1"
   ],
-  "status": "valid",
+  "status": "inconclusive",
   "trace_ref": "trace-read-only-example-pilot-001"
 }
