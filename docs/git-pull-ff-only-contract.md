@@ -70,8 +70,19 @@ Minimum gates before emitting a future `git-pull-ff-only` plan candidate:
 A future runner may execute only if all of the following exist:
 
 - `action_plan_exists`
-- `user_approval_exists`
+- `action_approval_exists` (`action-approval.v1`)
+- `action_approval_binding_validated` (`action-approval-validation.v1`, Phase 7c.2)
 - `runner_contract_exists`
+
+`action-approval.v1` is a plan-bound approval artifact only.
+It does not execute `git pull --ff-only` and does not authorize execution by itself.
+In existing planner `missing_evidence` vocabulary, `user_approval` can remain the
+runtime gap marker; Phase 7c.1 defines `action-approval.v1` as the concrete future
+artifact form for satisfying that gap.
+
+Phase 7c.2 adds `action-approval-validation.v1` as a pure pre-run gate.
+Binding validation proves that the approval matches exactly the plan at an explicit
+`checked_at` timestamp. `binding_state == "binding_valid"` still does not execute pull.
 
 ## Decision Table
 
@@ -81,7 +92,7 @@ A future runner may execute only if all of the following exist:
 | feature branch             | blocked        | non_default_branch       | default_branch_checkout_intent |
 | remote stale               | blocked        | remote_freshness_unknown | fresh_remote_refs              |
 | clean default, ff possible | plan_candidate | none                     | none                           |
-| plan exists, no approval   | execution_blocked | approval_missing      | user_approval                  |
+| plan exists, no approval   | execution_blocked | approval_missing        | action_approval_exists         |
 
 ## Postcheck Evidence
 

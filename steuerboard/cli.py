@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from .action_approval_validations import validate_action_approval_binding
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .assessment import assess_repo
 from .assessment_explanations import explain_assessment
@@ -252,6 +253,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit omnipull-report-ref.v1 JSON.",
     )
 
+    approval_parser = subparsers.add_parser(
+        "approval",
+        help="Pure artifact approval commands.",
+    )
+    approval_subparsers = approval_parser.add_subparsers(dest="approval_command", required=True)
+
+    approval_validate_parser = approval_subparsers.add_parser(
+        "validate",
+        help=(
+            "Validate that one action-approval.v1 artifact binds to one action-plan.v1 artifact. "
+            "Pure artifact validation only — no pull, no execution, no mutation."
+        ),
+    )
+    approval_validate_parser.add_argument(
+        "approval_json",
+        help="Path to an action-approval.v1 JSON file.",
+    )
+    approval_validate_parser.add_argument(
+        "--plan",
+        required=True,
+        help="Path to an action-plan.v1 JSON file.",
+    )
+    approval_validate_parser.add_argument(
+        "--checked-at",
+        required=True,
+        help="UTC date-time string (YYYY-MM-DDTHH:MM:SSZ) used as the validation reference time.",
+    )
+    approval_validate_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit action-approval-validation.v1 JSON.",
+    )
+
     return parser
 
 
@@ -381,6 +416,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(report_ref, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "approval" and args.approval_command == "validate":
+        try:
+            with Path(args.approval_json).open("r", encoding="utf-8") as handle:
+                approval = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"invalid approval JSON: {exc}")
+
+        try:
+            with Path(args.plan).open("r", encoding="utf-8") as handle:
+                plan = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"invalid plan JSON: {exc}")
+
+        try:
+            result = validate_action_approval_binding(
+                plan=plan,
+                approval=approval,
+                checked_at=args.checked_at,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")

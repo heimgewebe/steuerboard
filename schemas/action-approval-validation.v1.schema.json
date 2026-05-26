@@ -1,0 +1,144 @@
+{
+  "title": "Action Approval Validation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "validation_id",
+    "plan_ref",
+    "approval_ref",
+    "action",
+    "checked_at",
+    "binding_state",
+    "blocked_because",
+    "source_refs",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "action-approval-validation.v1"
+    },
+    "validation_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "approval_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "action": {
+      "enum": [
+        "git-pull-ff-only"
+      ]
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "binding_state": {
+      "enum": [
+        "binding_valid",
+        "binding_invalid"
+      ]
+    },
+    "blocked_because": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "approval_rejected",
+          "plan_ref_mismatch",
+          "action_mismatch",
+          "plan_content_sha256_mismatch",
+          "approval_expires_before_decided_at",
+          "approval_decided_in_future",
+          "approval_expired"
+        ]
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "explanation": {
+      "type": "string"
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_execution",
+        "does_not_create_runner"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_execution": {
+          "const": true
+        },
+        "does_not_create_runner": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "binding_state": {
+            "const": "binding_valid"
+          }
+        },
+        "required": [
+          "binding_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "blocked_because": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "binding_state": {
+            "const": "binding_invalid"
+          }
+        },
+        "required": [
+          "binding_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "blocked_because": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/action-approval-validation.v1.schema.json"
+}

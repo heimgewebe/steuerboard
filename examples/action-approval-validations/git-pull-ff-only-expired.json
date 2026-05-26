@@ -1,0 +1,19 @@
+{
+  "schema_version": "action-approval-validation.v1",
+  "validation_id": "validation-d00c91ea79f04e8283820a40e885951827c2a6c126d3a624163bcedf945c1f95",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "approval_ref": "approval-2026-05-23-git-pull-ff-only-approved-001",
+  "action": "git-pull-ff-only",
+  "checked_at": "2026-05-23T20:00:00Z",
+  "binding_state": "binding_invalid",
+  "blocked_because": [
+    "approval_expired"
+  ],
+  "source_refs": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_execution": true,
+    "does_not_create_runner": true
+  }
+}

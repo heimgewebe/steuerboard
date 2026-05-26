@@ -19,7 +19,9 @@ EXAMPLES_DIR = ROOT / "examples"
 SCHEMAS_DIR = ROOT / "schemas"
 
 SCHEMA_MAP = {
+    "action-approval-validations": SCHEMAS_DIR / "action-approval-validation.v1.schema.json",
     "action-capabilities": SCHEMAS_DIR / "action-capability.v1.schema.json",
+    "action-approvals": SCHEMAS_DIR / "action-approval.v1.schema.json",
     "action-plans": SCHEMAS_DIR / "action-plan.v1.schema.json",
     "assessment-explanations": SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json",
     "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",

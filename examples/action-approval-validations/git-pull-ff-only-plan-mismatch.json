@@ -1,0 +1,19 @@
+{
+  "schema_version": "action-approval-validation.v1",
+  "validation_id": "validation-b8ee56e8d1533098bf88ef59ac29abfe2e34df579fab6ebc9e8b54b9bf800b54",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "approval_ref": "approval-2026-05-23-git-pull-ff-only-approved-plan-mismatch-001",
+  "action": "git-pull-ff-only",
+  "checked_at": "2026-05-23T12:00:00Z",
+  "binding_state": "binding_invalid",
+  "blocked_because": [
+    "plan_ref_mismatch"
+  ],
+  "source_refs": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_execution": true,
+    "does_not_create_runner": true
+  }
+}

@@ -220,6 +220,7 @@ steuerboard/
 │  ├─ observation-model.md
 │  ├─ assessment-model.md
 │  ├─ action-model.md
+│  ├─ approval-model.md
 │  ├─ planning-model.md
 │  ├─ evidence-model.md
 │  ├─ redaction-model.md
@@ -236,6 +237,7 @@ steuerboard/
 │  ├─ repo-observation.v1.schema.json
 │  ├─ repo-assessment.v1.schema.json
 │  ├─ action-plan.v1.schema.json
+│  ├─ action-approval.v1.schema.json
 │  ├─ action-capability.v1.schema.json
 │  ├─ command-trace.v1.schema.json
 │  ├─ run-result.v1.schema.json
@@ -247,6 +249,7 @@ steuerboard/
 │  ├─ observations/
 │  ├─ assessments/
 │  ├─ action-plans/
+│  ├─ action-approvals/
 │  ├─ evidence/
 │  └─ remote-refresh-results/
 │     ├─ fetch-origin-prune-success.json

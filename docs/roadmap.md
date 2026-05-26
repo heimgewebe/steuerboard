@@ -465,7 +465,7 @@ Boundary for this slice:
 
 ## Phase 7b.4 — Pull Readiness End-to-End Proof
 
-Status: started.
+Status: complete.
 
 Phase 7b.4 proves the non-mutating pull-antechamber chain end-to-end:
 
@@ -485,7 +485,8 @@ Scope in this slice:
   remote-freshness planning blocker
 - explicit assertion that planner output remains preview-only and blocked for
   execution scope (`execution_authorization`, `runner_contract`,
-  `user_approval` still missing)
+  `user_approval` still missing; concrete future approval artifact form is
+  `action-approval.v1`)
 
 Boundary for this slice:
 
@@ -498,3 +499,63 @@ Boundary for this slice:
 - no generic Git command execution surface
 - no Omnipull execution
 - no action-plan semantics change that would authorize execution
+
+## Phase 7c.1 — Action Approval Artifact Contract
+
+Status: complete.
+
+Phase 7c.1 introduces a narrow, expiring, plan-bound approval artifact:
+
+- schema: `action-approval.v1`
+- examples: approved and rejected approval artifacts
+- validation/test wiring for approval schema and examples
+- documentation model for approval semantics and boundary
+
+Scope in this slice:
+
+- schema, examples, validation, and docs only
+- `action-approval.v1` as artifact, not command
+- rejected approvals are first-class artifacts
+
+Boundary for this slice:
+
+- no runner
+- no pull
+- no execution
+- no UI
+- no generic subprocess surface
+- no generic Git execution surface
+
+## Phase 7c.2 — Action Approval Binding Validation
+
+Status: started.
+
+Phase 7c.2 adds a pure artifact validation slice that proves one approval binds
+exactly to one plan:
+
+- schema: `action-approval-validation.v1`
+- module: `steuerboard/action_approval_validations.py` (pure function, no I/O)
+- CLI: `python -m steuerboard approval validate <approval-json> --plan <plan-json> --checked-at <YYYY-MM-DDTHH:MM:SSZ> --json`
+- examples: binding-valid, rejected, expired, plan-mismatch
+- validation/test wiring for new schema and examples
+
+Scope in this slice:
+
+- pure artifact validation only
+- `checked_at` is always explicit; no hidden system time
+- `binding_state: binding_valid` means only: approval matches plan, is approved,
+  and is time-valid at `checked_at`; it does NOT mean execution is allowed
+
+Boundary for this slice:
+
+- no runner
+- no pull
+- no execution
+- no UI
+- no repo observation
+- no config read
+- no Git subprocess
+- no network
+- no mutation
+- no command advice
+- no execution authorisation

@@ -1,0 +1,22 @@
+{
+  "schema_version": "action-plan.v1",
+  "plan_id": "plan-git-pull-ff-only-2026-05-23-001",
+  "action": "git-pull-ff-only",
+  "assessment_ref": "assess-example-001",
+  "decision": "blocked",
+  "blocked_because": [
+    "git_pull_ff_only_evidence_missing_remote_freshness"
+  ],
+  "source_refs": [
+    "git.current_branch"
+  ],
+  "rule_refs": [],
+  "freshness_refs": [],
+  "falsification_refs": [],
+  "missing_evidence": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}
