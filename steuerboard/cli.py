@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -9,12 +10,42 @@ from .action_approval_validations import validate_action_approval_binding
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .action_runs import run_read_only_action
 from .assessment import assess_repo
+from .run_postchecks import run_read_only_postcheck
 from .assessment_explanations import explain_assessment
 from .inventory import build_duplicates_report, build_inventory, explain_scope
 from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
+
+
+def _emit_postcheck_inconclusive(reason: str) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    print(
+        json.dumps(
+            {
+                "schema_version": "run-postcheck.v1",
+                "postcheck_id": "postcheck-blocked-precondition",
+                "run_id": "unknown",
+                "trace_ref": "unknown",
+                "run_result_ref": "unknown",
+                "action": "git-status-read-only",
+                "repo_toplevel": "unknown",
+                "checked_at": checked_at,
+                "status": "inconclusive",
+                "observations": [],
+                "redaction_verified": False,
+                "failure_reasons": [reason],
+                "source_refs": [],
+                "evidence_paths": [],
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -294,6 +325,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit run-result.v1 JSON.",
     )
 
+    action_postcheck_read_only_parser = action_subparsers.add_parser(
+        "postcheck-read-only",
+        help=(
+            "Run a bounded read-only postcheck against a prior git-status-read-only run. "
+            "Validates command-trace.v1 and run-result.v1, re-runs git status, "
+            "and writes a run-postcheck.v1 artifact. "
+            "No mutation, no pull, no fetch, no free shell."
+        ),
+    )
+    action_postcheck_read_only_parser.add_argument(
+        "run_result_json",
+        help="Path to the run-result.v1 JSON file from the prior run.",
+    )
+    action_postcheck_read_only_parser.add_argument(
+        "--command-trace",
+        required=True,
+        help="Path to the command-trace.v1 JSON file from the prior run.",
+    )
+    action_postcheck_read_only_parser.add_argument(
+        "--repo-path",
+        required=True,
+        help="Explicit path to the local git repository to postcheck.",
+    )
+    action_postcheck_read_only_parser.add_argument(
+        "--postcheck-out",
+        required=True,
+        help="Output path for run-postcheck.v1 JSON. Must not already exist.",
+    )
+    action_postcheck_read_only_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit run-postcheck.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -514,6 +580,33 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 1
         print(json.dumps(run_result, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "postcheck-read-only":
+        try:
+            with Path(args.run_result_json).open("r", encoding="utf-8") as handle:
+                run_result_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_postcheck_inconclusive(f"invalid_run_result_json: {exc}")
+
+        try:
+            with Path(args.command_trace).open("r", encoding="utf-8") as handle:
+                command_trace_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_postcheck_inconclusive(f"invalid_command_trace_json: {exc}")
+
+        try:
+            postcheck = run_read_only_postcheck(
+                run_result=run_result_data,
+                command_trace=command_trace_data,
+                repo_path=args.repo_path,
+                postcheck_out=args.postcheck_out,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result_json,
+            )
+        except ValueError as exc:
+            return _emit_postcheck_inconclusive(str(exc))
+        print(json.dumps(postcheck, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")

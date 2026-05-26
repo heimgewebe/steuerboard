@@ -608,3 +608,71 @@ Boundary for this slice:
 - no UI
 - `does_not_execute`, `does_not_mutate`, `does_not_authorise_actions` remain
   true in plan artifacts produced by Phase 5/7a planners
+
+## Phase 8B — Run Postcheck + Run Record Binding
+
+Status: started.
+
+Phase 8B introduces a bounded read-only postcheck that makes Phase 8A execution
+evidence auditable. It is **not** a pull, **not** an approval runner, and **not**
+a mutating action. The next missing building block after Phase 8A is
+Postcheck/Record, not mutation.
+
+Premise:
+- Phase 8A is merged and proves bounded read-only execution evidence.
+- Stage D (mutating execution) remains future-only.
+- `git pull --ff-only` is not implemented in this phase.
+
+Command:
+
+```bash
+python -m steuerboard action postcheck-read-only <run-result-json> \
+  --command-trace <trace-json> \
+  --repo-path <repo-path> \
+  --postcheck-out <postcheck-json> \
+  --json
+```
+
+Scope in this slice:
+
+- new schema: `run-postcheck.v1` (evidence artifact, not authorisation)
+- new module: `steuerboard/run_postchecks.py`
+- only the `git-status-read-only` action is supported
+- reads and fully schema-validates `run-result.v1` and `command-trace.v1`
+- requires `run-result.v1.status == success`
+- requires `run-result.v1.evidence_paths` to include the supplied
+  `command-trace.v1` path (record binding)
+- validates the trace command is exactly the hardened git status command
+- requires `command-trace.v1.exit_code == 0`
+- requires `command-trace.v1.stdout_excerpt` for deterministic comparison
+- requires `run-result.v1.redaction_verified == true`
+- requires `command-trace.v1.redacted == true`
+- re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+- compares new status output against original trace `stdout_excerpt`
+- `status: passed` when outputs match and comparison basis is not truncated
+- `status: failed` with reason `worktree_changed_after_run` when they differ
+- `status: inconclusive` with reason `postcheck_command_failed` when recheck
+  command fails
+- `status: inconclusive` with reason `stdout_excerpt_truncated` when either
+  original or rechecked excerpt is truncated at the boundary
+- writes `run-postcheck.v1` via temp file + `os.replace()` (atomic)
+- on any precondition failure: no output written; schema-valid
+  `run-postcheck.v1` with `status: inconclusive` emitted to stdout
+
+Evidence chain produced by Phases 8A + 8B:
+
+1. `command-trace.v1` — what command ran, what it produced, redacted
+2. `run-result.v1` — run succeeded, redaction verified, trace referenced
+3. `run-postcheck.v1` — worktree state verified against original trace
+
+Boundary for this slice:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- no UI
+- output must be outside the inspected repository worktree
+
