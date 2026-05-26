@@ -1,0 +1,11 @@
+{
+  "evidence_paths": [
+    "examples/evidence/command-trace-read-only-pilot.json"
+  ],
+  "finished_at": "2026-05-26T10:00:01Z",
+  "redaction_verified": true,
+  "run_id": "run-read-only-example-pilot-001",
+  "schema_version": "run-result.v1",
+  "started_at": "2026-05-26T10:00:00Z",
+  "status": "success"
+}

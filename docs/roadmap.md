@@ -559,3 +559,52 @@ Boundary for this slice:
 - no mutation
 - no command advice
 - no execution authorisation
+
+## Phase 8A — Read-only Action Runner / Run Evidence Pilot
+
+Status: started.
+
+Phase 8A introduces the first bounded execution evidence slice. It proves that
+a hard-coded read-only action can be executed, traced, and verified — without
+authorising mutation.
+
+Command:
+
+```bash
+python -m steuerboard action run-read-only <action-plan-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --json
+```
+
+Scope in this slice:
+
+- single pilot action: `git-status-read-only`
+  (hard-coded productive traced command:
+  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`)
+- preflight Git commands (`rev-parse`) are hard-coded and read-only; they are
+  not the productive traced command
+- action plan must be schema-valid (`action-plan.v1`)
+- action must be in Phase 8A allowlist (exactly `git-status-read-only`)
+- all mutating actions (`git-pull-ff-only`, `switch-main`) are explicitly blocked
+- output paths validated before any execution: parent must exist, target must not
+- `command-trace.v1` artifact written with redaction flag set
+- `run-result.v1` artifact written referencing the trace path
+- stdout/stderr excerpts bounded to 2000 characters each
+- exit code normalised (signal → 128+abs)
+- on precondition failure: no partial output written
+
+New module: `steuerboard/action_runs.py`
+
+Boundary for this slice:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- no UI
+- `does_not_execute`, `does_not_mutate`, `does_not_authorise_actions` remain
+  true in plan artifacts produced by Phase 5/7a planners

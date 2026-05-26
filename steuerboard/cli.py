@@ -7,6 +7,7 @@ from typing import Sequence
 
 from .action_approval_validations import validate_action_approval_binding
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
+from .action_runs import run_read_only_action
 from .assessment import assess_repo
 from .assessment_explanations import explain_assessment
 from .inventory import build_duplicates_report, build_inventory, explain_scope
@@ -253,6 +254,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit omnipull-report-ref.v1 JSON.",
     )
 
+    action_parser = subparsers.add_parser(
+        "action",
+        help="Bounded action runner commands.",
+    )
+    action_subparsers = action_parser.add_subparsers(dest="action_command", required=True)
+
+    action_run_read_only_parser = action_subparsers.add_parser(
+        "run-read-only",
+        help=(
+            "Execute a single bounded read-only action from an action-plan.v1 artifact. "
+            "Writes command-trace.v1 and run-result.v1. "
+            "No mutation, no pull, no branch switch, no free shell."
+        ),
+    )
+    action_run_read_only_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file.",
+    )
+    action_run_read_only_parser.add_argument(
+        "--repo-path",
+        required=True,
+        help="Explicit path to the local git repository to operate on.",
+    )
+    action_run_read_only_parser.add_argument(
+        "--command-trace-out",
+        required=True,
+        help="Output path for command-trace.v1 JSON. Must not already exist.",
+    )
+    action_run_read_only_parser.add_argument(
+        "--run-result-out",
+        required=True,
+        help="Output path for run-result.v1 JSON. Must not already exist.",
+    )
+    action_run_read_only_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit run-result.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -440,6 +481,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "run-read-only":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"invalid action-plan JSON: {exc}")
+
+        try:
+            run_result = run_read_only_action(
+                action_plan=action_plan,
+                repo_path=args.repo_path,
+                command_trace_out=args.command_trace_out,
+                run_result_out=args.run_result_out,
+            )
+        except ValueError as exc:
+            print(
+                json.dumps(
+                    {
+                        "schema_version": "run-result.v1",
+                        "run_id": "run-blocked-precondition",
+                        "status": "blocked",
+                        "redaction_verified": True,
+                        "blocked_reasons": [str(exc)],
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 1
+        print(json.dumps(run_result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")

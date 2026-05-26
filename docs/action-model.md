@@ -60,6 +60,62 @@ Stage E: UI-triggered approved actions
 - no command advice
 - no Git subprocess
 
+## Phase 8A — Read-only Action Runner
+
+Phase 8A introduces a strictly bounded read-only runner for a single pilot action.
+
+Allowed actions in Phase 8A: `git-status-read-only` only.
+
+The runner:
+
+- takes an `action-plan.v1` artifact as input
+- validates the action plan fully against the `action-plan.v1` JSON Schema before execution
+- verifies the action is in the Phase 8A allowlist
+- explicitly blocks all mutating actions (`git-pull-ff-only`, `switch-main`)
+- executes exactly one productive traced Git command:
+  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+  with `GIT_OPTIONAL_LOCKS=0` in the environment
+- writes a `command-trace.v1` artifact (redacted)
+- writes a `run-result.v1` artifact referencing the trace
+- writes both artifacts via temp files and `os.replace()` with best-effort
+  rollback so handled failures do not leave final partial outputs
+
+The runner uses hard-coded Git subprocesses only; the traced productive command is:
+
+- `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+
+Preflight worktree/toplevel checks remain hard-coded and read-only. The runner
+does not expose a free shell, a generic subprocess surface, or mutating Git commands.
+
+Output invariants in this slice:
+
+- trace and run-result outputs must be different files
+- both outputs must be outside the inspected repository worktree
+- rationale: evidence generation must not mutate or stale the measured worktree status
+
+The runner does **not** authorise actions. Approval binding is not a precondition
+in this slice. Phase 8A proves only bounded read-only execution evidence.
+
+Command:
+
+```bash
+python -m steuerboard action run-read-only <action-plan-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --json
+```
+
+Boundary:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- output files must not pre-exist; parent directories must exist
+- on any precondition failure: no partial output written
+
 The planned `git-pull-ff-only` action is specified in
 `docs/git-pull-ff-only-contract.md`.
 

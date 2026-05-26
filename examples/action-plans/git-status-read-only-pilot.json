@@ -1,0 +1,19 @@
+{
+  "action": "git-status-read-only",
+  "assessment_ref": "assess-example-001",
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "decision": "not_applicable",
+  "falsification_refs": [],
+  "freshness_refs": [],
+  "missing_evidence": [],
+  "plan_id": "plan-git-status-read-only-2026-05-26-001",
+  "rule_refs": [],
+  "schema_version": "action-plan.v1",
+  "source_refs": [
+    "git.status_porcelain"
+  ]
+}
