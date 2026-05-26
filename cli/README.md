@@ -367,3 +367,59 @@ Boundary for Phase 8B:
 - output must be outside the inspected repository worktree
 - output file must not pre-exist; parent directory must exist
 
+Phase 8C introduces a read-only evidence-chain verifier for the artifacts already
+produced by Phases 8A and 8B. Phase 8C is **not** an execution step, **not** an
+approval runner, and **not** a pull gate. It validates internal chain coherence only.
+
+Command:
+
+    python -m steuerboard action validate-run-chain <action-plan-json> \
+      --command-trace <trace-json> \
+      --run-result <run-result-json> \
+      --run-postcheck <postcheck-json> \
+      --chain-out <chain-json> \
+      --json
+
+The command:
+
+- reads and fully schema-validates one `action-plan.v1`, `command-trace.v1`,
+  `run-result.v1`, and `run-postcheck.v1` JSON file
+- supports only `action == git-status-read-only` in this slice
+- validates that the trace command is exactly
+  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+- requires `command-trace.v1.exit_code == 0`
+- requires `command-trace.v1.redacted == true`
+- requires `run-result.v1.status == success`
+- requires `run-result.v1.redaction_verified == true`
+- requires `run-result.v1.evidence_paths` to include the provided trace path
+- requires `run-postcheck.v1.run_id`, `trace_ref`, and `run_result_ref` to bind
+  to the same run/trace/result chain
+- requires `run-postcheck.v1.redaction_verified == true`
+- writes one `run-evidence-chain.v1` artifact to `--chain-out`
+- emits `run-evidence-chain.v1` JSON on stdout
+
+Status contract:
+
+- `valid` means only: the four evidence artifacts are internally coherent
+- `invalid` means the chain is contradictory or the postcheck failed
+- `inconclusive` means the postcheck itself was inconclusive or chain validation
+  could not establish coherence
+
+Important boundary note:
+
+- a `valid` chain artifact does **not** authorise pull, fetch, switch, reset,
+  clean, merge, or any other action
+- Stage D remains future-only
+
+Boundary for Phase 8C:
+
+- no subprocess execution
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- no execution authorisation
+- `--chain-out` parent must exist and target must not already exist
+- `--chain-out` must not be written into the inspected repository when
+  `repo_toplevel` is known from the evidence chain
+

@@ -10,6 +10,7 @@ from .action_approval_validations import validate_action_approval_binding
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .action_runs import run_read_only_action
 from .assessment import assess_repo
+from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
 from .assessment_explanations import explain_assessment
 from .inventory import build_duplicates_report, build_inventory, explain_scope
@@ -39,6 +40,59 @@ def _emit_postcheck_inconclusive(reason: str) -> int:
                 "failure_reasons": [reason],
                 "source_refs": [],
                 "evidence_paths": [],
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
+
+
+def _emit_chain_inconclusive(
+    reason: str,
+    *,
+    action_plan_path: str,
+    command_trace_path: str,
+    run_result_path: str,
+    run_postcheck_path: str,
+) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    print(
+        json.dumps(
+            {
+                "schema_version": "run-evidence-chain.v1",
+                "chain_id": "chain-blocked-precondition",
+                "checked_at": checked_at,
+                "status": "inconclusive",
+                "action": "git-status-read-only",
+                "plan_ref": "unknown",
+                "trace_ref": "unknown",
+                "run_result_ref": "unknown",
+                "postcheck_ref": "unknown",
+                "run_id": "unknown",
+                "evidence_paths": [
+                    str(Path(action_plan_path).expanduser().resolve(strict=False)),
+                    str(Path(command_trace_path).expanduser().resolve(strict=False)),
+                    str(Path(run_result_path).expanduser().resolve(strict=False)),
+                    str(Path(run_postcheck_path).expanduser().resolve(strict=False)),
+                ],
+                "source_refs": [
+                    "action-plan.v1",
+                    "command-trace.v1",
+                    "run-result.v1",
+                    "run-postcheck.v1",
+                ],
+                "checks": [
+                    {
+                        "check": "preconditions_satisfied",
+                        "passed": False,
+                        "actual": reason,
+                    }
+                ],
+                "failure_reasons": [reason],
+                "redaction_verified": False,
             },
             indent=2,
             ensure_ascii=False,
@@ -360,6 +414,45 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit run-postcheck.v1 JSON.",
     )
 
+    action_validate_run_chain_parser = action_subparsers.add_parser(
+        "validate-run-chain",
+        help=(
+            "Validate one read-only evidence chain from action-plan.v1, command-trace.v1, "
+            "run-result.v1, and run-postcheck.v1. Writes run-evidence-chain.v1. "
+            "No execution, no pull, no fetch, no free shell."
+        ),
+    )
+    action_validate_run_chain_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file.",
+    )
+    action_validate_run_chain_parser.add_argument(
+        "--command-trace",
+        required=True,
+        help="Path to the command-trace.v1 JSON file for the run.",
+    )
+    action_validate_run_chain_parser.add_argument(
+        "--run-result",
+        required=True,
+        help="Path to the run-result.v1 JSON file for the run.",
+    )
+    action_validate_run_chain_parser.add_argument(
+        "--run-postcheck",
+        required=True,
+        help="Path to the run-postcheck.v1 JSON file for the run.",
+    )
+    action_validate_run_chain_parser.add_argument(
+        "--chain-out",
+        required=True,
+        help="Output path for run-evidence-chain.v1 JSON. Must not already exist.",
+    )
+    action_validate_run_chain_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit run-evidence-chain.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -607,6 +700,78 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             return _emit_postcheck_inconclusive(str(exc))
         print(json.dumps(postcheck, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "validate-run-chain":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_chain_inconclusive(
+                f"invalid_action_plan_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result,
+                run_postcheck_path=args.run_postcheck,
+            )
+
+        try:
+            with Path(args.command_trace).open("r", encoding="utf-8") as handle:
+                command_trace_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_chain_inconclusive(
+                f"invalid_command_trace_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result,
+                run_postcheck_path=args.run_postcheck,
+            )
+
+        try:
+            with Path(args.run_result).open("r", encoding="utf-8") as handle:
+                run_result_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_chain_inconclusive(
+                f"invalid_run_result_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result,
+                run_postcheck_path=args.run_postcheck,
+            )
+
+        try:
+            with Path(args.run_postcheck).open("r", encoding="utf-8") as handle:
+                run_postcheck_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_chain_inconclusive(
+                f"invalid_run_postcheck_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result,
+                run_postcheck_path=args.run_postcheck,
+            )
+
+        try:
+            chain = validate_run_evidence_chain(
+                action_plan=action_plan_data,
+                command_trace=command_trace_data,
+                run_result=run_result_data,
+                run_postcheck=run_postcheck_data,
+                action_plan_path=args.action_plan_json,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result,
+                run_postcheck_path=args.run_postcheck,
+                chain_out=args.chain_out,
+            )
+        except ValueError as exc:
+            return _emit_chain_inconclusive(
+                str(exc),
+                action_plan_path=args.action_plan_json,
+                command_trace_path=args.command_trace,
+                run_result_path=args.run_result,
+                run_postcheck_path=args.run_postcheck,
+            )
+        print(json.dumps(chain, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")

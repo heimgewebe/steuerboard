@@ -676,3 +676,70 @@ Boundary for this slice:
 - no UI
 - output must be outside the inspected repository worktree
 
+## Phase 8C — Run Evidence Chain Verifier
+
+Status: started.
+
+Phase 8C adds a pure artifact verifier for the read-only chain produced by
+Phases 8A and 8B. This phase does not execute anything new. It checks chain
+integrity only.
+
+Premise:
+
+- Phase 8A is merged.
+- Phase 8B is merged.
+- Stage D remains future-only.
+- `git pull --ff-only` is still not implemented here.
+
+Command:
+
+```bash
+python -m steuerboard action validate-run-chain <action-plan-json> \
+  --command-trace <trace-json> \
+  --run-result <run-result-json> \
+  --run-postcheck <postcheck-json> \
+  --chain-out <chain-json> \
+  --json
+```
+
+Scope in this slice:
+
+- new schema: `run-evidence-chain.v1` (evidence/validation artifact only)
+- new module: `steuerboard/run_evidence_chains.py`
+- supports only `git-status-read-only`
+- fully schema-validates `action-plan.v1`, `command-trace.v1`, `run-result.v1`,
+  and `run-postcheck.v1`
+- verifies exact hardened trace command shape
+- verifies `command-trace.v1.exit_code == 0`
+- verifies trace/result/postcheck redaction flags
+- verifies `run-result.v1.status == success`
+- verifies `run-result.v1.run_id == run-postcheck.v1.run_id`
+- verifies `run-result.v1.evidence_paths` includes the supplied trace path
+- verifies `run-postcheck.v1.trace_ref == command-trace.v1.trace_id`
+- verifies `run-postcheck.v1.run_result_ref == run-result.v1.run_id`
+- maps `run-postcheck.v1.status == passed` to chain `status: valid`
+- maps `run-postcheck.v1.status == failed` to chain `status: invalid`
+  with reason `postcheck_failed`
+- maps `run-postcheck.v1.status == inconclusive` to chain
+  `status: inconclusive` with reason `postcheck_inconclusive`
+
+Meaning of `valid` in this phase:
+
+- the evidence chain is internally coherent
+- it is not execution permission
+- it does not authorise pull
+
+Boundary for this slice:
+
+- no subprocess calls
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- no execution authorisation
+- no UI
+- `--chain-out` parent must exist and target must not pre-exist
+- `--chain-out` must stay outside the inspected repo when `repo_toplevel` is known
+
+Stage D remains future-only after this phase.
+

@@ -199,6 +199,61 @@ Trace + run-result + postcheck form a verifiable, auditable chain:
 
 Stage D (approved mutating execution) is not implemented in this phase.
 
+## Phase 8C — Run Evidence Chain Verifier
+
+Phase 8C introduces a pure evidence-chain validation artifact. It reads the
+existing Phase 8A/8B artifacts, validates them as one coherent chain, and emits
+`run-evidence-chain.v1`.
+
+Phase 8C is not execution.
+Phase 8C is not authorisation.
+Phase 8C is not a pull gate.
+
+Command:
+
+```bash
+python -m steuerboard action validate-run-chain <action-plan-json> \
+  --command-trace <trace-json> \
+  --run-result <run-result-json> \
+  --run-postcheck <postcheck-json> \
+  --chain-out <chain-json> \
+  --json
+```
+
+The verifier:
+
+- validates all four input artifacts fully against their JSON Schemas
+- supports only `action == "git-status-read-only"` in this slice
+- checks that the trace command is exactly the hardened read-only git status command
+- checks redaction and success invariants across trace, run-result, and postcheck
+- checks binding invariants across `run_id`, `trace_ref`, `run_result_ref`, and
+  `run-result.v1.evidence_paths`
+- emits `run-evidence-chain.v1` with `status: valid | invalid | inconclusive`
+
+Status meaning:
+
+- `valid` means only internal evidence-chain coherence
+- `invalid` means the evidence contradicts itself or the postcheck failed
+- `inconclusive` means the postcheck was inconclusive or the verifier could not
+  establish chain coherence from the supplied artifacts
+
+`run-evidence-chain.v1` is an evidence artifact, not an authorisation mechanism.
+A `valid` chain does not authorise pull, fetch, switch, merge, rebase, reset,
+clean, or any other action.
+
+Boundary:
+
+- no subprocess calls
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- output file parent must exist and target must not pre-exist
+- output file must stay outside the inspected repository when the chain exposes
+  `repo_toplevel`
+
+Stage D remains future-only.
+
 ## Contract Note: Redefinition of action-plan.v1
 Previous examples in Phase 0b used executor-oriented placeholders (`would_run`, `would_mutate`).
 The current slice redefines `action-plan.v1` as a preview-only contract artifact derived from assessment, not as an executor interface.
