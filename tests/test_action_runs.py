@@ -544,7 +544,7 @@ def test_invalid_plan_empty_source_refs_is_blocked(tmp_path: Path):
     assert not (artifacts / "result.json").exists()
 
 
-def test_cli_blocked_output_validates_against_run_result_schema(tmp_path: Path):
+def test_cli_blocked_output_is_schema_valid(tmp_path: Path):
     """The blocked JSON emitted by the CLI must be valid against run-result.v1."""
     repo = tmp_path / "repo"
     _init_repo(repo)

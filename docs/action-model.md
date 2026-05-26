@@ -72,7 +72,7 @@ The runner:
 - validates the action plan fully against the `action-plan.v1` JSON Schema before execution
 - verifies the action is in the Phase 8A allowlist
 - explicitly blocks all mutating actions (`git-pull-ff-only`, `switch-main`)
-- executes exactly one hard-coded read-only Git subprocess:
+- executes exactly one productive traced Git command:
   `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
   with `GIT_OPTIONAL_LOCKS=0` in the environment
 - writes a `command-trace.v1` artifact (redacted)
