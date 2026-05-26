@@ -351,6 +351,15 @@ def test_example_run_result_blocked_is_valid():
     assert result["status"] == "blocked"
 
 
+def test_example_run_result_read_only_blocked_is_valid():
+    result_path = ROOT / "examples" / "run-results" / "run-read-only-blocked.json"
+    assert result_path.exists()
+    result = load_json(result_path)
+    schema = load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
+    validate_instance(result, schema, result_path)
+    assert result["status"] == "blocked"
+
+
 # ---------------------------------------------------------------------------
 # CLI integration: --json output and exit codes
 # ---------------------------------------------------------------------------

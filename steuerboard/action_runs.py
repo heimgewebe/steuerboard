@@ -10,7 +10,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .schema_validation import SchemaValidationError, validate_instance
+try:
+    from jsonschema import ValidationError as SchemaValidationError
+    from jsonschema import validate as jsonschema_validate
+except ModuleNotFoundError:  # pragma: no cover - exercised by subprocess test environments
+    from .schema_validation import SchemaValidationError, validate_instance as jsonschema_validate
 
 
 # Phase 8A allowlist: exactly one bounded read-only pilot action.
@@ -109,7 +113,7 @@ def _validate_action_plan_schema(action_plan: Any) -> str:
         raise ValueError("action_plan must be a JSON object")
     schema = _get_action_plan_schema()
     try:
-        validate_instance(action_plan, schema)
+        jsonschema_validate(instance=action_plan, schema=schema)
     except SchemaValidationError as exc:
         raise ValueError(
             f"action_plan does not validate against action-plan.v1: {exc}"

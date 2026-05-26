@@ -79,11 +79,12 @@ The runner:
 - writes a `run-result.v1` artifact referencing the trace
 - writes both artifacts atomically via temp files and `os.replace()`
 
-The runner uses exactly one hard-coded Git subprocess and no generic subprocess surface:
+The runner uses hard-coded Git subprocesses only; the traced productive command is:
 
 - `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
-- no free shell
-- no mutating Git commands
+
+Preflight worktree/toplevel checks remain hard-coded and read-only. The runner
+does not expose a free shell, a generic subprocess surface, or mutating Git commands.
 
 The runner does **not** authorise actions. Approval binding is not a precondition
 in this slice. Phase 8A proves only bounded read-only execution evidence.
