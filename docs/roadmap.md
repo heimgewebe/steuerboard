@@ -581,7 +581,10 @@ python -m steuerboard action run-read-only <action-plan-json> \
 Scope in this slice:
 
 - single pilot action: `git-status-read-only`
-  (hard-coded: `git -C <repo-toplevel> status --porcelain`)
+  (hard-coded productive traced command:
+  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`)
+- preflight Git commands (`rev-parse`) are hard-coded and read-only; they are
+  not the productive traced command
 - action plan must be schema-valid (`action-plan.v1`)
 - action must be in Phase 8A allowlist (exactly `git-status-read-only`)
 - all mutating actions (`git-pull-ff-only`, `switch-main`) are explicitly blocked

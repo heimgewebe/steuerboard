@@ -1,10 +1,11 @@
 {
   "command": [
     "git",
+    "--no-optional-locks",
     "-C",
     "/path/to/repo",
     "status",
-    "--porcelain"
+    "--porcelain=v1"
   ],
   "exit_code": 0,
   "redacted": true,

@@ -128,12 +128,13 @@ def _write_artifacts_atomic(
     run_result_target: Path,
     run_result_data: dict[str, Any],
 ) -> None:
-    """Write trace and run-result atomically using temp files + os.replace().
+    """Write trace and run-result via temp files with best-effort rollback.
 
     Both artifacts are written to temp files first.  Only after both are fully
-    written are they committed with os.replace().  If the second replace fails,
-    the first output is removed again so the final state never contains a half
-    completed pair.  Any remaining temp files are cleaned up on error.
+    written are they committed with os.replace().  This is not a filesystem
+    transaction across two files. If the second replace fails, the first output
+    is removed again so handled failures do not leave final partial outputs.
+    Any remaining temp files are cleaned up on error.
     """
     trace_tmp: Path | None = None
     run_result_tmp: Path | None = None
@@ -301,11 +302,11 @@ def run_read_only_action(
         "evidence_paths": [str(trace_target)],
     }
 
-    # --- Write outputs atomically ---
+    # --- Write outputs via temp files with best-effort rollback ---
     # Both artifacts are written to temp files in their target directories first.
     # Only after both temp files are fully flushed are they committed via os.replace().
-    # On any exception during this phase the finally block deletes all temp files,
-    # ensuring no orphaned partial artifacts are left on disk.
+    # On any exception during this phase temp files are cleaned up and, when needed,
+    # first-output rollback avoids final partial outputs for handled write failures.
     _write_artifacts_atomic(trace_target, trace, run_result_target, run_result)
 
     return run_result

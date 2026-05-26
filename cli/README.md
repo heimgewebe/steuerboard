@@ -260,18 +260,23 @@ Command:
 
 The command:
 
-- reads one `action-plan.v1` JSON file (must be schema-valid)
+- reads one `action-plan.v1` JSON file and validates it fully against the
+  `action-plan.v1` JSON Schema
 - checks the action against the Phase 8A allowlist (only `git-status-read-only` allowed)
 - explicitly blocks all mutating actions (`git-pull-ff-only`, `switch-main`)
-- resolves `--repo-path` to a git toplevel
-- executes exactly: `git -C <repo-toplevel> status --porcelain`
+- runs hard-coded read-only preflight Git commands to resolve and verify
+  worktree/toplevel (`rev-parse` checks)
+- executes exactly one productive traced command:
+  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
 - writes a redacted `command-trace.v1` artifact to `--command-trace-out`
 - writes a `run-result.v1` artifact to `--run-result-out` referencing the trace
 - emits `run-result.v1` JSON on stdout
 
 On precondition failure (missing parent directory, output file already exists,
 action not allowed), the command emits a blocked `run-result.v1` JSON on stdout
-and exits with code 1. No partial output files are written.
+and exits with code 1 using `blocked_reasons` for diagnostics. Writes use temp
+files and best-effort rollback so precondition failures and handled write
+failures do not leave final partial outputs.
 
 The runner does **not** authorise actions. Approval binding is not a
 precondition in Phase 8A. This slice proves only bounded read-only execution evidence.

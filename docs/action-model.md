@@ -77,7 +77,8 @@ The runner:
   with `GIT_OPTIONAL_LOCKS=0` in the environment
 - writes a `command-trace.v1` artifact (redacted)
 - writes a `run-result.v1` artifact referencing the trace
-- writes both artifacts atomically via temp files and `os.replace()`
+- writes both artifacts via temp files and `os.replace()` with best-effort
+  rollback so handled failures do not leave final partial outputs
 
 The runner uses hard-coded Git subprocesses only; the traced productive command is:
 

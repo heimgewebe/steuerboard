@@ -333,6 +333,20 @@ def test_example_command_trace_read_only_pilot_is_valid():
     assert trace["redacted"] is True
 
 
+def test_example_command_trace_read_only_pilot_uses_hardened_command():
+    trace_path = ROOT / "examples" / "evidence" / "command-trace-read-only-pilot.json"
+    assert trace_path.exists()
+    trace = load_json(trace_path)
+    assert trace["command"] == [
+        "git",
+        "--no-optional-locks",
+        "-C",
+        "/path/to/repo",
+        "status",
+        "--porcelain=v1",
+    ]
+
+
 def test_example_run_result_read_only_success_is_valid():
     result_path = ROOT / "examples" / "run-results" / "run-read-only-success.json"
     assert result_path.exists()
