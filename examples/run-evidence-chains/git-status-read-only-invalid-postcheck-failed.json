@@ -10,6 +10,12 @@
       "passed": true
     },
     {
+      "actual": "absent",
+      "check": "plan_binding_available",
+      "expected": "plan_ref or plan_content_sha256",
+      "passed": false
+    },
+    {
       "actual": "failed",
       "check": "postcheck_status_passed_for_valid",
       "expected": "passed",
@@ -23,7 +29,8 @@
     "/workspace/examples/run-postchecks/git-status-read-only-failed.json"
   ],
   "failure_reasons": [
-    "postcheck_failed"
+    "postcheck_failed",
+    "plan_binding_unavailable"
   ],
   "plan_ref": "plan-git-status-read-only-2026-05-26-001",
   "postcheck_ref": "postcheck-read-only-example-failed-001",
