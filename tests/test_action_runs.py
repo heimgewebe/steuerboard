@@ -659,3 +659,210 @@ def test_no_partial_final_outputs_on_second_write_failure(tmp_path: Path):
     assert tmp_files == [], f"orphaned temp files found: {tmp_files}"
     assert not (artifacts / "trace.json").exists()
     assert not (artifacts / "result.json").exists()
+
+
+def test_rejects_identical_trace_and_run_result_paths(tmp_path: Path):
+    import unittest.mock as mock
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    same_path = artifacts / "same.json"
+
+    with mock.patch("steuerboard.action_runs.subprocess.run") as run_mock:
+        with pytest.raises(ValueError, match="must be different files"):
+            run_read_only_action(
+                action_plan=_pilot_plan(),
+                repo_path=str(repo),
+                command_trace_out=str(same_path),
+                run_result_out=str(same_path),
+            )
+    # Must fail before any git command.
+    run_mock.assert_not_called()
+    assert not same_path.exists()
+
+
+def test_cli_rejects_identical_trace_and_run_result_paths_schema_valid(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    same_path = artifacts / "same.json"
+
+    plan = _pilot_plan()
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "run-read-only",
+            str(plan_path),
+            "--repo-path",
+            str(repo),
+            "--command-trace-out",
+            str(same_path),
+            "--run-result-out",
+            str(same_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    validate_instance(output, _run_result_schema(), Path("cli-identical-paths-blocked.json"))
+    assert output["status"] == "blocked"
+    assert not same_path.exists()
+
+
+def test_rejects_trace_output_inside_inspected_repo(tmp_path: Path):
+    import unittest.mock as mock
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    outside = tmp_path / "artifacts"
+    outside.mkdir()
+
+    inside_trace = repo / "trace.json"
+    outside_result = outside / "result.json"
+
+    def fake_git(command, **kwargs):
+        # Allow only preflight checks; status command must never run.
+        if command[-2:] == ["rev-parse", "--is-inside-work-tree"]:
+            return mock.Mock(returncode=0, stdout="true\n", stderr="")
+        if command[-1] == "--show-toplevel":
+            return mock.Mock(returncode=0, stdout=f"{repo}\n", stderr="")
+        if "status" in command:
+            raise AssertionError("git status must not be executed")
+        raise AssertionError(f"unexpected git command: {command}")
+
+    with mock.patch("steuerboard.action_runs.subprocess.run", side_effect=fake_git):
+        with pytest.raises(ValueError, match="must not be inside the inspected repository"):
+            run_read_only_action(
+                action_plan=_pilot_plan(),
+                repo_path=str(repo),
+                command_trace_out=str(inside_trace),
+                run_result_out=str(outside_result),
+            )
+
+    assert not inside_trace.exists()
+    assert not outside_result.exists()
+
+
+def test_rejects_run_result_output_inside_inspected_repo(tmp_path: Path):
+    import unittest.mock as mock
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    outside = tmp_path / "artifacts"
+    outside.mkdir()
+
+    outside_trace = outside / "trace.json"
+    inside_result = repo / "result.json"
+
+    def fake_git(command, **kwargs):
+        # Allow only preflight checks; status command must never run.
+        if command[-2:] == ["rev-parse", "--is-inside-work-tree"]:
+            return mock.Mock(returncode=0, stdout="true\n", stderr="")
+        if command[-1] == "--show-toplevel":
+            return mock.Mock(returncode=0, stdout=f"{repo}\n", stderr="")
+        if "status" in command:
+            raise AssertionError("git status must not be executed")
+        raise AssertionError(f"unexpected git command: {command}")
+
+    with mock.patch("steuerboard.action_runs.subprocess.run", side_effect=fake_git):
+        with pytest.raises(ValueError, match="must not be inside the inspected repository"):
+            run_read_only_action(
+                action_plan=_pilot_plan(),
+                repo_path=str(repo),
+                command_trace_out=str(outside_trace),
+                run_result_out=str(inside_result),
+            )
+
+    assert not outside_trace.exists()
+    assert not inside_result.exists()
+
+
+def test_cli_rejects_trace_output_inside_inspected_repo_schema_valid(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    outside = tmp_path / "artifacts"
+    outside.mkdir()
+
+    inside_trace = repo / "trace.json"
+    outside_result = outside / "result.json"
+
+    plan = _pilot_plan()
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "run-read-only",
+            str(plan_path),
+            "--repo-path",
+            str(repo),
+            "--command-trace-out",
+            str(inside_trace),
+            "--run-result-out",
+            str(outside_result),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    validate_instance(output, _run_result_schema(), Path("cli-inside-trace-blocked.json"))
+    assert output["status"] == "blocked"
+    assert not inside_trace.exists()
+    assert not outside_result.exists()
+
+
+def test_cli_rejects_run_result_output_inside_inspected_repo_schema_valid(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    outside = tmp_path / "artifacts"
+    outside.mkdir()
+
+    outside_trace = outside / "trace.json"
+    inside_result = repo / "result.json"
+
+    plan = _pilot_plan()
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "run-read-only",
+            str(plan_path),
+            "--repo-path",
+            str(repo),
+            "--command-trace-out",
+            str(outside_trace),
+            "--run-result-out",
+            str(inside_result),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    validate_instance(output, _run_result_schema(), Path("cli-inside-result-blocked.json"))
+    assert output["status"] == "blocked"
+    assert not outside_trace.exists()
+    assert not inside_result.exists()

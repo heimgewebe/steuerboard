@@ -60,13 +60,23 @@ def _utc_rfc3339_now() -> str:
 
 def _require_output_path(raw: str, label: str) -> Path:
     """Return resolved Path; raise ValueError if parent missing or target exists."""
-    target = Path(raw).expanduser().resolve()
+    candidate = Path(raw).expanduser()
+    target = candidate.resolve()
     parent = target.parent
     if not parent.exists() or not parent.is_dir():
         raise ValueError(f"{label} parent directory must exist")
     if target.exists():
         raise ValueError(f"{label} must not already exist")
-    return target
+    # Normalize via strict parent resolution so semantically equivalent paths compare equal.
+    return parent.resolve(strict=True) / target.name
+
+
+def _is_path_inside(parent: Path, child: Path) -> bool:
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
 
 
 def _excerpt(value: str) -> str:
@@ -224,6 +234,8 @@ def run_read_only_action(
     # --- Precondition: validate output paths before touching the filesystem ---
     trace_target = _require_output_path(command_trace_out, "command_trace_out")
     run_result_target = _require_output_path(run_result_out, "run_result_out")
+    if trace_target == run_result_target:
+        raise ValueError("command_trace_out and run_result_out must be different files")
 
     # --- Precondition: repo path must be a git worktree ---
     repo = Path(repo_path).expanduser().resolve()
@@ -255,7 +267,16 @@ def run_read_only_action(
     )
     if toplevel_result.returncode != 0 or not toplevel_result.stdout.strip():
         raise ValueError("cannot resolve git toplevel for repo_path")
-    repo_toplevel = Path(toplevel_result.stdout.strip())
+    repo_toplevel = Path(toplevel_result.stdout.strip()).resolve()
+
+    # Evidence artifacts must stay outside the inspected repository worktree so
+    # the read-only status signal is not invalidated by runner output writes.
+    for label, target in (
+        ("command_trace_out", trace_target),
+        ("run_result_out", run_result_target),
+    ):
+        if _is_path_inside(repo_toplevel, target):
+            raise ValueError(f"{label} must not be inside the inspected repository")
 
     # --- Execute the bounded command ---
     # The command is fully hard-coded. No user-supplied fragments are inserted.

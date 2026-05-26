@@ -272,6 +272,13 @@ The command:
 - writes a `run-result.v1` artifact to `--run-result-out` referencing the trace
 - emits `run-result.v1` JSON on stdout
 
+Output path invariants:
+
+- `--command-trace-out` and `--run-result-out` must be different final files
+- both output paths must be outside the inspected repository worktree
+- reason: evidence writing must not mutate the inspected worktree or stale the
+  status signal it is proving
+
 On precondition failure (missing parent directory, output file already exists,
 action not allowed), the command emits a blocked `run-result.v1` JSON on stdout
 and exits with code 1 using `blocked_reasons` for diagnostics. Writes use temp

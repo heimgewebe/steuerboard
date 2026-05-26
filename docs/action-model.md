@@ -87,6 +87,12 @@ The runner uses hard-coded Git subprocesses only; the traced productive command 
 Preflight worktree/toplevel checks remain hard-coded and read-only. The runner
 does not expose a free shell, a generic subprocess surface, or mutating Git commands.
 
+Output invariants in this slice:
+
+- trace and run-result outputs must be different files
+- both outputs must be outside the inspected repository worktree
+- rationale: evidence generation must not mutate or stale the measured worktree status
+
 The runner does **not** authorise actions. Approval binding is not a precondition
 in this slice. Phase 8A proves only bounded read-only execution evidence.
 
