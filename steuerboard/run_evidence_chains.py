@@ -330,6 +330,8 @@ def validate_run_evidence_chain(
     if not postcheck_redaction:
         hard_failure_reasons.append("postcheck_redaction_unverified")
 
+    # TODO: implement plan-binding verification (plan_ref / plan_content_sha256 cross-check)
+    # when a canonical plan registry is available; for now binding is always unprovable.
     plan_binding_proven = False
     _record_check(
         checks,
@@ -338,8 +340,7 @@ def validate_run_evidence_chain(
         expected="plan_ref or plan_content_sha256",
         actual="absent",
     )
-    if not plan_binding_proven:
-        inconclusive_reasons.append("plan_binding_unavailable")
+    inconclusive_reasons.append("plan_binding_unavailable")
 
     postcheck_status = run_postcheck["status"]
     postcheck_passed = postcheck_status == "passed"
@@ -365,7 +366,7 @@ def validate_run_evidence_chain(
         unique_failure_reasons = _dedupe_preserve_order(inconclusive_reasons)
     else:
         status = "valid"
-        unique_failure_reasons = []
+        unique_failure_reasons: list[str] = []
 
     source_refs = _dedupe_preserve_order(
         [
