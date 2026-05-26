@@ -197,7 +197,7 @@ def test_invalid_when_trace_missing_from_run_result_evidence_paths(tmp_path: Pat
         result["evidence_paths"] = [str(paths["run_result"].resolve())]
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "invalid"
     assert "trace_path_missing_from_run_result" in chain["failure_reasons"]
 
 
@@ -206,7 +206,7 @@ def test_invalid_when_postcheck_trace_ref_mismatches(tmp_path: Path):
         postcheck["trace_ref"] = "trace-other"
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "invalid"
     assert "postcheck_trace_ref_mismatch" in chain["failure_reasons"]
 
 
@@ -215,7 +215,7 @@ def test_invalid_when_postcheck_run_result_ref_mismatches(tmp_path: Path):
         postcheck["run_result_ref"] = "run-other"
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "invalid"
     assert "postcheck_run_result_ref_mismatch" in chain["failure_reasons"]
 
 
@@ -224,7 +224,7 @@ def test_invalid_when_run_result_not_success(tmp_path: Path):
         result["status"] = "failure"
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "invalid"
     assert "run_result_not_success" in chain["failure_reasons"]
 
 
@@ -233,7 +233,7 @@ def test_invalid_when_trace_exit_code_nonzero(tmp_path: Path):
         trace["exit_code"] = 1
 
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "invalid"
     assert "trace_exit_code_nonzero" in chain["failure_reasons"]
 
 
@@ -313,3 +313,60 @@ def test_no_subprocess_calls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(subprocess, "run", fail)
     chain = _validate_happy_chain(tmp_path)
     assert chain["status"] == "inconclusive"
+
+
+def test_invalid_when_postcheck_missing_trace_evidence_path(tmp_path: Path):
+    def mutate(_plan, _trace, _result, postcheck, paths):
+        postcheck["evidence_paths"] = [str(paths["run_result"].resolve())]
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "invalid"
+    assert "postcheck_missing_trace_evidence_path" in chain["failure_reasons"]
+
+
+def test_invalid_when_postcheck_missing_run_result_evidence_path(tmp_path: Path):
+    def mutate(_plan, _trace, _result, postcheck, paths):
+        postcheck["evidence_paths"] = [str(paths["command_trace"].resolve())]
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "invalid"
+    assert "postcheck_missing_run_result_evidence_path" in chain["failure_reasons"]
+
+
+def test_inconclusive_when_clean_chain_but_plan_binding_unavailable(tmp_path: Path):
+    chain = _validate_happy_chain(tmp_path)
+    assert chain["status"] == "inconclusive"
+    assert chain["failure_reasons"] == ["plan_binding_unavailable"]
+
+
+def test_cli_emits_schema_valid_sentinel_on_precondition_failure(tmp_path: Path):
+    _base_artifacts(tmp_path)
+    inputs = tmp_path / "inputs"
+    bad_plan = inputs / "plan.json"
+    bad_plan.write_text("not valid json", encoding="utf-8")
+    output = tmp_path / "outputs" / "chain-sentinel.json"
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-run-chain",
+            str(bad_plan),
+            "--command-trace",
+            str(inputs / "trace.json"),
+            "--run-result",
+            str(inputs / "run-result.json"),
+            "--run-postcheck",
+            str(inputs / "postcheck.json"),
+            "--chain-out",
+            str(output),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _chain_schema(), Path("cli-sentinel.json"))
+    assert payload["status"] == "inconclusive"
+    assert "failure_reasons" in payload

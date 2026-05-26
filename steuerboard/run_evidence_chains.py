@@ -163,7 +163,8 @@ def validate_run_evidence_chain(
                 raise ValueError("chain_out must not be inside the inspected repository")
 
     checks: list[dict[str, Any]] = []
-    failure_reasons: list[str] = []
+    hard_failure_reasons: list[str] = []
+    inconclusive_reasons: list[str] = []
 
     supported_action = action_plan["action"] == "git-status-read-only"
     _record_check(
@@ -174,7 +175,7 @@ def validate_run_evidence_chain(
         actual=str(action_plan.get("action")),
     )
     if not supported_action:
-        failure_reasons.append("unsupported_action")
+        hard_failure_reasons.append("unsupported_action")
 
     try:
         validated_trace_repo_toplevel = _validate_trace_command(command_trace["command"])
@@ -193,7 +194,7 @@ def validate_run_evidence_chain(
         actual=trace_command_error,
     )
     if not trace_command_exact:
-        failure_reasons.append("trace_command_mismatch")
+        hard_failure_reasons.append("trace_command_mismatch")
 
     trace_exit_code_ok = command_trace["exit_code"] == 0
     _record_check(
@@ -204,7 +205,7 @@ def validate_run_evidence_chain(
         actual=str(command_trace.get("exit_code")),
     )
     if not trace_exit_code_ok:
-        failure_reasons.append("trace_exit_code_nonzero")
+        hard_failure_reasons.append("trace_exit_code_nonzero")
 
     trace_redacted = command_trace["redacted"] is True
     _record_check(
@@ -215,7 +216,7 @@ def validate_run_evidence_chain(
         actual=json.dumps(command_trace.get("redacted")),
     )
     if not trace_redacted:
-        failure_reasons.append("trace_not_redacted")
+        hard_failure_reasons.append("trace_not_redacted")
 
     run_result_success = run_result["status"] == "success"
     _record_check(
@@ -226,7 +227,7 @@ def validate_run_evidence_chain(
         actual=str(run_result.get("status")),
     )
     if not run_result_success:
-        failure_reasons.append("run_result_not_success")
+        hard_failure_reasons.append("run_result_not_success")
 
     run_result_redaction = run_result["redaction_verified"] is True
     _record_check(
@@ -237,7 +238,7 @@ def validate_run_evidence_chain(
         actual=json.dumps(run_result.get("redaction_verified")),
     )
     if not run_result_redaction:
-        failure_reasons.append("run_result_redaction_unverified")
+        hard_failure_reasons.append("run_result_redaction_unverified")
 
     run_ids_match = run_result["run_id"] == run_postcheck["run_id"]
     _record_check(
@@ -248,7 +249,7 @@ def validate_run_evidence_chain(
         actual=str(run_postcheck.get("run_id")),
     )
     if not run_ids_match:
-        failure_reasons.append("run_id_mismatch")
+        hard_failure_reasons.append("run_id_mismatch")
 
     normalized_trace_path = _normalize_path_string(command_trace_path)
     normalized_result_evidence = {
@@ -265,7 +266,36 @@ def validate_run_evidence_chain(
         actual=json.dumps(sorted(normalized_result_evidence), ensure_ascii=False),
     )
     if not trace_path_bound:
-        failure_reasons.append("trace_path_missing_from_run_result")
+        hard_failure_reasons.append("trace_path_missing_from_run_result")
+
+    normalized_result_path = _normalize_path_string(run_result_path)
+    normalized_postcheck_evidence = {
+        _normalize_path_string(path)
+        for path in run_postcheck.get("evidence_paths", [])
+        if isinstance(path, str) and path
+    }
+
+    postcheck_trace_evidence_bound = normalized_trace_path in normalized_postcheck_evidence
+    _record_check(
+        checks,
+        check="postcheck_includes_trace_path",
+        passed=postcheck_trace_evidence_bound,
+        expected=normalized_trace_path,
+        actual=json.dumps(sorted(normalized_postcheck_evidence), ensure_ascii=False),
+    )
+    if not postcheck_trace_evidence_bound:
+        hard_failure_reasons.append("postcheck_missing_trace_evidence_path")
+
+    postcheck_result_evidence_bound = normalized_result_path in normalized_postcheck_evidence
+    _record_check(
+        checks,
+        check="postcheck_includes_run_result_path",
+        passed=postcheck_result_evidence_bound,
+        expected=normalized_result_path,
+        actual=json.dumps(sorted(normalized_postcheck_evidence), ensure_ascii=False),
+    )
+    if not postcheck_result_evidence_bound:
+        hard_failure_reasons.append("postcheck_missing_run_result_evidence_path")
 
     postcheck_trace_matches = run_postcheck["trace_ref"] == command_trace["trace_id"]
     _record_check(
@@ -276,7 +306,7 @@ def validate_run_evidence_chain(
         actual=str(run_postcheck.get("trace_ref")),
     )
     if not postcheck_trace_matches:
-        failure_reasons.append("postcheck_trace_ref_mismatch")
+        hard_failure_reasons.append("postcheck_trace_ref_mismatch")
 
     postcheck_result_matches = run_postcheck["run_result_ref"] == run_result["run_id"]
     _record_check(
@@ -287,7 +317,7 @@ def validate_run_evidence_chain(
         actual=str(run_postcheck.get("run_result_ref")),
     )
     if not postcheck_result_matches:
-        failure_reasons.append("postcheck_run_result_ref_mismatch")
+        hard_failure_reasons.append("postcheck_run_result_ref_mismatch")
 
     postcheck_redaction = run_postcheck["redaction_verified"] is True
     _record_check(
@@ -298,17 +328,7 @@ def validate_run_evidence_chain(
         actual=json.dumps(run_postcheck.get("redaction_verified")),
     )
     if not postcheck_redaction:
-        failure_reasons.append("postcheck_redaction_unverified")
-
-    postcheck_status = run_postcheck["status"]
-    postcheck_passed = postcheck_status == "passed"
-    _record_check(
-        checks,
-        check="postcheck_status_passed_for_valid",
-        passed=postcheck_passed,
-        expected="passed",
-        actual=str(postcheck_status),
-    )
+        hard_failure_reasons.append("postcheck_redaction_unverified")
 
     plan_binding_proven = False
     _record_check(
@@ -319,25 +339,33 @@ def validate_run_evidence_chain(
         actual="absent",
     )
     if not plan_binding_proven:
-        failure_reasons.append("plan_binding_unavailable")
+        inconclusive_reasons.append("plan_binding_unavailable")
+
+    postcheck_status = run_postcheck["status"]
+    postcheck_passed = postcheck_status == "passed"
+    _record_check(
+        checks,
+        check="postcheck_status_passed_for_valid",
+        passed=postcheck_passed,
+        expected="passed",
+        actual=str(postcheck_status),
+    )
+    if postcheck_status == "failed":
+        hard_failure_reasons.append("postcheck_failed")
+    elif postcheck_status == "inconclusive":
+        inconclusive_reasons.append("postcheck_inconclusive")
 
     redaction_verified = trace_redacted and run_result_redaction and postcheck_redaction
 
-    unique_failure_reasons = _dedupe_preserve_order(failure_reasons)
-    if postcheck_status == "inconclusive":
-        status = "inconclusive"
-        unique_failure_reasons = _dedupe_preserve_order(
-            ["postcheck_inconclusive", *unique_failure_reasons]
-        )
-    elif postcheck_status == "failed":
+    if hard_failure_reasons:
         status = "invalid"
-        unique_failure_reasons = _dedupe_preserve_order(["postcheck_failed", *unique_failure_reasons])
-    elif "plan_binding_unavailable" in unique_failure_reasons:
+        unique_failure_reasons = _dedupe_preserve_order(hard_failure_reasons + inconclusive_reasons)
+    elif inconclusive_reasons:
         status = "inconclusive"
-    elif unique_failure_reasons:
-        status = "invalid"
+        unique_failure_reasons = _dedupe_preserve_order(inconclusive_reasons)
     else:
         status = "valid"
+        unique_failure_reasons = []
 
     source_refs = _dedupe_preserve_order(
         [
