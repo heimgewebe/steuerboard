@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import sys
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from steuerboard.action_runs import (
     run_read_only_action,
     _excerpt,
     _EXCERPT_LIMIT,
+    _write_artifacts_atomic,
+    _GIT_STATUS_COMMAND,
 )
 
 
@@ -127,7 +130,14 @@ def test_happy_path_produces_valid_trace_and_run_result(tmp_path: Path):
     # Structural assertions
     assert trace["schema_version"] == "command-trace.v1"
     assert trace["redacted"] is True
-    assert "status" in trace["command"] and "--porcelain" in trace["command"]
+    assert trace["command"] == [
+        "git",
+        "--no-optional-locks",
+        "-C",
+        str(repo.resolve()),
+        "status",
+        "--porcelain=v1",
+    ]
     assert trace["exit_code"] == 0
 
     assert result["schema_version"] == "run-result.v1"
@@ -177,7 +187,8 @@ def test_unknown_action_is_blocked(tmp_path: Path):
     artifacts.mkdir()
 
     plan = _pilot_plan("some-future-action")
-    with pytest.raises(ValueError, match="not in the Phase 8A read-only allowlist"):
+    # Schema validation fires first (unknown action is not in the enum).
+    with pytest.raises(ValueError, match="action-plan.v1"):
         run_read_only_action(
             action_plan=plan,
             repo_path=str(repo),
@@ -331,6 +342,15 @@ def test_example_run_result_read_only_success_is_valid():
     assert result["status"] == "success"
 
 
+def test_example_run_result_blocked_is_valid():
+    result_path = ROOT / "examples" / "run-results" / "run-blocked.json"
+    assert result_path.exists()
+    result = load_json(result_path)
+    schema = load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
+    validate_instance(result, schema, result_path)
+    assert result["status"] == "blocked"
+
+
 # ---------------------------------------------------------------------------
 # CLI integration: --json output and exit codes
 # ---------------------------------------------------------------------------
@@ -392,7 +412,12 @@ def test_cli_run_read_only_blocked_mutating_action(tmp_path: Path):
 
     assert result.returncode == 1
     output = json.loads(result.stdout)
+    schema = _run_result_schema()
+    validate_instance(output, schema, Path("cli-blocked-output.json"))
     assert output["status"] == "blocked"
+    assert "blocked_reasons" in output
+    assert isinstance(output["blocked_reasons"], list)
+    assert len(output["blocked_reasons"]) >= 1
     # No partial output files written
     assert not (artifacts / "trace.json").exists()
     assert not (artifacts / "result.json").exists()
@@ -405,3 +430,209 @@ def test_cli_help_works(tmp_path: Path):
     )
     assert result.returncode == 0
     assert "run-read-only" in result.stdout or "action_plan_json" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# New rework tests
+# ---------------------------------------------------------------------------
+
+def test_invalid_plan_missing_boundary_is_blocked(tmp_path: Path):
+    """An action plan missing required fields must be rejected before execution."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    # Missing required 'boundary' field — schema-invalid
+    bad_plan = {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-bad-001",
+        "action": "git-status-read-only",
+        "assessment_ref": "assess-001",
+        "decision": "not_applicable",
+        "source_refs": ["git.status_porcelain"],
+        "rule_refs": [],
+        "freshness_refs": [],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        # boundary is deliberately omitted
+    }
+
+    with pytest.raises(ValueError, match="action-plan.v1"):
+        run_read_only_action(
+            action_plan=bad_plan,
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    # No output must be written on schema-invalid input
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_invalid_plan_extra_property_is_blocked(tmp_path: Path):
+    """An action plan with additionalProperties must be rejected."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan()
+    plan["unexpected_field"] = "should-fail"
+
+    with pytest.raises(ValueError, match="action-plan.v1"):
+        run_read_only_action(
+            action_plan=plan,
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_invalid_plan_boundary_false_is_blocked(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan()
+    plan["boundary"]["does_not_execute"] = False
+
+    with pytest.raises(ValueError, match="action-plan.v1"):
+        run_read_only_action(
+            action_plan=plan,
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_invalid_plan_empty_source_refs_is_blocked(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan()
+    plan["source_refs"] = []
+
+    with pytest.raises(ValueError, match="action-plan.v1"):
+        run_read_only_action(
+            action_plan=plan,
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_cli_blocked_output_validates_against_run_result_schema(tmp_path: Path):
+    """The blocked JSON emitted by the CLI must be valid against run-result.v1."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan("git-pull-ff-only")
+    plan["decision"] = "blocked"
+    plan["blocked_because"] = ["git_pull_ff_only_evidence_missing_remote_freshness"]
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable, "-m", "steuerboard",
+            "action", "run-read-only",
+            str(plan_path),
+            "--repo-path", str(repo),
+            "--command-trace-out", str(artifacts / "trace.json"),
+            "--run-result-out", str(artifacts / "result.json"),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+
+    # The output must be schema-valid against run-result.v1
+    schema = _run_result_schema()
+    validate_instance(output, schema, Path("cli-blocked-output.json"))
+
+    assert output["status"] == "blocked"
+    assert "blocked_reasons" in output
+
+
+def test_trace_command_is_exact_no_optional_locks_porcelain_v1(tmp_path: Path):
+    """The trace must record the exact hardened command form."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    run_read_only_action(
+        action_plan=_pilot_plan(),
+        repo_path=str(repo),
+        command_trace_out=str(artifacts / "trace.json"),
+        run_result_out=str(artifacts / "result.json"),
+    )
+
+    trace = json.loads((artifacts / "trace.json").read_text(encoding="utf-8"))
+    cmd = trace["command"]
+
+    expected_command = [
+        "git",
+        "--no-optional-locks",
+        "-C",
+        str(repo.resolve()),
+        "status",
+        "--porcelain=v1",
+    ]
+    assert cmd == expected_command
+    assert tuple(cmd[1:]) == ("--no-optional-locks", "-C", str(repo.resolve()), "status", "--porcelain=v1")
+
+
+def test_no_partial_final_outputs_on_second_write_failure(tmp_path: Path):
+    """If the second replace fails, no final artifacts or temp files remain."""
+    import unittest.mock as mock
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan()
+
+    replace_calls = 0
+
+    def failing_replace(src, dst):
+        nonlocal replace_calls
+        replace_calls += 1
+        if replace_calls == 2:
+            raise OSError("simulated failure on second replace")
+        return original_replace(src, dst)
+
+    original_replace = _write_artifacts_atomic.__globals__["os"].replace
+
+    with mock.patch("steuerboard.action_runs.os.replace", side_effect=failing_replace):
+        with pytest.raises(OSError, match="second replace"):
+            run_read_only_action(
+                action_plan=plan,
+                repo_path=str(repo),
+                command_trace_out=str(artifacts / "trace.json"),
+                run_result_out=str(artifacts / "result.json"),
+            )
+
+    tmp_files = list(artifacts.glob("*.tmp"))
+    assert tmp_files == [], f"orphaned temp files found: {tmp_files}"
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()

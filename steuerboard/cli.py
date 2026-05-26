@@ -505,7 +505,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "run_id": "run-blocked-precondition",
                         "status": "blocked",
                         "redaction_verified": True,
-                        "blocked_reason": str(exc),
+                        "blocked_reasons": [str(exc)],
                     },
                     indent=2,
                     ensure_ascii=False,

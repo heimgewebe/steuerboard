@@ -5,6 +5,9 @@
   "started_at": "2026-05-08T19:15:00Z",
   "finished_at": "2026-05-08T19:15:01Z",
   "redaction_verified": true,
+  "blocked_reasons": [
+    "example blocked because the preconditions were not satisfied"
+  ],
   "evidence_paths": [
     "examples/evidence/command-trace-redacted.json"
   ]

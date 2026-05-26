@@ -4,10 +4,13 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .schema_validation import SchemaValidationError, validate_instance
 
 
 # Phase 8A allowlist: exactly one bounded read-only pilot action.
@@ -24,9 +27,27 @@ MUTATING_ACTIONS: frozenset[str] = frozenset({
 
 _EXCERPT_LIMIT = 2000
 
-# Exact, immutable command for the git-status-read-only pilot.
+# Exact, immutable command suffix for the git-status-read-only pilot.
 # This is NOT a template. No user-supplied command fragments are accepted.
-_GIT_STATUS_COMMAND_SUFFIX = ("status", "--porcelain")
+# --no-optional-locks: inhibit any advisory lock acquisition (belt-and-suspenders
+#                      on top of GIT_OPTIONAL_LOCKS=0 in the environment).
+# --porcelain=v1: stable machine-readable format, version-pinned.
+_GIT_STATUS_COMMAND = ("--no-optional-locks", "status", "--porcelain=v1")
+
+# Lazily-loaded action-plan schema.  Loaded once, cached here.
+_ACTION_PLAN_SCHEMA: dict[str, Any] | None = None
+
+
+def _get_action_plan_schema() -> dict[str, Any]:
+    """Return the action-plan.v1 JSON Schema, loading it once from disk."""
+    global _ACTION_PLAN_SCHEMA
+    if _ACTION_PLAN_SCHEMA is None:
+        schema_path = (
+            Path(__file__).resolve().parent.parent / "schemas" / "action-plan.v1.schema.json"
+        )
+        with schema_path.open("r", encoding="utf-8") as fh:
+            _ACTION_PLAN_SCHEMA = json.load(fh)
+    return _ACTION_PLAN_SCHEMA
 
 
 def _utc_rfc3339_now() -> str:
@@ -79,19 +100,86 @@ def _normalize_exit_code(returncode: int) -> int:
     return returncode
 
 
-def _validate_action_plan_fields(action_plan: dict[str, Any]) -> str:
-    """Validate required fields; return the action string."""
+def _validate_action_plan_schema(action_plan: Any) -> str:
+    """Validate action_plan fully against action-plan.v1 JSON Schema; return the action string.
+
+    Raises ValueError if validation fails.
+    """
     if not isinstance(action_plan, dict):
         raise ValueError("action_plan must be a JSON object")
-    if action_plan.get("schema_version") != "action-plan.v1":
-        raise ValueError("action_plan schema_version must be 'action-plan.v1'")
-    plan_id = action_plan.get("plan_id", "")
-    if not isinstance(plan_id, str) or not plan_id.strip():
-        raise ValueError("action_plan plan_id must be a non-empty string")
-    action = action_plan.get("action", "")
-    if not isinstance(action, str) or not action.strip():
-        raise ValueError("action_plan action must be a non-empty string")
+    schema = _get_action_plan_schema()
+    try:
+        validate_instance(action_plan, schema)
+    except SchemaValidationError as exc:
+        raise ValueError(
+            f"action_plan does not validate against action-plan.v1: {exc}"
+        ) from exc
+    action = action_plan["action"]
     return action
+
+
+def _write_artifacts_atomic(
+    trace_target: Path,
+    trace_data: dict[str, Any],
+    run_result_target: Path,
+    run_result_data: dict[str, Any],
+) -> None:
+    """Write trace and run-result atomically using temp files + os.replace().
+
+    Both artifacts are written to temp files first.  Only after both are fully
+    written are they committed with os.replace().  If the second replace fails,
+    the first output is removed again so the final state never contains a half
+    completed pair.  Any remaining temp files are cleaned up on error.
+    """
+    trace_tmp: Path | None = None
+    run_result_tmp: Path | None = None
+    try:
+        # --- Stage 1: write both to temp files ---
+        fd1, tmp1 = tempfile.mkstemp(
+            dir=trace_target.parent,
+            prefix=f".{trace_target.name}.",
+            suffix=".tmp",
+        )
+        trace_tmp = Path(tmp1)
+        with os.fdopen(fd1, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(trace_data, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
+
+        fd2, tmp2 = tempfile.mkstemp(
+            dir=run_result_target.parent,
+            prefix=f".{run_result_target.name}.",
+            suffix=".tmp",
+        )
+        run_result_tmp = Path(tmp2)
+        with os.fdopen(fd2, "w", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(run_result_data, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+            )
+
+        # --- Stage 2: commit both, rolling back the first replace if needed ---
+        os.replace(trace_tmp, trace_target)
+        trace_tmp = None  # ownership transferred to trace_target
+        try:
+            os.replace(run_result_tmp, run_result_target)
+        except Exception:
+            try:
+                trace_target.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+        run_result_tmp = None  # ownership transferred to run_result_target
+    except Exception:
+        # Clean up any temp files that were not yet committed.
+        if trace_tmp is not None:
+            try:
+                trace_tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if run_result_tmp is not None:
+            try:
+                run_result_tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise
 
 
 def run_read_only_action(
@@ -107,13 +195,14 @@ def run_read_only_action(
     - MUTATING_ACTIONS are explicitly rejected before the allowlist check.
     - No free shell, no sudo, no network, no git mutation commands.
     - Output files must not exist before the call; parents must exist.
-    - Both artifacts are written atomically after a successful run;
-      on any precondition failure, no output file is written.
+    - Both artifacts are written via temp-files + os.replace().
+      Temp files are cleaned up on any failure; no orphaned partial artifacts are left.
+      On any precondition failure, no output file is written.
 
     Returns the run-result.v1 dict.
     """
-    # --- Precondition: validate action plan ---
-    action = _validate_action_plan_fields(action_plan)
+    # --- Precondition: full schema validation of action plan ---
+    action = _validate_action_plan_schema(action_plan)
 
     # --- Precondition: explicit mutating-action block (belt-and-suspenders) ---
     if action in MUTATING_ACTIONS:
@@ -165,7 +254,7 @@ def run_read_only_action(
 
     # --- Execute the bounded command ---
     # The command is fully hard-coded. No user-supplied fragments are inserted.
-    command: list[str] = ["git", "-C", str(repo_toplevel), *_GIT_STATUS_COMMAND_SUFFIX]
+    command: list[str] = ["git", "--no-optional-locks", "-C", str(repo_toplevel), "status", "--porcelain=v1"]
 
     trace_id = f"trace-read-only-{uuid.uuid4().hex[:16]}"
     run_id = f"run-read-only-{uuid.uuid4().hex[:16]}"
@@ -208,15 +297,11 @@ def run_read_only_action(
         "evidence_paths": [str(trace_target)],
     }
 
-    # --- Write outputs: trace first, then run-result ---
-    # If trace write fails the run-result is never written, preserving consistency.
-    trace_target.write_text(
-        json.dumps(trace, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    run_result_target.write_text(
-        json.dumps(run_result, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    # --- Write outputs atomically ---
+    # Both artifacts are written to temp files in their target directories first.
+    # Only after both temp files are fully flushed are they committed via os.replace().
+    # On any exception during this phase the finally block deletes all temp files,
+    # ensuring no orphaned partial artifacts are left on disk.
+    _write_artifacts_atomic(trace_target, trace, run_result_target, run_result)
 
     return run_result
