@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -16,6 +17,35 @@ from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
+
+
+def _emit_postcheck_inconclusive(reason: str) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    print(
+        json.dumps(
+            {
+                "schema_version": "run-postcheck.v1",
+                "postcheck_id": "postcheck-blocked-precondition",
+                "run_id": "unknown",
+                "trace_ref": "unknown",
+                "run_result_ref": "unknown",
+                "action": "git-status-read-only",
+                "repo_toplevel": "unknown",
+                "checked_at": checked_at,
+                "status": "inconclusive",
+                "observations": [],
+                "redaction_verified": False,
+                "failure_reasons": [reason],
+                "source_refs": [],
+                "evidence_paths": [],
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -557,16 +587,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             with Path(args.run_result_json).open("r", encoding="utf-8") as handle:
                 run_result_data = json.load(handle)
         except (OSError, json.JSONDecodeError) as exc:
-            parser.error(f"invalid run-result JSON: {exc}")
+            return _emit_postcheck_inconclusive(f"invalid_run_result_json: {exc}")
 
         try:
             with Path(args.command_trace).open("r", encoding="utf-8") as handle:
                 command_trace_data = json.load(handle)
         except (OSError, json.JSONDecodeError) as exc:
-            parser.error(f"invalid command-trace JSON: {exc}")
+            return _emit_postcheck_inconclusive(f"invalid_command_trace_json: {exc}")
 
-        _now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
-        _now_str = _now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
         try:
             postcheck = run_read_only_postcheck(
                 run_result=run_result_data,
@@ -577,30 +605,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_result_path=args.run_result_json,
             )
         except ValueError as exc:
-            print(
-                json.dumps(
-                    {
-                        "schema_version": "run-postcheck.v1",
-                        "postcheck_id": "postcheck-blocked-precondition",
-                        "run_id": "unknown",
-                        "trace_ref": "unknown",
-                        "run_result_ref": "unknown",
-                        "action": "git-status-read-only",
-                        "repo_toplevel": "unknown",
-                        "checked_at": _now_str,
-                        "status": "inconclusive",
-                        "observations": [],
-                        "redaction_verified": False,
-                        "failure_reasons": [str(exc)],
-                        "source_refs": [],
-                        "evidence_paths": [],
-                    },
-                    indent=2,
-                    ensure_ascii=False,
-                    sort_keys=True,
-                )
-            )
-            return 1
+            return _emit_postcheck_inconclusive(str(exc))
         print(json.dumps(postcheck, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 

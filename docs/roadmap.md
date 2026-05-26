@@ -649,10 +649,12 @@ Scope in this slice:
 - requires `command-trace.v1.redacted == true`
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
 - compares new status output against original trace `stdout_excerpt`
-- `status: passed` when outputs match
+- `status: passed` when outputs match and comparison basis is not truncated
 - `status: failed` with reason `worktree_changed_after_run` when they differ
 - `status: inconclusive` with reason `postcheck_command_failed` when recheck
   command fails
+- `status: inconclusive` with reason `stdout_excerpt_truncated` when either
+  original or rechecked excerpt is truncated at the boundary
 - writes `run-postcheck.v1` via temp file + `os.replace()` (atomic)
 - on any precondition failure: no output written; schema-valid
   `run-postcheck.v1` with `status: inconclusive` emitted to stdout

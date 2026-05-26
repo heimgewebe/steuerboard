@@ -333,10 +333,16 @@ The command:
 
 Status values:
 
-- `passed` — new status output matches the original trace excerpt
+- `passed` — new status output matches the original trace excerpt and
+  neither side is truncated
 - `failed` — new status output differs (reason: `worktree_changed_after_run`)
 - `inconclusive` — precondition failure or recheck command failure
-  (reason: `postcheck_command_failed` for command failure)
+  (reasons include `postcheck_command_failed` and
+  `stdout_excerpt_truncated`)
+
+If either original or rechecked status output is truncated at excerpt
+boundary, postcheck result is `inconclusive` (reason:
+`stdout_excerpt_truncated`) and never `passed`.
 
 On precondition failure the command emits a sentinel `run-postcheck.v1` JSON on
 stdout with `status: inconclusive` and exits with code 1.

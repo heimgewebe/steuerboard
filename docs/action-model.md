@@ -179,11 +179,16 @@ Boundary:
 
 Status contract:
 
-- `passed`: recheck command succeeded and excerpts match
+- `passed`: recheck command succeeded, excerpts match, and neither side is
+  truncated at excerpt boundary
 - `failed`: recheck command succeeded, excerpts differ
   (`worktree_changed_after_run`)
 - `inconclusive`: precondition failure or recheck command failure
-  (`postcheck_command_failed`)
+  (`postcheck_command_failed`), or truncated comparison basis
+  (`stdout_excerpt_truncated`)
+
+If either original trace excerpt or rechecked status output is truncated at
+excerpt boundary, postcheck status is `inconclusive`, not `passed`.
 
 Trace + run-result + postcheck form a verifiable, auditable chain:
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -11,6 +10,7 @@ import pytest
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
 from steuerboard.action_runs import run_read_only_action
 from steuerboard.run_postchecks import (
+    _EXCERPT_LIMIT,
     _HARDENED_COMMAND_FIXED,
     _HARDENED_COMMAND_LEN,
     _validate_trace_command,
@@ -568,6 +568,95 @@ def test_inconclusive_when_recheck_git_status_fails(tmp_path: Path, monkeypatch)
     validate_instance(postcheck, _postcheck_schema(), Path("postcheck-inconclusive.json"))
 
 
+def test_inconclusive_when_new_status_output_is_truncated(tmp_path: Path, monkeypatch):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    import steuerboard.run_postchecks as _module
+
+    original_run = _module.subprocess.run
+
+    class _ProcResult:
+        def __init__(self, returncode: int, stdout: str, stderr: str):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    # Force a truncated recheck output while keeping command success.
+    truncated_stdout = "x" * (_EXCERPT_LIMIT + 1)
+
+    def patched_run(args, **kwargs):
+        if args[:3] == ["git", "--no-optional-locks", "-C"] and "status" in args:
+            return _ProcResult(0, truncated_stdout, "")
+        return original_run(args, **kwargs)
+
+    monkeypatch.setattr(_module.subprocess, "run", patched_run)
+
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postchecks / "postcheck.json"),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "inconclusive"
+    assert "stdout_excerpt_truncated" in postcheck.get("failure_reasons", [])
+    validate_instance(postcheck, _postcheck_schema(), Path("postcheck-truncated-recheck.json"))
+
+
+def test_inconclusive_when_original_trace_excerpt_reaches_limit(
+    tmp_path: Path, monkeypatch
+):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    trace["stdout_excerpt"] = "x" * _EXCERPT_LIMIT
+
+    import steuerboard.run_postchecks as _module
+
+    original_run = _module.subprocess.run
+
+    class _ProcResult:
+        def __init__(self, returncode: int, stdout: str, stderr: str):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def patched_run(args, **kwargs):
+        if args[:3] == ["git", "--no-optional-locks", "-C"] and "status" in args:
+            return _ProcResult(0, "x" * _EXCERPT_LIMIT, "")
+        return original_run(args, **kwargs)
+
+    monkeypatch.setattr(_module.subprocess, "run", patched_run)
+
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postchecks / "postcheck.json"),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "inconclusive"
+    assert "stdout_excerpt_truncated" in postcheck.get("failure_reasons", [])
+    assert postcheck["status"] != "passed"
+    validate_instance(postcheck, _postcheck_schema(), Path("postcheck-truncated-trace.json"))
+
+
 # ---------------------------------------------------------------------------
 # No mutating git command is reachable from the postcheck module
 # ---------------------------------------------------------------------------
@@ -735,6 +824,81 @@ def test_cli_postcheck_help_works(tmp_path: Path):
     )
     assert result.returncode == 0
     assert "postcheck-read-only" in result.stdout or "run_result_json" in result.stdout
+
+
+def test_cli_postcheck_invalid_run_result_json_emits_inconclusive(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    trace_path = tmp_path / "trace.json"
+    run_result_path = tmp_path / "run-result.json"
+    postcheck_path = tmp_path / "postcheck.json"
+
+    # Invalid JSON payload in run-result input.
+    run_result_path.write_text("{", encoding="utf-8")
+    trace_path.write_text("{}", encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "postcheck-read-only",
+            str(run_result_path),
+            "--command-trace",
+            str(trace_path),
+            "--repo-path",
+            str(repo),
+            "--postcheck-out",
+            str(postcheck_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    validate_instance(output, _postcheck_schema(), Path("cli-invalid-run-result-postcheck.json"))
+    assert output["status"] == "inconclusive"
+    assert output["failure_reasons"][0].startswith("invalid_run_result_json:")
+
+
+def test_cli_postcheck_invalid_command_trace_json_emits_inconclusive(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    trace_path = tmp_path / "trace.json"
+    run_result_path = tmp_path / "run-result.json"
+    postcheck_path = tmp_path / "postcheck.json"
+
+    run_result_path.write_text("{}", encoding="utf-8")
+    trace_path.write_text("{", encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "postcheck-read-only",
+            str(run_result_path),
+            "--command-trace",
+            str(trace_path),
+            "--repo-path",
+            str(repo),
+            "--postcheck-out",
+            str(postcheck_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    validate_instance(
+        output, _postcheck_schema(), Path("cli-invalid-command-trace-postcheck.json")
+    )
+    assert output["status"] == "inconclusive"
+    assert output["failure_reasons"][0].startswith("invalid_command_trace_json:")
 
 
 # ---------------------------------------------------------------------------

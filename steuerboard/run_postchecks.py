@@ -2,7 +2,8 @@
 
 Boundary contract:
 - Validates run-result.v1 and command-trace.v1 artifacts against schemas.
-- Re-runs exactly one bounded read-only git status command.
+- Runs only hard-coded read-only git commands: rev-parse preflight checks
+    plus one productive git status recheck.
 - Compares new status output against the original trace excerpt.
 - No mutation, no pull, no fetch, no free shell, no generic subprocess.
 - Output file must not exist; parent must exist.
@@ -151,9 +152,10 @@ def run_read_only_postcheck(
 ) -> dict[str, Any]:
     """Execute a Phase 8B read-only postcheck for a git-status-read-only run.
 
-    Validates run-result.v1 and command-trace.v1 against their schemas, re-runs
-    exactly `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`,
-    and compares the new output against the original trace excerpt.
+    Validates run-result.v1 and command-trace.v1 against their schemas, runs
+    bounded read-only git preflight checks (`rev-parse`), re-runs exactly one
+    productive `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+    command, and compares the new output against the original trace excerpt.
 
     Parameters
     ----------
@@ -221,6 +223,9 @@ def run_read_only_postcheck(
     original_excerpt = command_trace["stdout_excerpt"]
     if not isinstance(original_excerpt, str):
         raise ValueError("command-trace.v1 stdout_excerpt must be a string")
+    # Phase 8A trace does not carry an explicit truncation flag, so treat
+    # excerpts at the boundary as potentially truncated.
+    original_maybe_truncated = len(original_excerpt) >= _EXCERPT_LIMIT
 
     # --- Resolve repo_path and cross-check against trace toplevel ---
     repo = Path(repo_path).expanduser().resolve()
@@ -288,11 +293,12 @@ def run_read_only_postcheck(
     )
 
     new_excerpt = _excerpt(_redact_text(proc.stdout))
+    new_stdout_truncated = len(proc.stdout) > _EXCERPT_LIMIT
 
     observations: list[str] = []
     failure_reasons: list[str] = []
 
-    if len(proc.stdout.strip()) >= _EXCERPT_LIMIT:
+    if new_stdout_truncated or original_maybe_truncated:
         observations.append(
             "stdout_excerpt_truncated: comparison limited to excerpt boundary"
         )
@@ -303,6 +309,9 @@ def run_read_only_postcheck(
         stderr_excerpt = _excerpt(_redact_text(proc.stderr))
         if stderr_excerpt:
             observations.append(f"postcheck_stderr_excerpt={stderr_excerpt}")
+    elif new_stdout_truncated or original_maybe_truncated:
+        status = "inconclusive"
+        failure_reasons.append("stdout_excerpt_truncated")
     elif new_excerpt == original_excerpt:
         status = "passed"
     else:
