@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
-from steuerboard.action_runs import run_read_only_action
+from steuerboard.action_runs import _EXCERPT_LIMIT, run_read_only_action
 from steuerboard.run_postchecks import _validate_trace_command, run_read_only_postcheck
 
 
@@ -97,7 +98,7 @@ def test_validate_trace_command_wrong_length():
 
 def test_validate_trace_command_wrong_subcommand():
     cmd = ["git", "--no-optional-locks", "-C", "/repo", "fetch", "--porcelain=v1"]
-    with pytest.raises(ValueError, match="command\[4\]"):
+    with pytest.raises(ValueError, match=r"command\[4\]"):
         _validate_trace_command(cmd)
 
 
@@ -262,3 +263,252 @@ def test_cli_emits_schema_valid_output(tmp_path: Path):
     validate_instance(payload, _postcheck_schema(), Path("cli-postcheck.json"))
     assert payload["status"] == "passed"
     assert postcheck_path.exists()
+
+
+def test_inconclusive_when_new_status_output_is_truncated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    import steuerboard.run_postchecks as rpc
+
+    original_run = rpc.subprocess.run
+    call_count = 0
+
+    def fake_run(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            return original_run(cmd, **kwargs)
+        # Simulate truncated recheck stdout
+        return subprocess.CompletedProcess(
+            cmd,
+            returncode=0,
+            stdout="M file.txt\n" * (_EXCERPT_LIMIT + 1),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        rpc, "subprocess",
+        type("_M", (), {"run": staticmethod(fake_run), "PIPE": subprocess.PIPE})(),
+    )
+
+    postcheck_path = postchecks / "postcheck.json"
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postcheck_path),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "inconclusive"
+    assert "stdout_excerpt_truncated" in postcheck["failure_reasons"]
+
+
+def test_inconclusive_when_original_trace_excerpt_reaches_limit(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    # Simulate a trace whose excerpt is exactly at the truncation boundary
+    trace["stdout_excerpt"] = "x" * _EXCERPT_LIMIT
+
+    postcheck_path = postchecks / "postcheck.json"
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postcheck_path),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "inconclusive"
+    assert "stdout_excerpt_truncated" in postcheck["failure_reasons"]
+
+
+def test_inconclusive_when_recheck_git_status_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    import steuerboard.run_postchecks as rpc
+
+    original_run = rpc.subprocess.run
+    call_count = 0
+
+    def fake_run(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            return original_run(cmd, **kwargs)
+        # Fail the git status recheck
+        return subprocess.CompletedProcess(
+            cmd,
+            returncode=128,
+            stdout="",
+            stderr="fatal: not a git repository",
+        )
+
+    monkeypatch.setattr(
+        rpc, "subprocess",
+        type("_M", (), {"run": staticmethod(fake_run), "PIPE": subprocess.PIPE})(),
+    )
+
+    postcheck_path = postchecks / "postcheck.json"
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postcheck_path),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "inconclusive"
+    assert "postcheck_command_failed" in postcheck["failure_reasons"]
+
+
+def test_blocked_postcheck_out_inside_repo(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    with pytest.raises(ValueError, match="must not be inside"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(repo / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+
+def test_blocked_when_trace_command_not_hardened(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+    # Replace the hardened git-status command with git-fetch (not allowed)
+    trace["command"] = [
+        "git",
+        "--no-optional-locks",
+        "-C",
+        str(repo.resolve()),
+        "fetch",
+        "--porcelain=v1",
+    ]
+
+    with pytest.raises(ValueError, match="command"):
+        run_read_only_postcheck(
+            run_result=run_result,
+            command_trace=trace,
+            repo_path=str(repo),
+            postcheck_out=str(postchecks / "postcheck.json"),
+            command_trace_path=str(trace_path),
+            run_result_path=str(result_path),
+        )
+
+
+def test_cli_postcheck_invalid_run_result_json_emits_inconclusive(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    _run_action_and_get_artifacts(repo, artifacts)
+
+    bad_result = artifacts / "run-result.json"
+    bad_result.write_text("not valid json", encoding="utf-8")
+
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "postcheck-read-only",
+            str(bad_result),
+            "--command-trace",
+            str(artifacts / "trace.json"),
+            "--repo-path",
+            str(repo),
+            "--postcheck-out",
+            str(postchecks / "postcheck.json"),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _postcheck_schema(), Path("cli-postcheck-bad-result.json"))
+    assert payload["status"] == "inconclusive"
+    assert any("invalid_run_result_json" in r for r in payload["failure_reasons"])
+
+
+def test_cli_postcheck_invalid_command_trace_json_emits_inconclusive(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    _run_action_and_get_artifacts(repo, artifacts)
+
+    bad_trace = artifacts / "trace.json"
+    bad_trace.write_text("not valid json", encoding="utf-8")
+
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "postcheck-read-only",
+            str(artifacts / "run-result.json"),
+            "--command-trace",
+            str(bad_trace),
+            "--repo-path",
+            str(repo),
+            "--postcheck-out",
+            str(postchecks / "postcheck.json"),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _postcheck_schema(), Path("cli-postcheck-bad-trace.json"))
+    assert payload["status"] == "inconclusive"
+    assert any("invalid_command_trace_json" in r for r in payload["failure_reasons"])

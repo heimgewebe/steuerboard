@@ -370,3 +370,35 @@ def test_cli_emits_schema_valid_sentinel_on_precondition_failure(tmp_path: Path)
     validate_instance(payload, _chain_schema(), Path("cli-sentinel.json"))
     assert payload["status"] == "inconclusive"
     assert "failure_reasons" in payload
+
+def test_cli_sentinel_schema_valid_when_input_paths_duplicate(tmp_path: Path):
+    """When two CLI args point to the same file, the sentinel must still be schema-valid."""
+    _base_artifacts(tmp_path)
+    inputs = tmp_path / "inputs"
+    # Pass the same file as both --run-result and --run-postcheck
+    same_path = inputs / "run-result.json"
+    output = tmp_path / "outputs" / "chain-dup-sentinel.json"
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-run-chain",
+            str(inputs / "plan.json"),
+            "--command-trace",
+            str(inputs / "trace.json"),
+            "--run-result",
+            str(same_path),
+            "--run-postcheck",
+            str(same_path),  # deliberate duplicate
+            "--chain-out",
+            str(output),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _chain_schema(), Path("cli-dup-sentinel.json"))
+    assert payload["status"] == "inconclusive"
