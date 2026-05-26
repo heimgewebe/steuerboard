@@ -1,0 +1,407 @@
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
+from steuerboard.action_runs import (
+    MUTATING_ACTIONS,
+    PHASE_8A_ALLOWLIST,
+    run_read_only_action,
+    _excerpt,
+    _EXCERPT_LIMIT,
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _run(command: list[str], cwd: Path):  # type: ignore[return]
+    import subprocess
+    subprocess.run(command, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def _init_repo(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    _run(["git", "init", "-b", "main"], path)
+    _run(["git", "config", "user.email", "test@example.invalid"], path)
+    _run(["git", "config", "user.name", "Test User"], path)
+    _run(["git", "config", "commit.gpgsign", "false"], path)
+    (path / "README.md").write_text("# Test\n", encoding="utf-8")
+    _run(["git", "add", "README.md"], path)
+    _run(["git", "commit", "-m", "init"], path)
+
+
+def _pilot_plan(action: str = "git-status-read-only") -> dict:
+    return {
+        "schema_version": "action-plan.v1",
+        "plan_id": f"plan-{action}-test-001",
+        "action": action,
+        "assessment_ref": "assess-test-001",
+        "decision": "not_applicable",
+        "source_refs": ["git.status_porcelain"],
+        "rule_refs": [],
+        "freshness_refs": [],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+
+def _trace_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "command-trace.v1.schema.json")
+
+
+def _run_result_schema() -> dict:
+    return load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
+
+
+def _cli(args: list[str], cwd: Path):
+    import subprocess
+    import os
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(ROOT) if not existing else f"{ROOT}:{existing}"
+    return subprocess.run(
+        args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 8A allowlist / mutating set invariants
+# ---------------------------------------------------------------------------
+
+def test_allowlist_contains_exactly_one_pilot():
+    assert PHASE_8A_ALLOWLIST == {"git-status-read-only"}
+
+
+def test_mutating_actions_not_in_allowlist():
+    assert MUTATING_ACTIONS.isdisjoint(PHASE_8A_ALLOWLIST)
+
+
+# ---------------------------------------------------------------------------
+# Happy path: allowed read-only action produces valid artifacts
+# ---------------------------------------------------------------------------
+
+def test_happy_path_produces_valid_trace_and_run_result(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    trace_path = artifacts / "trace.json"
+    result_path = artifacts / "run-result.json"
+
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(_pilot_plan()), encoding="utf-8")
+
+    with plan_path.open() as fh:
+        plan = json.load(fh)
+
+    run_result = run_read_only_action(
+        action_plan=plan,
+        repo_path=str(repo),
+        command_trace_out=str(trace_path),
+        run_result_out=str(result_path),
+    )
+
+    # Both files must exist
+    assert trace_path.exists(), "command-trace output was not written"
+    assert result_path.exists(), "run-result output was not written"
+
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+
+    # Schema validation
+    validate_instance(trace, _trace_schema(), Path("trace.json"))
+    validate_instance(result, _run_result_schema(), Path("run-result.json"))
+
+    # Structural assertions
+    assert trace["schema_version"] == "command-trace.v1"
+    assert trace["redacted"] is True
+    assert "status" in trace["command"] and "--porcelain" in trace["command"]
+    assert trace["exit_code"] == 0
+
+    assert result["schema_version"] == "run-result.v1"
+    assert result["status"] == "success"
+    assert result["redaction_verified"] is True
+    assert len(result["evidence_paths"]) == 1
+    assert str(trace_path) in result["evidence_paths"][0]
+
+    # Returned dict must match written file
+    assert run_result == result
+
+
+# ---------------------------------------------------------------------------
+# Blocked: mutating actions are rejected
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("action", sorted(MUTATING_ACTIONS))
+def test_mutating_action_is_blocked(tmp_path: Path, action: str):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan(action)
+    # Patch decision/blocked_because to keep the plan semantically consistent
+    if action == "git-pull-ff-only":
+        plan["decision"] = "blocked"
+        plan["blocked_because"] = ["git_pull_ff_only_evidence_missing_remote_freshness"]
+
+    with pytest.raises(ValueError, match="mutating action"):
+        run_read_only_action(
+            action_plan=plan,
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    # No partial output must be written
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_unknown_action_is_blocked(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan("some-future-action")
+    with pytest.raises(ValueError, match="not in the Phase 8A read-only allowlist"):
+        run_read_only_action(
+            action_plan=plan,
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Blocked: output files already exist
+# ---------------------------------------------------------------------------
+
+def test_blocked_trace_file_already_exists(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    trace_path = artifacts / "trace.json"
+    trace_path.write_text("{}", encoding="utf-8")  # pre-existing
+
+    with pytest.raises(ValueError, match="must not already exist"):
+        run_read_only_action(
+            action_plan=_pilot_plan(),
+            repo_path=str(repo),
+            command_trace_out=str(trace_path),
+            run_result_out=str(artifacts / "result.json"),
+        )
+
+    # The existing file must not be mutated
+    assert trace_path.read_text(encoding="utf-8") == "{}"
+
+
+def test_blocked_run_result_file_already_exists(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    result_path = artifacts / "result.json"
+    result_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must not already exist"):
+        run_read_only_action(
+            action_plan=_pilot_plan(),
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(result_path),
+        )
+
+    assert not (artifacts / "trace.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Blocked: output parent directory missing
+# ---------------------------------------------------------------------------
+
+def test_blocked_trace_parent_missing(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    with pytest.raises(ValueError, match="parent directory must exist"):
+        run_read_only_action(
+            action_plan=_pilot_plan(),
+            repo_path=str(repo),
+            command_trace_out=str(tmp_path / "nonexistent" / "trace.json"),
+            run_result_out=str(tmp_path / "nonexistent" / "result.json"),
+        )
+
+
+def test_blocked_run_result_parent_missing(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    with pytest.raises(ValueError, match="parent directory must exist"):
+        run_read_only_action(
+            action_plan=_pilot_plan(),
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(tmp_path / "missing" / "result.json"),
+        )
+
+    assert not (artifacts / "trace.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# stdout/stderr excerpt truncation
+# ---------------------------------------------------------------------------
+
+def test_excerpt_truncates_at_limit():
+    long_text = "x" * (_EXCERPT_LIMIT + 500)
+    result = _excerpt(long_text)
+    assert len(result) == _EXCERPT_LIMIT
+
+
+def test_excerpt_preserves_short_text():
+    short = "hello world"
+    assert _excerpt(short) == short
+
+
+def test_stdout_excerpt_in_trace_is_bounded(tmp_path: Path):
+    """Even if git status somehow returned a huge output, the excerpt must be bounded."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    run_read_only_action(
+        action_plan=_pilot_plan(),
+        repo_path=str(repo),
+        command_trace_out=str(artifacts / "trace.json"),
+        run_result_out=str(artifacts / "result.json"),
+    )
+
+    trace = json.loads((artifacts / "trace.json").read_text(encoding="utf-8"))
+    assert len(trace.get("stdout_excerpt", "")) <= _EXCERPT_LIMIT
+    assert len(trace.get("stderr_excerpt", "")) <= _EXCERPT_LIMIT
+
+
+# ---------------------------------------------------------------------------
+# Schema-level example validation
+# ---------------------------------------------------------------------------
+
+def test_example_action_plan_git_status_read_only_is_valid():
+    plan_path = ROOT / "examples" / "action-plans" / "git-status-read-only-pilot.json"
+    assert plan_path.exists(), f"example not found: {plan_path}"
+    plan = load_json(plan_path)
+    schema = load_json(SCHEMAS_DIR / "action-plan.v1.schema.json")
+    validate_instance(plan, schema, plan_path)
+    assert plan["action"] == "git-status-read-only"
+
+
+def test_example_command_trace_read_only_pilot_is_valid():
+    trace_path = ROOT / "examples" / "evidence" / "command-trace-read-only-pilot.json"
+    assert trace_path.exists()
+    trace = load_json(trace_path)
+    schema = load_json(SCHEMAS_DIR / "command-trace.v1.schema.json")
+    validate_instance(trace, schema, trace_path)
+    assert trace["redacted"] is True
+
+
+def test_example_run_result_read_only_success_is_valid():
+    result_path = ROOT / "examples" / "run-results" / "run-read-only-success.json"
+    assert result_path.exists()
+    result = load_json(result_path)
+    schema = load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
+    validate_instance(result, schema, result_path)
+    assert result["status"] == "success"
+
+
+# ---------------------------------------------------------------------------
+# CLI integration: --json output and exit codes
+# ---------------------------------------------------------------------------
+
+def test_cli_run_read_only_success(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan()
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable, "-m", "steuerboard",
+            "action", "run-read-only",
+            str(plan_path),
+            "--repo-path", str(repo),
+            "--command-trace-out", str(artifacts / "trace.json"),
+            "--run-result-out", str(artifacts / "result.json"),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    output = json.loads(result.stdout)
+    assert output["schema_version"] == "run-result.v1"
+    assert output["status"] == "success"
+    assert output["redaction_verified"] is True
+
+
+def test_cli_run_read_only_blocked_mutating_action(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    plan = _pilot_plan("git-pull-ff-only")
+    plan["decision"] = "blocked"
+    plan["blocked_because"] = ["git_pull_ff_only_evidence_missing_remote_freshness"]
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable, "-m", "steuerboard",
+            "action", "run-read-only",
+            str(plan_path),
+            "--repo-path", str(repo),
+            "--command-trace-out", str(artifacts / "trace.json"),
+            "--run-result-out", str(artifacts / "result.json"),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    assert output["status"] == "blocked"
+    # No partial output files written
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_cli_help_works(tmp_path: Path):
+    result = _cli(
+        [sys.executable, "-m", "steuerboard", "action", "run-read-only", "--help"],
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0
+    assert "run-read-only" in result.stdout or "action_plan_json" in result.stdout

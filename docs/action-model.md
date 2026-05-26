@@ -58,6 +58,44 @@ Stage E: UI-triggered approved actions
 - no repository mutation
 - no action authorisation
 - no command advice
+
+## Phase 8A — Read-only Action Runner (pilot)
+
+Phase 8A introduces a strictly bounded read-only runner for a single pilot action.
+
+Allowed actions in Phase 8A: `git-status-read-only` only.
+
+The runner:
+
+- takes an `action-plan.v1` artifact as input
+- verifies the action is in the Phase 8A allowlist
+- explicitly blocks all mutating actions (`git-pull-ff-only`, `switch-main`)
+- executes the exact hard-coded command: `git -C <repo-toplevel> status --porcelain`
+- writes a `command-trace.v1` artifact (redacted)
+- writes a `run-result.v1` artifact referencing the trace
+
+The runner does **not** authorise actions. Approval binding is not a precondition
+in this slice. Phase 8A proves only bounded read-only execution evidence.
+
+Command:
+
+```bash
+python -m steuerboard action run-read-only <action-plan-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --json
+```
+
+Boundary:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- output files must not pre-exist; parent directories must exist
+- on any precondition failure: no partial output written
 - no Git subprocess
 
 The planned `git-pull-ff-only` action is specified in

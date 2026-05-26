@@ -27,7 +27,8 @@
     "action": {
       "enum": [
         "switch-main",
-        "git-pull-ff-only"
+        "git-pull-ff-only",
+        "git-status-read-only"
       ]
     },
     "assessment_ref": {

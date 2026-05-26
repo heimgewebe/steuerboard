@@ -247,3 +247,42 @@ Boundary for Phase 7c.2:
 - no mutation
 - no command advice
 - no execution authorisation
+
+Phase 8A introduces the first bounded execution evidence slice.
+
+Command:
+
+    python -m steuerboard action run-read-only <action-plan-json> \
+      --repo-path <repo-path> \
+      --command-trace-out <trace-json> \
+      --run-result-out <run-result-json> \
+      --json
+
+The command:
+
+- reads one `action-plan.v1` JSON file (must be schema-valid)
+- checks the action against the Phase 8A allowlist (only `git-status-read-only` allowed)
+- explicitly blocks all mutating actions (`git-pull-ff-only`, `switch-main`)
+- resolves `--repo-path` to a git toplevel
+- executes exactly: `git -C <repo-toplevel> status --porcelain`
+- writes a redacted `command-trace.v1` artifact to `--command-trace-out`
+- writes a `run-result.v1` artifact to `--run-result-out` referencing the trace
+- emits `run-result.v1` JSON on stdout
+
+On precondition failure (missing parent directory, output file already exists,
+action not allowed), the command emits a blocked `run-result.v1` JSON on stdout
+and exits with code 1. No partial output files are written.
+
+The runner does **not** authorise actions. Approval binding is not a
+precondition in Phase 8A. This slice proves only bounded read-only execution evidence.
+
+Boundary for Phase 8A:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- output files must not pre-exist; parent directories must exist
+- stdout/stderr excerpts bounded to 2000 characters each
