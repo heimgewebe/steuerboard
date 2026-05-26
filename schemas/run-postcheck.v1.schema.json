@@ -1,0 +1,89 @@
+{
+  "$id": "https://example.invalid/steuerboard/schemas/run-postcheck.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "checked_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "evidence_paths": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "failure_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "observations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "postcheck_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "redaction_verified": {
+      "type": "boolean"
+    },
+    "repo_toplevel": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "run_result_ref": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "run-postcheck.v1"
+    },
+    "source_refs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "inconclusive"
+      ]
+    },
+    "trace_ref": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "postcheck_id",
+    "run_id",
+    "trace_ref",
+    "run_result_ref",
+    "action",
+    "repo_toplevel",
+    "checked_at",
+    "status",
+    "observations",
+    "redaction_verified",
+    "source_refs",
+    "evidence_paths"
+  ],
+  "title": "Run Postcheck v1",
+  "type": "object"
+}

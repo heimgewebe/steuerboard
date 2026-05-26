@@ -126,9 +126,59 @@ No destructive Git actions are in scope.
 No free shell is in scope.
 Existing commands remain read-only or preview-only as already documented.
 
-## Contract Note: Redefinition of action-plan.v1
+## Phase 8B — Read-only Postcheck + Run Record Binding
 
-This phase redefines the previously reserved `action-plan.v1` schema shape.
+Phase 8B introduces a bounded read-only postcheck that verifies the evidence
+produced by a Phase 8A run. It is not a pull, not an approval runner, and not
+a mutating action. Its sole purpose is to make execution evidence auditable.
+
+The postcheck:
+
+- reads an existing `run-result.v1` artifact and `command-trace.v1` artifact
+- validates both fully against their JSON Schemas
+- validates that the trace command is exactly the hardened git status command
+- re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+  (the same bounded read-only command as Phase 8A)
+- compares the new output against the original trace `stdout_excerpt`
+- emits a `run-postcheck.v1` artifact with `status: passed | failed | inconclusive`
+- writes no files into the inspected repository
+- performs no network access, no pull, no fetch, no branch switch, no mutation
+
+`run-postcheck.v1` is an evidence artifact, not an authorisation mechanism.
+A passed postcheck does not authorise any subsequent action.
+
+Command:
+
+```bash
+python -m steuerboard action postcheck-read-only <run-result-json> \
+  --command-trace <trace-json> \
+  --repo-path <repo-path> \
+  --postcheck-out <postcheck-json> \
+  --json
+```
+
+Boundary:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- output file must not pre-exist; parent directory must exist
+- output must be outside the inspected repository worktree
+- on any precondition failure: no output file is written; schema-valid
+  `run-postcheck.v1` with `status: inconclusive` is emitted to stdout
+
+Trace + run-result + postcheck form a verifiable, auditable chain:
+
+- `command-trace.v1` proves what command ran and what it produced
+- `run-result.v1` proves the run succeeded and was redacted
+- `run-postcheck.v1` proves the worktree state matches (or has drifted from)
+  the original run evidence
+
+Stage D (approved mutating execution) is not implemented in this phase.
+
+## Contract Note: Redefinition of action-plan.v1
 Previous examples in Phase 0b used executor-oriented placeholders (`would_run`, `would_mutate`).
 The current slice redefines `action-plan.v1` as a preview-only contract artifact derived from assessment, not as an executor interface.
 No executor compatibility is promised in this or earlier phases.

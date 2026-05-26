@@ -298,3 +298,59 @@ Boundary for Phase 8A:
 - no execution authorisation
 - output files must not pre-exist; parent directories must exist
 - stdout/stderr excerpts bounded to 2000 characters each
+
+Phase 8B introduces a bounded read-only postcheck for an existing Phase 8A run.
+Phase 8B is **not** a pull. Phase 8B is **not** an approval runner. Phase 8B is
+a read-only Postcheck/Record slice whose purpose is to make execution evidence
+auditable before any Stage-D mutation is discussed.
+
+Command:
+
+    python -m steuerboard action postcheck-read-only <run-result-json> \
+      --command-trace <trace-json> \
+      --repo-path <repo-path> \
+      --postcheck-out <postcheck-json> \
+      --json
+
+The command:
+
+- reads one `run-result.v1` JSON file and validates it fully against its schema
+- reads one `command-trace.v1` JSON file and validates it fully against its schema
+- validates that the trace command is exactly the hardened git status command:
+  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+- validates `redaction_verified == true` on both input artifacts
+- verifies `--repo-path` resolves to the same git toplevel as in the trace command
+- re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+- compares new status output against original trace `stdout_excerpt`
+- writes a `run-postcheck.v1` artifact to `--postcheck-out` (outside the inspected repo)
+- emits `run-postcheck.v1` JSON on stdout
+
+Status values:
+
+- `passed` — new status output matches the original trace excerpt
+- `failed` — new status output differs (reason: `worktree_changed_after_run`)
+- `inconclusive` — emitted on precondition failures (no output file written)
+
+On precondition failure the command emits a sentinel `run-postcheck.v1` JSON on
+stdout with `status: inconclusive` and exits with code 1.
+
+`run-postcheck.v1` is an evidence artifact, not an authorisation mechanism.
+A passed postcheck does not authorise any subsequent action.
+
+Evidence chain produced by Phases 8A + 8B:
+
+1. `command-trace.v1` — what command ran, what it produced, redacted
+2. `run-result.v1` — run succeeded, redaction verified, trace referenced
+3. `run-postcheck.v1` — worktree state verified against original trace
+
+Boundary for Phase 8B:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- output must be outside the inspected repository worktree
+- output file must not pre-exist; parent directory must exist
+
