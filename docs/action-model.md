@@ -126,6 +126,101 @@ No destructive Git actions are in scope.
 No free shell is in scope.
 Existing commands remain read-only or preview-only as already documented.
 
+## Phase 8B — Read-only Postcheck + Run Record Binding
+
+Phase 8B introduces a bounded read-only postcheck that verifies prior run
+evidence. It is not a pull, not an approval runner, and not a mutating action.
+
+The postcheck:
+
+- reads an existing `run-result.v1` artifact and `command-trace.v1` artifact
+- validates both fully against their JSON Schemas
+- requires `run-result.v1.status == success`
+- requires `run-result.v1.evidence_paths` to include the provided trace path
+- validates that the trace command is exactly the hardened git status command
+- requires `command-trace.v1.exit_code == 0`
+- requires `run-result.v1.redaction_verified == true`
+- requires `command-trace.v1.redacted == true`
+- re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
+- emits `run-postcheck.v1` with `status: passed | failed | inconclusive`
+
+Command:
+
+```bash
+python -m steuerboard action postcheck-read-only <run-result-json> \
+  --command-trace <trace-json> \
+  --repo-path <repo-path> \
+  --postcheck-out <postcheck-json> \
+  --json
+```
+
+Boundary:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- output file must not pre-exist; parent directory must exist
+- output must be outside the inspected repository worktree
+
+## Phase 8C — Run Evidence Chain Verifier
+
+Phase 8C introduces a pure evidence-chain validation artifact. It reads
+existing action-plan, trace, run-result, and postcheck artifacts, validates them
+as one coherent chain, and emits `run-evidence-chain.v1`.
+
+Phase 8C is not execution.
+Phase 8C is not authorisation.
+Phase 8C is not a pull gate.
+
+Command:
+
+```bash
+python -m steuerboard action validate-run-chain <action-plan-json> \
+  --command-trace <trace-json> \
+  --run-result <run-result-json> \
+  --run-postcheck <postcheck-json> \
+  --chain-out <chain-json> \
+  --json
+```
+
+The verifier:
+
+- validates all four input artifacts fully against their JSON Schemas
+- supports only `action == "git-status-read-only"` in this slice
+- checks that the trace command is exactly the hardened read-only git status command
+- checks redaction and success invariants across trace, run-result, and postcheck
+- checks binding invariants across `run_id`, `trace_ref`, `run_result_ref`, and
+  `run-result.v1.evidence_paths`
+- records `plan_binding_unavailable` when the supplied artifacts do not prove
+  plan-to-run binding
+- emits `run-evidence-chain.v1` with `status: valid | invalid | inconclusive`
+
+Status meaning:
+
+- `valid` means internal evidence-chain coherence plus proven plan binding
+- `invalid` means the evidence contradicts itself or the postcheck failed
+- `inconclusive` means the verifier could not establish chain coherence from the
+  supplied artifacts, including when plan binding remains unavailable
+
+`run-evidence-chain.v1` is an evidence artifact, not an authorisation mechanism.
+A `valid` chain does not authorise pull, fetch, switch, merge, rebase, reset,
+clean, or any other action.
+
+Boundary:
+
+- no subprocess calls
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- output file parent must exist and target must not pre-exist
+- output file must stay outside the inspected repository when the chain exposes
+  `repo_toplevel`
+
+Stage D remains future-only.
+
 ## Contract Note: Redefinition of action-plan.v1
 
 This phase redefines the previously reserved `action-plan.v1` schema shape.

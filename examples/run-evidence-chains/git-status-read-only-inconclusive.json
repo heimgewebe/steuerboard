@@ -1,0 +1,49 @@
+{
+  "action": "git-status-read-only",
+  "chain_id": "chain-run-read-only-example-inconclusive-001",
+  "checked_at": "2026-05-26T10:00:06Z",
+  "checks": [
+    {
+      "actual": "git-status-read-only",
+      "check": "action_plan_action_supported",
+      "expected": "git-status-read-only",
+      "passed": true
+    },
+    {
+      "actual": "absent",
+      "check": "plan_binding_available",
+      "expected": "plan_ref or plan_content_sha256",
+      "passed": false
+    },
+    {
+      "actual": "inconclusive",
+      "check": "postcheck_status_passed_for_valid",
+      "expected": "passed",
+      "passed": false
+    }
+  ],
+  "evidence_paths": [
+    "/workspace/examples/action-plans/git-status-read-only-pilot.json",
+    "/workspace/examples/evidence/command-trace-read-only-pilot.json",
+    "/workspace/examples/run-results/run-read-only-success.json",
+    "/workspace/examples/run-postchecks/git-status-read-only-inconclusive.json"
+  ],
+  "failure_reasons": [
+    "postcheck_inconclusive",
+    "plan_binding_unavailable"
+  ],
+  "plan_ref": "plan-git-status-read-only-2026-05-26-001",
+  "postcheck_ref": "postcheck-read-only-example-inconclusive-001",
+  "redaction_verified": true,
+  "run_id": "run-read-only-example-pilot-001",
+  "run_result_ref": "run-read-only-example-pilot-001",
+  "schema_version": "run-evidence-chain.v1",
+  "source_refs": [
+    "action-plan.v1",
+    "command-trace.v1",
+    "run-result.v1",
+    "run-postcheck.v1"
+  ],
+  "status": "inconclusive",
+  "trace_ref": "trace-read-only-example-pilot-001"
+}

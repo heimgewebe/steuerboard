@@ -608,3 +608,92 @@ Boundary for this slice:
 - no UI
 - `does_not_execute`, `does_not_mutate`, `does_not_authorise_actions` remain
   true in plan artifacts produced by Phase 5/7a planners
+
+## Phase 8B — Run Postcheck + Run Record Binding
+
+Status: started.
+
+Phase 8B introduces a bounded read-only postcheck that validates prior run
+evidence and emits `run-postcheck.v1`.
+
+Scope in this slice:
+
+- new schema: `run-postcheck.v1`
+- new module: `steuerboard/run_postchecks.py`
+- CLI: `python -m steuerboard action postcheck-read-only ... --json`
+- examples and tests for passed/failed/inconclusive postcheck outputs
+
+Boundary for this slice:
+
+- no mutating Git actions
+- no pull, fetch, switch, merge, rebase, reset, clean
+- no free shell, no sudo, no network
+- no generic subprocess surface
+- no approval runner
+- no execution authorisation
+- no UI
+- output must be outside the inspected repository worktree
+
+## Phase 8C — Run Evidence Chain Verifier
+
+Status: started.
+
+Phase 8C adds a pure artifact verifier for the read-only chain produced by the
+existing run evidence. This phase does not execute anything new. It checks chain
+integrity only.
+
+Premise:
+
+- Stage D remains future-only.
+- `git pull --ff-only` is still not implemented here.
+
+Command:
+
+```bash
+python -m steuerboard action validate-run-chain <action-plan-json> \
+  --command-trace <trace-json> \
+  --run-result <run-result-json> \
+  --run-postcheck <postcheck-json> \
+  --chain-out <chain-json> \
+  --json
+```
+
+Scope in this slice:
+
+- new schema: `run-evidence-chain.v1` (evidence/validation artifact only)
+- new module: `steuerboard/run_evidence_chains.py`
+- supports only `git-status-read-only`
+- fully schema-validates `action-plan.v1`, `command-trace.v1`, `run-result.v1`,
+  and `run-postcheck.v1`
+- verifies exact hardened trace command shape
+- verifies `command-trace.v1.exit_code == 0`
+- verifies trace/result/postcheck redaction flags
+- verifies `run-result.v1.status == success`
+- verifies `run-result.v1.run_id == run-postcheck.v1.run_id`
+- verifies `run-result.v1.evidence_paths` includes the supplied trace path
+- verifies `run-postcheck.v1.trace_ref == command-trace.v1.trace_id`
+- verifies `run-postcheck.v1.run_result_ref == run-result.v1.run_id`
+- emits `plan_binding_unavailable` when plan-to-run binding is not provable from
+  the available artifacts
+- maps postcheck outcomes onto chain `status: valid | invalid | inconclusive`
+
+Meaning of `valid` in this phase:
+
+- the evidence chain is internally coherent
+- it is not execution permission
+- it does not authorise pull
+- without proven plan binding the chain remains `inconclusive`, not `valid`
+
+Boundary for this slice:
+
+- no subprocess calls
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- no execution authorisation
+- no UI
+- `--chain-out` parent must exist and target must not pre-exist
+- `--chain-out` must stay outside the inspected repo when `repo_toplevel` is known
+
+Stage D remains future-only after this phase.
