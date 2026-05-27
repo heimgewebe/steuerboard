@@ -251,6 +251,44 @@ def test_cli_happy_path_inconclusive(tmp_path):
     assert readiness_out.exists()
 
 
+def test_cli_invalid_action_plan_json_sentinel_uses_unknown_action(tmp_path):
+    plan_path = tmp_path / "plan.json"
+    approval_path = tmp_path / "approval.json"
+    chain_path = tmp_path / "chain.json"
+    readiness_out = tmp_path / "readiness.json"
+
+    plan_path.write_text("{")
+    approval_path.write_text(json.dumps(_APPROVAL_VALIDATION_BINDING_VALID))
+    chain_path.write_text(json.dumps(_CHAIN_VALID))
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-execution-readiness",
+            str(plan_path),
+            "--approval-validation",
+            str(approval_path),
+            "--run-evidence-chain",
+            str(chain_path),
+            "--readiness-out",
+            str(readiness_out),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(_REPO_ROOT),
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, load_json(_SCHEMA), _EXAMPLES / "invalid-action-plan-json-sentinel.json")
+    assert payload["status"] == "inconclusive"
+    assert payload["action"] == "unknown"
+    assert any("invalid_action_plan_json" in reason for reason in payload["failure_reasons"])
+
+
 # ---------------------------------------------------------------------------
 # Boundary: no subprocess import in the module
 # ---------------------------------------------------------------------------

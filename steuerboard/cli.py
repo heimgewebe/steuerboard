@@ -36,7 +36,7 @@ def _emit_readiness_inconclusive(
                 "schema_version": "action-execution-readiness.v1",
                 "readiness_id": "readiness-blocked-precondition",
                 "checked_at": checked_at,
-                "action": "git-pull-ff-only",
+                "action": "unknown",
                 "plan_ref": str(Path(action_plan_path).expanduser().resolve(strict=False)),
                 "approval_validation_ref": str(
                     Path(approval_validation_path).expanduser().resolve(strict=False)
