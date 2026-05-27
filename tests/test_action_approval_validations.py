@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 import sys
@@ -10,6 +9,7 @@ import pytest
 
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
 from steuerboard.action_approval_validations import validate_action_approval_binding
+from steuerboard.canonical_json import canonical_json_sha256
 
 
 FORBIDDEN_OUTPUT_FIELDS = {
@@ -40,9 +40,7 @@ _PLAN = {
         "does_not_authorise_actions": True,
     },
 }
-_PLAN_SHA256 = hashlib.sha256(
-    json.dumps(_PLAN, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-).hexdigest()
+_PLAN_SHA256 = canonical_json_sha256(_PLAN)
 
 _APPROVAL_APPROVED = {
     "schema_version": "action-approval.v1",

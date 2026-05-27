@@ -1,19 +1,14 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 from datetime import datetime
 from typing import Any
 
+from .canonical_json import canonical_json_sha256
+
 _NONEMPTY_NONPADDED_RE = re.compile(r"^\S(?:.*\S)?$")
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 _UTC_RFC3339_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
-
-
-def _canonical_json_sha256(payload: dict[str, Any]) -> str:
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _validate_nonempty_string(value: Any, field_name: str) -> str | None:
@@ -284,7 +279,7 @@ def validate_action_approval_binding(
         raise ValueError(f"invalid action-approval.v1 input: {approval_err}")
 
     checked_at_dt = _parse_dt(checked_at, "checked_at")
-    plan_content_sha256 = _canonical_json_sha256(plan)
+    plan_content_sha256 = canonical_json_sha256(plan)
 
     blocked_because: list[str] = []
 
@@ -325,7 +320,7 @@ def validate_action_approval_binding(
         "plan_content_sha256": plan_content_sha256,
         "blocked_because": blocked_because,
     }
-    validation_id = f"validation-{_canonical_json_sha256(validation_material)}"
+    validation_id = f"validation-{canonical_json_sha256(validation_material)}"
 
     return {
         "schema_version": "action-approval-validation.v1",
