@@ -262,6 +262,16 @@ is `inconclusive` with `preflight_chain_plan_binding_unproven`.
 | `chain_invalid` | run_evidence_chain.status == invalid |
 | `chain_redaction_unverified` | run_evidence_chain.redaction_verified ≠ true |
 
+### Decision Contract in 8D.0
+
+In this slice, `action_plan.decision` is not evaluated as an independent hard
+readiness blocker. Readiness is derived from explicit approval-validation and
+run-evidence-chain gates plus plan/approval/chain consistency checks.
+
+This keeps Phase 8D.0 as a pure evidence-based gate that can incorporate newer
+approval/chain artifacts without being forced to mirror the original plan
+decision field.
+
 ### Inconclusive Reasons
 
 | Reason | Condition |

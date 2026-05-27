@@ -333,7 +333,7 @@ def validate_execution_readiness(
         "schema_version": "action-execution-readiness.v1",
         "readiness_id": readiness_id,
         "checked_at": _utc_rfc3339_now(),
-        "action": plan_action if action_supported else "git-pull-ff-only",
+        "action": str(plan_action) if plan_action else "unknown",
         "plan_ref": plan_id or "unknown",
         "approval_validation_ref": approval_validation.get("validation_id", "unknown"),
         "chain_ref": run_evidence_chain.get("chain_id", "unknown"),

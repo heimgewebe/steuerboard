@@ -34,9 +34,9 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
     "action": {
-      "enum": [
-        "git-pull-ff-only"
-      ]
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "plan_ref": {
       "type": "string",
@@ -137,19 +137,71 @@
       }
     }
   },
-  "if": {
-    "properties": {
-      "status": {
-        "enum": [
-          "blocked",
-          "inconclusive"
-        ]
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ready"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blocked_because": {
+            "maxItems": 0
+          }
+        },
+        "not": {
+          "required": [
+            "failure_reasons"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "blocked"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "failure_reasons"
+        ],
+        "properties": {
+          "blocked_because": {
+            "minItems": 1
+          },
+          "failure_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "inconclusive"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "failure_reasons"
+        ],
+        "properties": {
+          "blocked_because": {
+            "maxItems": 0
+          },
+          "failure_reasons": {
+            "minItems": 1
+          }
+        }
       }
     }
-  },
-  "then": {
-    "required": [
-      "failure_reasons"
-    ]
-  }
+  ]
 }

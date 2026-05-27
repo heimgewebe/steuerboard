@@ -10,7 +10,13 @@ from pathlib import Path
 import pytest
 
 import steuerboard.action_execution_readiness as _mod
-from scripts.validate_examples import EXAMPLES_DIR, SCHEMAS_DIR, load_json, validate_instance
+from scripts.validate_examples import (
+    EXAMPLES_DIR,
+    SCHEMAS_DIR,
+    ValidationError,
+    load_json,
+    validate_instance,
+)
 from steuerboard.action_execution_readiness import validate_execution_readiness
 from steuerboard.canonical_json import canonical_json_sha256
 
@@ -172,6 +178,24 @@ def test_inconclusive_chain_remains_inconclusive(tmp_path):
     assert result["blocked_because"] == []
 
 
+def test_unsupported_action_is_blocked_and_preserves_actual_action(tmp_path):
+    plan = {
+        **_PLAN,
+        "action": "switch-main",
+    }
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=plan,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+    )
+    assert result["status"] == "blocked"
+    assert result["action"] == "switch-main"
+    assert "unsupported_action" in result["blocked_because"]
+    assert "unsupported_action" in result["failure_reasons"]
+
+
 def test_artifact_written_to_disk(tmp_path):
     out = tmp_path / "readiness.json"
     result = validate_execution_readiness(
@@ -236,3 +260,52 @@ def test_no_subprocess_in_module():
     assert "import subprocess" not in source, (
         "action_execution_readiness.py must not import subprocess"
     )
+
+
+def _valid_readiness_ready() -> dict:
+    return {
+        "schema_version": "action-execution-readiness.v1",
+        "readiness_id": "readiness-example",
+        "checked_at": "2026-05-27T10:00:00Z",
+        "action": "git-pull-ff-only",
+        "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+        "approval_validation_ref": "validation-example",
+        "chain_ref": "chain-example",
+        "status": "ready",
+        "blocked_because": [],
+        "checks": [{"check": "example", "passed": True}],
+        "source_refs": ["action-plan.v1"],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+
+def test_schema_rejects_ready_with_failure_reasons():
+    invalid = _valid_readiness_ready()
+    invalid["failure_reasons"] = ["unexpected"]
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, load_json(_SCHEMA), _EXAMPLES / "invalid-ready-failure-reasons.json")
+
+
+def test_schema_rejects_blocked_with_empty_blocked_because():
+    invalid = _valid_readiness_ready()
+    invalid["status"] = "blocked"
+    invalid["failure_reasons"] = ["unsupported_action"]
+    with pytest.raises(ValidationError):
+        validate_instance(invalid, load_json(_SCHEMA), _EXAMPLES / "invalid-blocked-empty-blocked-because.json")
+
+
+def test_schema_rejects_inconclusive_with_nonempty_blocked_because():
+    invalid = _valid_readiness_ready()
+    invalid["status"] = "inconclusive"
+    invalid["blocked_because"] = ["chain_invalid"]
+    invalid["failure_reasons"] = ["preflight_chain_plan_binding_unproven"]
+    with pytest.raises(ValidationError):
+        validate_instance(
+            invalid,
+            load_json(_SCHEMA),
+            _EXAMPLES / "invalid-inconclusive-nonempty-blocked-because.json",
+        )
