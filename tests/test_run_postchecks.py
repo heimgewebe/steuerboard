@@ -551,6 +551,8 @@ def test_failed_when_worktree_changes_after_run(tmp_path: Path):
     assert "worktree_changed_after_run" in postcheck["failure_reasons"]
     assert postcheck["redaction_verified"] is True
     assert postcheck_path.exists()
-    assert not str(postcheck_path).startswith(str(repo.resolve()))
+    assert not postcheck_path.resolve().is_relative_to(repo.resolve())
+    validate_instance(postcheck, _postcheck_schema(), Path("postcheck-failed-returned.json"))
     written = json.loads(postcheck_path.read_text(encoding="utf-8"))
     validate_instance(written, _postcheck_schema(), Path("postcheck-failed.json"))
+    assert written == postcheck
