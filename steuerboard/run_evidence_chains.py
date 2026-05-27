@@ -24,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover
     from .schema_validation import SchemaValidationError, validate_instance as jsonschema_validate
 
 from .action_runs import _is_path_inside, _require_output_path, _utc_rfc3339_now
+from .canonical_json import canonical_json_sha256
 
 _SCHEMA_CACHE: dict[str, dict[str, Any]] = {}
 
@@ -330,17 +331,53 @@ def validate_run_evidence_chain(
     if not postcheck_redaction:
         hard_failure_reasons.append("postcheck_redaction_unverified")
 
-    # TODO: implement plan-binding verification (plan_ref / plan_content_sha256 cross-check)
-    # when a canonical plan registry is available; for now binding is always unprovable.
-    plan_binding_proven = False
+    # Plan-binding verification: run_result must carry plan_ref and
+    # plan_content_sha256 that bind back to the action_plan it was produced from.
+    # Absent fields => inconclusive (plan_binding_unavailable).
+    # Present but mismatching => invalid (plan_ref_mismatch / plan_content_sha256_mismatch).
+    run_result_plan_ref = run_result.get("plan_ref")
+    run_result_plan_sha = run_result.get("plan_content_sha256")
+    plan_ref_present = isinstance(run_result_plan_ref, str) and bool(run_result_plan_ref)
+    plan_sha_present = isinstance(run_result_plan_sha, str) and bool(run_result_plan_sha)
+    plan_binding_available = plan_ref_present and plan_sha_present
     _record_check(
         checks,
         check="plan_binding_available",
-        passed=plan_binding_proven,
-        expected="plan_ref or plan_content_sha256",
-        actual="absent",
+        passed=plan_binding_available,
+        expected="run_result.plan_ref and run_result.plan_content_sha256",
+        actual=json.dumps(
+            {
+                "plan_ref": run_result_plan_ref if plan_ref_present else None,
+                "plan_content_sha256": run_result_plan_sha if plan_sha_present else None,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ),
     )
-    inconclusive_reasons.append("plan_binding_unavailable")
+    if not plan_binding_available:
+        inconclusive_reasons.append("plan_binding_unavailable")
+    else:
+        expected_plan_sha = canonical_json_sha256(action_plan)
+        plan_ref_matches = run_result_plan_ref == action_plan["plan_id"]
+        plan_sha_matches = run_result_plan_sha == expected_plan_sha
+        _record_check(
+            checks,
+            check="run_result_plan_ref_matches_action_plan",
+            passed=plan_ref_matches,
+            expected=str(action_plan["plan_id"]),
+            actual=str(run_result_plan_ref),
+        )
+        if not plan_ref_matches:
+            hard_failure_reasons.append("plan_ref_mismatch")
+        _record_check(
+            checks,
+            check="run_result_plan_content_sha256_matches_action_plan",
+            passed=plan_sha_matches,
+            expected=expected_plan_sha,
+            actual=str(run_result_plan_sha),
+        )
+        if not plan_sha_matches:
+            hard_failure_reasons.append("plan_content_sha256_mismatch")
 
     postcheck_status = run_postcheck["status"]
     postcheck_passed = postcheck_status == "passed"

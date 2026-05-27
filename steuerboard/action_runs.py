@@ -16,6 +16,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised by subprocess test environments
     from .schema_validation import SchemaValidationError, validate_instance as jsonschema_validate
 
+from .canonical_json import canonical_json_sha256
+
 
 # Phase 8A allowlist: exactly one bounded read-only pilot action.
 # Extending this set requires a new phase slice and explicit review.
@@ -321,6 +323,8 @@ def run_read_only_action(
         "finished_at": finished_at,
         "redaction_verified": True,
         "evidence_paths": [str(trace_target)],
+        "plan_ref": action_plan["plan_id"],
+        "plan_content_sha256": canonical_json_sha256(action_plan),
     }
 
     # --- Write outputs via temp files with best-effort rollback ---

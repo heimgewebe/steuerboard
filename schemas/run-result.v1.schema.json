@@ -45,6 +45,15 @@
       "items": {
         "type": "string"
       }
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

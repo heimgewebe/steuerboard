@@ -1,6 +1,3 @@
-import hashlib
-import json
-
 import pytest
 
 from scripts.validate_examples import (
@@ -19,6 +16,7 @@ from steuerboard.assessment_rules import (
     EXISTING_FAILURE_CASE_IDS,
     attach_assessment_provenance,
 )
+from steuerboard.canonical_json import canonical_json_sha256
 
 REQUIRED_FAILURE_CASES = {
     "backup_repo_accidentally_used.json",
@@ -392,11 +390,7 @@ _ACTION_APPROVAL_PLAN = {
         "does_not_authorise_actions": True,
     },
 }
-_ACTION_APPROVAL_PLAN_SHA256 = hashlib.sha256(
-    json.dumps(_ACTION_APPROVAL_PLAN, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
-        "utf-8"
-    )
-).hexdigest()
+_ACTION_APPROVAL_PLAN_SHA256 = canonical_json_sha256(_ACTION_APPROVAL_PLAN)
 
 
 def _valid_action_approval(decision: str = "approved") -> dict:
