@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .canonical_json import canonical_json_sha256
+
 try:
     from jsonschema import ValidationError as SchemaValidationError
     from jsonschema import validate as jsonschema_validate
@@ -318,6 +320,8 @@ def run_read_only_action(
     run_result: dict[str, Any] = {
         "schema_version": "run-result.v1",
         "run_id": run_id,
+        "plan_ref": action_plan["plan_id"],
+        "plan_content_sha256": canonical_json_sha256(action_plan),
         "status": status,
         "started_at": started_at,
         "finished_at": finished_at,

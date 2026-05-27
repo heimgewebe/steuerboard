@@ -16,6 +16,14 @@
       "type": "string",
       "minLength": 1
     },
+    "plan_ref": {
+      "type": "string",
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "status": {
       "enum": [
         "success",

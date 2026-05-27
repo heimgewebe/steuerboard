@@ -17,6 +17,7 @@ from steuerboard.action_runs import (
     _write_artifacts_atomic,
     _GIT_STATUS_COMMAND,
 )
+from steuerboard.canonical_json import canonical_json_sha256
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +142,8 @@ def test_happy_path_produces_valid_trace_and_run_result(tmp_path: Path):
     assert trace["exit_code"] == 0
 
     assert result["schema_version"] == "run-result.v1"
+    assert result["plan_ref"] == plan["plan_id"]
+    assert result["plan_content_sha256"] == canonical_json_sha256(plan)
     assert result["status"] == "success"
     assert result["redaction_verified"] is True
     assert len(result["evidence_paths"]) == 1
@@ -349,6 +352,15 @@ def test_example_command_trace_read_only_pilot_uses_hardened_command():
 
 def test_example_run_result_read_only_success_is_valid():
     result_path = ROOT / "examples" / "run-results" / "run-read-only-success.json"
+    assert result_path.exists()
+    result = load_json(result_path)
+    schema = load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
+    validate_instance(result, schema, result_path)
+    assert result["status"] == "success"
+
+
+def test_example_run_result_read_only_success_unbound_is_still_valid():
+    result_path = ROOT / "examples" / "run-results" / "run-read-only-success-unbound.json"
     assert result_path.exists()
     result = load_json(result_path)
     schema = load_json(SCHEMAS_DIR / "run-result.v1.schema.json")
