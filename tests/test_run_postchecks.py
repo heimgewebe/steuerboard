@@ -522,3 +522,37 @@ def test_cli_postcheck_invalid_command_trace_json_emits_inconclusive(tmp_path: P
     validate_instance(payload, _postcheck_schema(), Path("cli-postcheck-bad-trace.json"))
     assert payload["status"] == "inconclusive"
     assert any("invalid_command_trace_json" in r for r in payload["failure_reasons"])
+
+
+def test_failed_when_worktree_changes_after_run(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    postchecks = tmp_path / "postchecks"
+    postchecks.mkdir()
+
+    run_result, trace, trace_path, result_path = _run_action_and_get_artifacts(repo, artifacts)
+
+    # Mutate the worktree after the run so the recheck sees a different status
+    (repo / "untracked_after_run.txt").write_text("dirty\n", encoding="utf-8")
+
+    postcheck_path = postchecks / "postcheck.json"
+    postcheck = run_read_only_postcheck(
+        run_result=run_result,
+        command_trace=trace,
+        repo_path=str(repo),
+        postcheck_out=str(postcheck_path),
+        command_trace_path=str(trace_path),
+        run_result_path=str(result_path),
+    )
+
+    assert postcheck["status"] == "failed"
+    assert "worktree_changed_after_run" in postcheck["failure_reasons"]
+    assert postcheck["redaction_verified"] is True
+    assert postcheck_path.exists()
+    assert not postcheck_path.resolve().is_relative_to(repo.resolve())
+    validate_instance(postcheck, _postcheck_schema(), Path("postcheck-failed-returned.json"))
+    written = json.loads(postcheck_path.read_text(encoding="utf-8"))
+    validate_instance(written, _postcheck_schema(), Path("postcheck-failed.json"))
+    assert written == postcheck
