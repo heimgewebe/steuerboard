@@ -613,57 +613,15 @@ Boundary for this slice:
 
 Status: started.
 
-Phase 8B introduces a bounded read-only postcheck that makes Phase 8A execution
-evidence auditable. It is **not** a pull, **not** an approval runner, and **not**
-a mutating action. The next missing building block after Phase 8A is
-Postcheck/Record, not mutation.
-
-Premise:
-- Phase 8A is merged and proves bounded read-only execution evidence.
-- Stage D (mutating execution) remains future-only.
-- `git pull --ff-only` is not implemented in this phase.
-
-Command:
-
-```bash
-python -m steuerboard action postcheck-read-only <run-result-json> \
-  --command-trace <trace-json> \
-  --repo-path <repo-path> \
-  --postcheck-out <postcheck-json> \
-  --json
-```
+Phase 8B introduces a bounded read-only postcheck that validates prior run
+evidence and emits `run-postcheck.v1`.
 
 Scope in this slice:
 
-- new schema: `run-postcheck.v1` (evidence artifact, not authorisation)
+- new schema: `run-postcheck.v1`
 - new module: `steuerboard/run_postchecks.py`
-- only the `git-status-read-only` action is supported
-- reads and fully schema-validates `run-result.v1` and `command-trace.v1`
-- requires `run-result.v1.status == success`
-- requires `run-result.v1.evidence_paths` to include the supplied
-  `command-trace.v1` path (record binding)
-- validates the trace command is exactly the hardened git status command
-- requires `command-trace.v1.exit_code == 0`
-- requires `command-trace.v1.stdout_excerpt` for deterministic comparison
-- requires `run-result.v1.redaction_verified == true`
-- requires `command-trace.v1.redacted == true`
-- re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
-- compares new status output against original trace `stdout_excerpt`
-- `status: passed` when outputs match and comparison basis is not truncated
-- `status: failed` with reason `worktree_changed_after_run` when they differ
-- `status: inconclusive` with reason `postcheck_command_failed` when recheck
-  command fails
-- `status: inconclusive` with reason `stdout_excerpt_truncated` when either
-  original or rechecked excerpt is truncated at the boundary
-- writes `run-postcheck.v1` via temp file + `os.replace()` (atomic)
-- on any precondition failure: no output written; schema-valid
-  `run-postcheck.v1` with `status: inconclusive` emitted to stdout
-
-Evidence chain produced by Phases 8A + 8B:
-
-1. `command-trace.v1` — what command ran, what it produced, redacted
-2. `run-result.v1` — run succeeded, redaction verified, trace referenced
-3. `run-postcheck.v1` — worktree state verified against original trace
+- CLI: `python -m steuerboard action postcheck-read-only ... --json`
+- examples and tests for passed/failed/inconclusive postcheck outputs
 
 Boundary for this slice:
 
@@ -680,14 +638,12 @@ Boundary for this slice:
 
 Status: started.
 
-Phase 8C adds a pure artifact verifier for the read-only chain produced by
-Phases 8A and 8B. This phase does not execute anything new. It checks chain
+Phase 8C adds a pure artifact verifier for the read-only chain produced by the
+existing run evidence. This phase does not execute anything new. It checks chain
 integrity only.
 
 Premise:
 
-- Phase 8A is merged.
-- Phase 8B is merged.
 - Stage D remains future-only.
 - `git pull --ff-only` is still not implemented here.
 
@@ -717,17 +673,16 @@ Scope in this slice:
 - verifies `run-result.v1.evidence_paths` includes the supplied trace path
 - verifies `run-postcheck.v1.trace_ref == command-trace.v1.trace_id`
 - verifies `run-postcheck.v1.run_result_ref == run-result.v1.run_id`
-- maps `run-postcheck.v1.status == passed` to chain `status: valid`
-- maps `run-postcheck.v1.status == failed` to chain `status: invalid`
-  with reason `postcheck_failed`
-- maps `run-postcheck.v1.status == inconclusive` to chain
-  `status: inconclusive` with reason `postcheck_inconclusive`
+- emits `plan_binding_unavailable` when plan-to-run binding is not provable from
+  the available artifacts
+- maps postcheck outcomes onto chain `status: valid | invalid | inconclusive`
 
 Meaning of `valid` in this phase:
 
 - the evidence chain is internally coherent
 - it is not execution permission
 - it does not authorise pull
+- without proven plan binding the chain remains `inconclusive`, not `valid`
 
 Boundary for this slice:
 
@@ -742,4 +697,3 @@ Boundary for this slice:
 - `--chain-out` must stay outside the inspected repo when `repo_toplevel` is known
 
 Stage D remains future-only after this phase.
-

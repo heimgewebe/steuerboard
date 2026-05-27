@@ -1,6 +1,6 @@
 {
   "action": "git-status-read-only",
-  "chain_id": "chain-run-read-only-example-pilot-001-failed",
+  "chain_id": "chain-run-read-only-example-failed-001",
   "checked_at": "2026-05-26T10:00:06Z",
   "checks": [
     {
@@ -8,6 +8,12 @@
       "check": "action_plan_action_supported",
       "expected": "git-status-read-only",
       "passed": true
+    },
+    {
+      "actual": "absent",
+      "check": "plan_binding_available",
+      "expected": "plan_ref or plan_content_sha256",
+      "passed": false
     },
     {
       "actual": "failed",
@@ -23,10 +29,11 @@
     "/workspace/examples/run-postchecks/git-status-read-only-failed.json"
   ],
   "failure_reasons": [
-    "postcheck_failed"
+    "postcheck_failed",
+    "plan_binding_unavailable"
   ],
   "plan_ref": "plan-git-status-read-only-2026-05-26-001",
-  "postcheck_ref": "postcheck-read-only-example-pilot-001",
+  "postcheck_ref": "postcheck-read-only-example-failed-001",
   "redaction_verified": true,
   "run_id": "run-read-only-example-pilot-001",
   "run_result_ref": "run-read-only-example-pilot-001",

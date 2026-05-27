@@ -128,32 +128,21 @@ Existing commands remain read-only or preview-only as already documented.
 
 ## Phase 8B — Read-only Postcheck + Run Record Binding
 
-Phase 8B introduces a bounded read-only postcheck that verifies the evidence
-produced by a Phase 8A run. It is not a pull, not an approval runner, and not
-a mutating action. Its sole purpose is to make execution evidence auditable.
+Phase 8B introduces a bounded read-only postcheck that verifies prior run
+evidence. It is not a pull, not an approval runner, and not a mutating action.
 
 The postcheck:
 
 - reads an existing `run-result.v1` artifact and `command-trace.v1` artifact
 - validates both fully against their JSON Schemas
 - requires `run-result.v1.status == success`
-- requires `run-result.v1.evidence_paths` to include the provided
-  `command-trace.v1` path (run-record binding)
+- requires `run-result.v1.evidence_paths` to include the provided trace path
 - validates that the trace command is exactly the hardened git status command
 - requires `command-trace.v1.exit_code == 0`
-- requires `command-trace.v1.stdout_excerpt` for comparison
 - requires `run-result.v1.redaction_verified == true`
 - requires `command-trace.v1.redacted == true`
 - re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
-  (the same bounded read-only command as Phase 8A)
-- compares the new output against the original trace `stdout_excerpt`
-- emits a `run-postcheck.v1` artifact with
-  `status: passed | failed | inconclusive`
-- writes no files into the inspected repository
-- performs no network access, no pull, no fetch, no branch switch, no mutation
-
-`run-postcheck.v1` is an evidence artifact, not an authorisation mechanism.
-A passed postcheck does not authorise any subsequent action.
+- emits `run-postcheck.v1` with `status: passed | failed | inconclusive`
 
 Command:
 
@@ -174,36 +163,12 @@ Boundary:
 - no approval runner
 - output file must not pre-exist; parent directory must exist
 - output must be outside the inspected repository worktree
-- on any precondition failure: no output file is written; schema-valid
-  `run-postcheck.v1` with `status: inconclusive` is emitted to stdout
-
-Status contract:
-
-- `passed`: recheck command succeeded, excerpts match, and neither side is
-  truncated at excerpt boundary
-- `failed`: recheck command succeeded, excerpts differ
-  (`worktree_changed_after_run`)
-- `inconclusive`: precondition failure or recheck command failure
-  (`postcheck_command_failed`), or truncated comparison basis
-  (`stdout_excerpt_truncated`)
-
-If either original trace excerpt or rechecked status output is truncated at
-excerpt boundary, postcheck status is `inconclusive`, not `passed`.
-
-Trace + run-result + postcheck form a verifiable, auditable chain:
-
-- `command-trace.v1` proves what command ran and what it produced
-- `run-result.v1` proves the run succeeded and was redacted
-- `run-postcheck.v1` proves the worktree state matches (or has drifted from)
-  the original run evidence
-
-Stage D (approved mutating execution) is not implemented in this phase.
 
 ## Phase 8C — Run Evidence Chain Verifier
 
-Phase 8C introduces a pure evidence-chain validation artifact. It reads the
-existing Phase 8A/8B artifacts, validates them as one coherent chain, and emits
-`run-evidence-chain.v1`.
+Phase 8C introduces a pure evidence-chain validation artifact. It reads
+existing action-plan, trace, run-result, and postcheck artifacts, validates them
+as one coherent chain, and emits `run-evidence-chain.v1`.
 
 Phase 8C is not execution.
 Phase 8C is not authorisation.
@@ -228,14 +193,16 @@ The verifier:
 - checks redaction and success invariants across trace, run-result, and postcheck
 - checks binding invariants across `run_id`, `trace_ref`, `run_result_ref`, and
   `run-result.v1.evidence_paths`
+- records `plan_binding_unavailable` when the supplied artifacts do not prove
+  plan-to-run binding
 - emits `run-evidence-chain.v1` with `status: valid | invalid | inconclusive`
 
 Status meaning:
 
-- `valid` means only internal evidence-chain coherence
+- `valid` means internal evidence-chain coherence plus proven plan binding
 - `invalid` means the evidence contradicts itself or the postcheck failed
-- `inconclusive` means the postcheck was inconclusive or the verifier could not
-  establish chain coherence from the supplied artifacts
+- `inconclusive` means the verifier could not establish chain coherence from the
+  supplied artifacts, including when plan binding remains unavailable
 
 `run-evidence-chain.v1` is an evidence artifact, not an authorisation mechanism.
 A `valid` chain does not authorise pull, fetch, switch, merge, rebase, reset,
@@ -255,6 +222,8 @@ Boundary:
 Stage D remains future-only.
 
 ## Contract Note: Redefinition of action-plan.v1
+
+This phase redefines the previously reserved `action-plan.v1` schema shape.
 Previous examples in Phase 0b used executor-oriented placeholders (`would_run`, `would_mutate`).
 The current slice redefines `action-plan.v1` as a preview-only contract artifact derived from assessment, not as an executor interface.
 No executor compatibility is promised in this or earlier phases.

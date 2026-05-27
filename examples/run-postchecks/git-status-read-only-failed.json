@@ -1,6 +1,6 @@
 {
   "action": "git-status-read-only",
-  "checked_at": "2026-05-26T10:00:10Z",
+  "checked_at": "2026-05-26T10:00:05Z",
   "evidence_paths": [
     "examples/evidence/command-trace-read-only-pilot.json",
     "examples/run-results/run-read-only-success.json"

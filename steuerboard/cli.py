@@ -20,35 +20,6 @@ from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
 
 
-def _emit_postcheck_inconclusive(reason: str) -> int:
-    now = datetime.now(timezone.utc)
-    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    print(
-        json.dumps(
-            {
-                "schema_version": "run-postcheck.v1",
-                "postcheck_id": "postcheck-blocked-precondition",
-                "run_id": "unknown",
-                "trace_ref": "unknown",
-                "run_result_ref": "unknown",
-                "action": "git-status-read-only",
-                "repo_toplevel": "unknown",
-                "checked_at": checked_at,
-                "status": "inconclusive",
-                "observations": [],
-                "redaction_verified": False,
-                "failure_reasons": [reason],
-                "source_refs": [],
-                "evidence_paths": [],
-            },
-            indent=2,
-            ensure_ascii=False,
-            sort_keys=True,
-        )
-    )
-    return 1
-
-
 def _emit_chain_inconclusive(
     reason: str,
     *,
@@ -93,6 +64,35 @@ def _emit_chain_inconclusive(
                 ],
                 "failure_reasons": [reason],
                 "redaction_verified": False,
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
+
+
+def _emit_postcheck_inconclusive(reason: str) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    print(
+        json.dumps(
+            {
+                "schema_version": "run-postcheck.v1",
+                "postcheck_id": "postcheck-blocked-precondition",
+                "run_id": "unknown",
+                "trace_ref": "unknown",
+                "run_result_ref": "unknown",
+                "action": "git-status-read-only",
+                "repo_toplevel": "unknown",
+                "checked_at": checked_at,
+                "status": "inconclusive",
+                "observations": [],
+                "redaction_verified": False,
+                "failure_reasons": [reason],
+                "source_refs": [],
+                "evidence_paths": [],
             },
             indent=2,
             ensure_ascii=False,

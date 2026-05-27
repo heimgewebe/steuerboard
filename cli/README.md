@@ -299,10 +299,9 @@ Boundary for Phase 8A:
 - output files must not pre-exist; parent directories must exist
 - stdout/stderr excerpts bounded to 2000 characters each
 
-Phase 8B introduces a bounded read-only postcheck for an existing Phase 8A run.
-Phase 8B is **not** a pull. Phase 8B is **not** an approval runner. Phase 8B is
-a read-only Postcheck/Record slice whose purpose is to make execution evidence
-auditable before any Stage-D mutation is discussed.
+Phase 8B introduces a bounded read-only postcheck for an existing read-only run.
+It validates `command-trace.v1` and `run-result.v1`, re-runs the hardened
+read-only git status command, and emits `run-postcheck.v1`.
 
 Command:
 
@@ -311,50 +310,6 @@ Command:
       --repo-path <repo-path> \
       --postcheck-out <postcheck-json> \
       --json
-
-The command:
-
-- reads one `run-result.v1` JSON file and validates it fully against its schema
-- reads one `command-trace.v1` JSON file and validates it fully against its schema
-- requires `run-result.v1.status == success`
-- requires `run-result.v1.evidence_paths` to include the supplied
-  `command-trace.v1` path
-- validates that the trace command is exactly the hardened git status command:
-  `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
-- requires `command-trace.v1.exit_code == 0`
-- requires `command-trace.v1.stdout_excerpt` for output comparison
-- requires `run-result.v1.redaction_verified == true`
-- requires `command-trace.v1.redacted == true`
-- verifies `--repo-path` resolves to the same git toplevel as in the trace command
-- re-runs `git --no-optional-locks -C <repo-toplevel> status --porcelain=v1`
-- compares new status output against original trace `stdout_excerpt`
-- writes a `run-postcheck.v1` artifact to `--postcheck-out` (outside the inspected repo)
-- emits `run-postcheck.v1` JSON on stdout
-
-Status values:
-
-- `passed` — new status output matches the original trace excerpt and
-  neither side is truncated
-- `failed` — new status output differs (reason: `worktree_changed_after_run`)
-- `inconclusive` — precondition failure or recheck command failure
-  (reasons include `postcheck_command_failed` and
-  `stdout_excerpt_truncated`)
-
-If either original or rechecked status output is truncated at excerpt
-boundary, postcheck result is `inconclusive` (reason:
-`stdout_excerpt_truncated`) and never `passed`.
-
-On precondition failure the command emits a sentinel `run-postcheck.v1` JSON on
-stdout with `status: inconclusive` and exits with code 1.
-
-`run-postcheck.v1` is an evidence artifact, not an authorisation mechanism.
-A passed postcheck does not authorise any subsequent action.
-
-Evidence chain produced by Phases 8A + 8B:
-
-1. `command-trace.v1` — what command ran, what it produced, redacted
-2. `run-result.v1` — run succeeded, redaction verified, trace referenced
-3. `run-postcheck.v1` — worktree state verified against original trace
 
 Boundary for Phase 8B:
 
@@ -368,8 +323,9 @@ Boundary for Phase 8B:
 - output file must not pre-exist; parent directory must exist
 
 Phase 8C introduces a read-only evidence-chain verifier for the artifacts already
-produced by Phases 8A and 8B. Phase 8C is **not** an execution step, **not** an
-approval runner, and **not** a pull gate. It validates internal chain coherence only.
+produced by earlier run-evidence slices. Phase 8C is **not** an execution step,
+**not** an approval runner, and **not** a pull gate. It validates internal chain
+coherence only.
 
 Command:
 
@@ -395,15 +351,17 @@ The command:
 - requires `run-postcheck.v1.run_id`, `trace_ref`, and `run_result_ref` to bind
   to the same run/trace/result chain
 - requires `run-postcheck.v1.redaction_verified == true`
+- records `plan_binding_unavailable` when the supplied artifacts do not prove a
+  causal plan-to-run binding
 - writes one `run-evidence-chain.v1` artifact to `--chain-out`
 - emits `run-evidence-chain.v1` JSON on stdout
 
 Status contract:
 
-- `valid` means only: the four evidence artifacts are internally coherent
+- `valid` is reserved for a coherent chain with proven plan binding
 - `invalid` means the chain is contradictory or the postcheck failed
-- `inconclusive` means the postcheck itself was inconclusive or chain validation
-  could not establish coherence
+- `inconclusive` means the chain could not be established from the supplied artifacts,
+  including when plan binding is unavailable
 
 Important boundary note:
 
@@ -422,4 +380,3 @@ Boundary for Phase 8C:
 - `--chain-out` parent must exist and target must not already exist
 - `--chain-out` must not be written into the inspected repository when
   `repo_toplevel` is known from the evidence chain
-

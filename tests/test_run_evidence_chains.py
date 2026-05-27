@@ -144,14 +144,14 @@ def _cli(args: list[str], cwd: Path):
 
 def test_happy_path_valid_chain(tmp_path: Path):
     chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "valid"
+    assert chain["status"] == "inconclusive"
     assert chain["redaction_verified"] is True
     assert chain["action"] == "git-status-read-only"
     assert chain["run_result_ref"] == "run-read-only-test-001"
     assert chain["postcheck_ref"] == "postcheck-read-only-test-001"
     assert chain["plan_ref"] == "plan-git-status-read-only-test-001"
     assert len(chain["evidence_paths"]) == 4
-    assert "failure_reasons" not in chain
+    assert chain["failure_reasons"] == ["plan_binding_unavailable"]
 
 
 def test_invalid_when_postcheck_failed(tmp_path: Path):
@@ -172,6 +172,24 @@ def test_inconclusive_when_postcheck_inconclusive(tmp_path: Path):
     chain = _validate_happy_chain(tmp_path, mutate=mutate)
     assert chain["status"] == "inconclusive"
     assert "postcheck_inconclusive" in chain["failure_reasons"]
+
+
+def test_inconclusive_when_plan_binding_unavailable(tmp_path: Path):
+    chain = _validate_happy_chain(tmp_path)
+    assert chain["status"] == "inconclusive"
+    assert "plan_binding_unavailable" in chain["failure_reasons"]
+    assert chain["redaction_verified"] is True
+
+
+def test_inconclusive_example_redaction_can_still_be_true(tmp_path: Path):
+    def mutate(_plan, _trace, _result, postcheck, _paths):
+        postcheck["status"] = "inconclusive"
+        postcheck["failure_reasons"] = ["stdout_excerpt_truncated"]
+        postcheck["redaction_verified"] = True
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "inconclusive"
+    assert chain["redaction_verified"] is True
 
 
 def test_invalid_when_trace_missing_from_run_result_evidence_paths(tmp_path: Path):
@@ -282,7 +300,7 @@ def test_cli_emits_schema_valid_output(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     validate_instance(payload, _chain_schema(), Path("cli-chain.json"))
-    assert payload["status"] == "valid"
+    assert payload["status"] == "inconclusive"
     assert output.exists()
 
 
@@ -294,4 +312,93 @@ def test_no_subprocess_calls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(subprocess, "run", fail)
     chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "valid"
+    assert chain["status"] == "inconclusive"
+
+
+def test_invalid_when_postcheck_missing_trace_evidence_path(tmp_path: Path):
+    def mutate(_plan, _trace, _result, postcheck, paths):
+        postcheck["evidence_paths"] = [str(paths["run_result"].resolve())]
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "invalid"
+    assert "postcheck_missing_trace_evidence_path" in chain["failure_reasons"]
+
+
+def test_invalid_when_postcheck_missing_run_result_evidence_path(tmp_path: Path):
+    def mutate(_plan, _trace, _result, postcheck, paths):
+        postcheck["evidence_paths"] = [str(paths["command_trace"].resolve())]
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "invalid"
+    assert "postcheck_missing_run_result_evidence_path" in chain["failure_reasons"]
+
+
+def test_inconclusive_when_clean_chain_but_plan_binding_unavailable(tmp_path: Path):
+    chain = _validate_happy_chain(tmp_path)
+    assert chain["status"] == "inconclusive"
+    assert chain["failure_reasons"] == ["plan_binding_unavailable"]
+
+
+def test_cli_emits_schema_valid_sentinel_on_precondition_failure(tmp_path: Path):
+    _base_artifacts(tmp_path)
+    inputs = tmp_path / "inputs"
+    bad_plan = inputs / "plan.json"
+    bad_plan.write_text("not valid json", encoding="utf-8")
+    output = tmp_path / "outputs" / "chain-sentinel.json"
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-run-chain",
+            str(bad_plan),
+            "--command-trace",
+            str(inputs / "trace.json"),
+            "--run-result",
+            str(inputs / "run-result.json"),
+            "--run-postcheck",
+            str(inputs / "postcheck.json"),
+            "--chain-out",
+            str(output),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _chain_schema(), Path("cli-sentinel.json"))
+    assert payload["status"] == "inconclusive"
+    assert "failure_reasons" in payload
+
+def test_cli_sentinel_schema_valid_when_input_paths_duplicate(tmp_path: Path):
+    """When two CLI args point to the same file, the sentinel must still be schema-valid."""
+    _base_artifacts(tmp_path)
+    inputs = tmp_path / "inputs"
+    # Pass the same file as both --run-result and --run-postcheck
+    same_path = inputs / "run-result.json"
+    output = tmp_path / "outputs" / "chain-dup-sentinel.json"
+    proc = _cli(
+        [
+            "python",
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-run-chain",
+            str(inputs / "plan.json"),
+            "--command-trace",
+            str(inputs / "trace.json"),
+            "--run-result",
+            str(same_path),
+            "--run-postcheck",
+            str(same_path),  # deliberate duplicate
+            "--chain-out",
+            str(output),
+            "--json",
+        ],
+        cwd=ROOT,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    validate_instance(payload, _chain_schema(), Path("cli-dup-sentinel.json"))
+    assert payload["status"] == "inconclusive"
