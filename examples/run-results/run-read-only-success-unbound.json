@@ -3,8 +3,6 @@
     "examples/evidence/command-trace-read-only-pilot.json"
   ],
   "finished_at": "2026-05-26T10:00:01Z",
-  "plan_content_sha256": "187c2f25dee6ab47a55c4a6d594e0c4717f4c6fcb185f15fa53e8164ec15619b",
-  "plan_ref": "plan-git-status-read-only-2026-05-26-001",
   "redaction_verified": true,
   "run_id": "run-read-only-example-pilot-001",
   "schema_version": "run-result.v1",

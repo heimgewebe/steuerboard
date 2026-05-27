@@ -10,10 +10,10 @@
       "passed": true
     },
     {
-      "actual": "absent",
+      "actual": "present",
       "check": "plan_binding_available",
-      "expected": "plan_ref or plan_content_sha256",
-      "passed": false
+      "expected": "run-result contains plan_ref and plan_content_sha256",
+      "passed": true
     },
     {
       "actual": "inconclusive",
@@ -29,8 +29,7 @@
     "/workspace/examples/run-postchecks/git-status-read-only-inconclusive.json"
   ],
   "failure_reasons": [
-    "postcheck_inconclusive",
-    "plan_binding_unavailable"
+    "postcheck_inconclusive"
   ],
   "plan_ref": "plan-git-status-read-only-2026-05-26-001",
   "postcheck_ref": "postcheck-read-only-example-inconclusive-001",

@@ -10,9 +10,9 @@
       "passed": true
     },
     {
-      "actual": "absent",
+      "actual": "missing: plan_ref, plan_content_sha256",
       "check": "plan_binding_available",
-      "expected": "plan_ref or plan_content_sha256",
+      "expected": "run-result contains plan_ref and plan_content_sha256",
       "passed": false
     },
     {
@@ -25,14 +25,14 @@
   "evidence_paths": [
     "/workspace/examples/action-plans/git-status-read-only-pilot.json",
     "/workspace/examples/evidence/command-trace-read-only-pilot.json",
-    "/workspace/examples/run-results/run-read-only-success.json",
-    "/workspace/examples/run-postchecks/git-status-read-only-passed.json"
+    "/workspace/examples/run-results/run-read-only-success-unbound.json",
+    "/workspace/examples/run-postchecks/git-status-read-only-passed-unbound.json"
   ],
   "failure_reasons": [
     "plan_binding_unavailable"
   ],
   "plan_ref": "plan-git-status-read-only-2026-05-26-001",
-  "postcheck_ref": "postcheck-read-only-example-pilot-001",
+  "postcheck_ref": "postcheck-read-only-example-pilot-unbound-001",
   "redaction_verified": true,
   "run_id": "run-read-only-example-pilot-001",
   "run_result_ref": "run-read-only-example-pilot-001",

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.validate_examples import ROOT, SCHEMAS_DIR, load_json, validate_instance
+from steuerboard.canonical_json import canonical_json_sha256
 from steuerboard.run_evidence_chains import validate_run_evidence_chain
 
 
@@ -60,6 +61,8 @@ def _base_artifacts(tmp_path: Path) -> tuple[dict, dict, dict, dict, dict[str, P
     run_result = {
         "schema_version": "run-result.v1",
         "run_id": "run-read-only-test-001",
+        "plan_ref": action_plan["plan_id"],
+        "plan_content_sha256": canonical_json_sha256(action_plan),
         "status": "success",
         "started_at": "2026-05-26T10:00:00Z",
         "finished_at": "2026-05-26T10:00:01Z",
@@ -144,14 +147,14 @@ def _cli(args: list[str], cwd: Path):
 
 def test_happy_path_valid_chain(tmp_path: Path):
     chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "valid"
     assert chain["redaction_verified"] is True
     assert chain["action"] == "git-status-read-only"
     assert chain["run_result_ref"] == "run-read-only-test-001"
     assert chain["postcheck_ref"] == "postcheck-read-only-test-001"
     assert chain["plan_ref"] == "plan-git-status-read-only-test-001"
     assert len(chain["evidence_paths"]) == 4
-    assert chain["failure_reasons"] == ["plan_binding_unavailable"]
+    assert "failure_reasons" not in chain
 
 
 def test_invalid_when_postcheck_failed(tmp_path: Path):
@@ -174,11 +177,23 @@ def test_inconclusive_when_postcheck_inconclusive(tmp_path: Path):
     assert "postcheck_inconclusive" in chain["failure_reasons"]
 
 
-def test_inconclusive_when_plan_binding_unavailable(tmp_path: Path):
-    chain = _validate_happy_chain(tmp_path)
+def test_inconclusive_when_plan_ref_missing(tmp_path: Path):
+    def mutate(_plan, _trace, result, _postcheck, _paths):
+        result.pop("plan_ref", None)
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
     assert chain["status"] == "inconclusive"
     assert "plan_binding_unavailable" in chain["failure_reasons"]
     assert chain["redaction_verified"] is True
+
+
+def test_inconclusive_when_plan_content_sha256_missing(tmp_path: Path):
+    def mutate(_plan, _trace, result, _postcheck, _paths):
+        result.pop("plan_content_sha256", None)
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "inconclusive"
+    assert "plan_binding_unavailable" in chain["failure_reasons"]
 
 
 def test_inconclusive_example_redaction_can_still_be_true(tmp_path: Path):
@@ -300,7 +315,7 @@ def test_cli_emits_schema_valid_output(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     validate_instance(payload, _chain_schema(), Path("cli-chain.json"))
-    assert payload["status"] == "inconclusive"
+    assert payload["status"] == "valid"
     assert output.exists()
 
 
@@ -312,7 +327,7 @@ def test_no_subprocess_calls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(subprocess, "run", fail)
     chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "inconclusive"
+    assert chain["status"] == "valid"
 
 
 def test_invalid_when_postcheck_missing_trace_evidence_path(tmp_path: Path):
@@ -333,10 +348,22 @@ def test_invalid_when_postcheck_missing_run_result_evidence_path(tmp_path: Path)
     assert "postcheck_missing_run_result_evidence_path" in chain["failure_reasons"]
 
 
-def test_inconclusive_when_clean_chain_but_plan_binding_unavailable(tmp_path: Path):
-    chain = _validate_happy_chain(tmp_path)
-    assert chain["status"] == "inconclusive"
-    assert chain["failure_reasons"] == ["plan_binding_unavailable"]
+def test_invalid_when_plan_ref_mismatch(tmp_path: Path):
+    def mutate(plan, _trace, result, _postcheck, _paths):
+        result["plan_ref"] = f"{plan['plan_id']}-other"
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "invalid"
+    assert "plan_ref_mismatch" in chain["failure_reasons"]
+
+
+def test_invalid_when_plan_content_sha256_mismatch(tmp_path: Path):
+    def mutate(_plan, _trace, result, _postcheck, _paths):
+        result["plan_content_sha256"] = "0" * 64
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "invalid"
+    assert "plan_content_sha256_mismatch" in chain["failure_reasons"]
 
 
 def test_cli_emits_schema_valid_sentinel_on_precondition_failure(tmp_path: Path):
