@@ -1,0 +1,71 @@
+{
+  "action": "git-pull-ff-only",
+  "approval_validation_ref": "validation-d57efbd94539cd086dfe836cd54c089c74debd43d1d00fbfb8a4cd12d31d53c3",
+  "blocked_because": [
+    "chain_invalid"
+  ],
+  "chain_ref": "chain-run-read-only-example-failed-001",
+  "checked_at": "2026-05-27T12:00:00Z",
+  "checks": [
+    {
+      "actual": "git-pull-ff-only",
+      "check": "plan_action_supported",
+      "expected": "git-pull-ff-only",
+      "passed": true
+    },
+    {
+      "actual": "binding_valid",
+      "check": "approval_validation_binding_valid",
+      "expected": "binding_valid",
+      "passed": true
+    },
+    {
+      "actual": "plan-git-pull-ff-only-2026-05-23-001",
+      "check": "approval_validation_plan_ref_matches_plan",
+      "expected": "plan-git-pull-ff-only-2026-05-23-001",
+      "passed": true
+    },
+    {
+      "actual": "git-pull-ff-only",
+      "check": "approval_validation_action_matches_plan",
+      "expected": "git-pull-ff-only",
+      "passed": true
+    },
+    {
+      "actual": "invalid",
+      "check": "run_evidence_chain_status_valid",
+      "expected": "valid",
+      "passed": false
+    },
+    {
+      "actual": "true",
+      "check": "run_evidence_chain_redaction_verified",
+      "expected": "true",
+      "passed": true
+    },
+    {
+      "actual": "chain.action=='git-status-read-only' and chain.plan_ref=='plan-git-status-read-only-2026-05-26-001'",
+      "check": "preflight_chain_plan_binding_proven",
+      "expected": "chain.action=='git-pull-ff-only' and chain.plan_ref=='plan-git-pull-ff-only-2026-05-23-001'",
+      "passed": false
+    }
+  ],
+  "failure_reasons": [
+    "chain_invalid"
+  ],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "readiness_id": "readiness-9709d44e0d68fa9dbd8cb799da4f16e8e1ff56b9e989eb8cae11a74974ddfdd9",
+  "schema_version": "action-execution-readiness.v1",
+  "source_refs": [
+    "git.current_branch",
+    "action-plan.v1",
+    "action-approval-validation.v1",
+    "run-evidence-chain.v1"
+  ],
+  "status": "blocked"
+}

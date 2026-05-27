@@ -95,6 +95,11 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "scope-explanations/gdrive.json",
     "scope-explanations/unknown.json",
     "source-refs/git-current-branch.json",
+    "action-execution-readiness/git-pull-ff-only-inconclusive-binding-unproven.json",
+    "action-execution-readiness/git-pull-ff-only-blocked-rejected-approval.json",
+    "action-execution-readiness/git-pull-ff-only-blocked-expired-approval.json",
+    "action-execution-readiness/git-pull-ff-only-inconclusive-chain.json",
+    "action-execution-readiness/git-pull-ff-only-blocked-invalid-chain.json",
 }
 
 FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {

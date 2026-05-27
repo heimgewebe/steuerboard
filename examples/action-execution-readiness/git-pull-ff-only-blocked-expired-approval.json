@@ -1,0 +1,71 @@
+{
+  "action": "git-pull-ff-only",
+  "approval_validation_ref": "validation-d00c91ea79f04e8283820a40e885951827c2a6c126d3a624163bcedf945c1f95",
+  "blocked_because": [
+    "approval_not_binding_valid"
+  ],
+  "chain_ref": "chain-run-read-only-example-pilot-valid-001",
+  "checked_at": "2026-05-27T12:00:00Z",
+  "checks": [
+    {
+      "actual": "git-pull-ff-only",
+      "check": "plan_action_supported",
+      "expected": "git-pull-ff-only",
+      "passed": true
+    },
+    {
+      "actual": "binding_invalid",
+      "check": "approval_validation_binding_valid",
+      "expected": "binding_valid",
+      "passed": false
+    },
+    {
+      "actual": "plan-git-pull-ff-only-2026-05-23-001",
+      "check": "approval_validation_plan_ref_matches_plan",
+      "expected": "plan-git-pull-ff-only-2026-05-23-001",
+      "passed": true
+    },
+    {
+      "actual": "git-pull-ff-only",
+      "check": "approval_validation_action_matches_plan",
+      "expected": "git-pull-ff-only",
+      "passed": true
+    },
+    {
+      "actual": "valid",
+      "check": "run_evidence_chain_status_valid",
+      "expected": "valid",
+      "passed": true
+    },
+    {
+      "actual": "true",
+      "check": "run_evidence_chain_redaction_verified",
+      "expected": "true",
+      "passed": true
+    },
+    {
+      "actual": "chain.action=='git-status-read-only' and chain.plan_ref=='plan-git-status-read-only-2026-05-26-001'",
+      "check": "preflight_chain_plan_binding_proven",
+      "expected": "chain.action=='git-pull-ff-only' and chain.plan_ref=='plan-git-pull-ff-only-2026-05-23-001'",
+      "passed": false
+    }
+  ],
+  "failure_reasons": [
+    "approval_not_binding_valid"
+  ],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "readiness_id": "readiness-a425adb2e2d0352f984d180cc90bdfabd4bdffefe53d849dc80bb58e1c023546",
+  "schema_version": "action-execution-readiness.v1",
+  "source_refs": [
+    "git.current_branch",
+    "action-plan.v1",
+    "action-approval-validation.v1",
+    "run-evidence-chain.v1"
+  ],
+  "status": "blocked"
+}

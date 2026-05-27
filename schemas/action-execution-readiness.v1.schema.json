@@ -1,0 +1,155 @@
+{
+  "$id": "https://example.invalid/steuerboard/schemas/action-execution-readiness.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Action Execution Readiness v1",
+  "description": "Phase 8D.0 Stage-D readiness assessment artifact. Pure validation artifact — no execution, no mutation, no action authorisation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "readiness_id",
+    "checked_at",
+    "action",
+    "plan_ref",
+    "approval_validation_ref",
+    "chain_ref",
+    "status",
+    "blocked_because",
+    "checks",
+    "source_refs",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "action-execution-readiness.v1"
+    },
+    "readiness_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "action": {
+      "enum": [
+        "git-pull-ff-only"
+      ]
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "approval_validation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "chain_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "blocked",
+        "inconclusive"
+      ]
+    },
+    "blocked_because": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "unsupported_action",
+          "approval_not_binding_valid",
+          "approval_plan_ref_mismatch",
+          "approval_action_mismatch",
+          "chain_invalid",
+          "chain_redaction_unverified"
+        ]
+      }
+    },
+    "failure_reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check",
+          "passed"
+        ],
+        "properties": {
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "actual": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "status": {
+        "enum": [
+          "blocked",
+          "inconclusive"
+        ]
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "failure_reasons"
+    ]
+  }
+}

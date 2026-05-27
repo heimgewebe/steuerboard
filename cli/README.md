@@ -380,3 +380,51 @@ Boundary for Phase 8C:
 - `--chain-out` parent must exist and target must not already exist
 - `--chain-out` must not be written into the inspected repository when
   `repo_toplevel` is known from the evidence chain
+
+---
+
+## Phase 8D.0: action validate-execution-readiness
+
+```
+python -m steuerboard action validate-execution-readiness <action-plan-json> \
+  --approval-validation <approval-validation-json> \
+  --run-evidence-chain <chain-json> \
+  --readiness-out <readiness-json> \
+  --json
+```
+
+Validates Stage-D execution readiness for a single supported action
+(`git-pull-ff-only`).  Reads three prerequisite artifacts and emits an
+`action-execution-readiness.v1` artifact.
+
+Arguments:
+
+| Argument | Description |
+|----------|-------------|
+| `<action-plan-json>` | Path to an `action-plan.v1` JSON artifact |
+| `--approval-validation` | Path to an `action-approval-validation.v1` JSON artifact |
+| `--run-evidence-chain` | Path to a `run-evidence-chain.v1` JSON artifact |
+| `--readiness-out` | Output path for the `action-execution-readiness.v1` artifact (must not exist; parent must exist) |
+| `--json` | Required flag; emits JSON to stdout |
+
+Status values:
+
+- `ready` — all hard gates pass and plan binding is contractually proven
+- `blocked` — at least one hard gate fails
+- `inconclusive` — no hard failure but plan binding cannot be proven
+
+In the current slice the best achievable status is `inconclusive` with
+`preflight_chain_plan_binding_unproven`, because the preflight chain records
+`git-status-read-only` which cannot prove binding to a `git-pull-ff-only` plan.
+
+Boundary for Phase 8D.0:
+
+- no subprocess execution
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- no execution authorisation
+- output artifact always carries `does_not_execute=true`,
+  `does_not_mutate=true`, `does_not_authorise_actions=true`
+- `--readiness-out` parent must exist and target must not already exist
