@@ -54,6 +54,13 @@
         "type": "string"
       }
     },
+    "action": {
+      "type": "string",
+      "enum": [
+        "git-status-read-only",
+        "git-pull-ff-only"
+      ]
+    },
     "preflight_for_action_plan": {
       "type": "object",
       "additionalProperties": false,

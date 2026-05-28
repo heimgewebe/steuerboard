@@ -1,0 +1,26 @@
+{
+  "action": "git-pull-ff-only",
+  "checked_at": "2026-05-28T12:00:03Z",
+  "evidence_paths": [
+    "examples/evidence/command-trace-git-pull-ff-only-success.json",
+    "examples/run-results/run-git-pull-ff-only-success.json"
+  ],
+  "observations": [
+    "head_before='abc1234def5678abc1234def5678abc1234def5678abc1234def5678abc1234de'",
+    "head_after='1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b'"
+  ],
+  "postcheck_id": "postcheck-d1f86f2e51a987d3d9807cb8dacc77ea74985c373f5e5c1cc787ef4f7d4d16ee",
+  "redaction_verified": true,
+  "repo_toplevel": "/path/to/repo",
+  "run_id": "run-git-pull-ff-only-example-001",
+  "run_result_ref": "run-git-pull-ff-only-example-001",
+  "schema_version": "run-postcheck.v1",
+  "source_refs": [
+    "git.rev_parse_head",
+    "git.status_porcelain",
+    "run-result.v1",
+    "command-trace.v1"
+  ],
+  "status": "passed",
+  "trace_ref": "trace-git-pull-ff-only-example-001"
+}

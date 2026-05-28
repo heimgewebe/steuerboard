@@ -11,6 +11,7 @@ from .action_execution_readiness import validate_execution_readiness
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .action_preflight_bindings import bind_preflight_to_action
 from .action_runs import run_read_only_action
+from .action_git_pull import run_git_pull_ff_only
 from .assessment import assess_repo
 from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
@@ -183,6 +184,29 @@ def _emit_preflight_binding_inconclusive(reason: str) -> int:
                     "does_not_mutate": True,
                     "does_not_authorise_actions": True,
                 },
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
+
+
+
+def _emit_pull_blocked(reason: str) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    sanitized_reason = _sanitize_sentinel_reason(reason)
+    print(
+        json.dumps(
+            {
+                "schema_version": "run-result.v1",
+                "run_id": "run-git-pull-ff-only-blocked-precondition",
+                "action": "git-pull-ff-only",
+                "status": "blocked",
+                "redaction_verified": True,
+                "blocked_reasons": [sanitized_reason],
             },
             indent=2,
             ensure_ascii=False,
@@ -664,6 +688,63 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit action-preflight-binding.v1 JSON.",
     )
 
+    action_run_git_pull_ff_only_parser = action_subparsers.add_parser(
+        "run-git-pull-ff-only",
+        help=(
+            "Execute a Stage-D approved git-pull-ff-only action. "
+            "Requires a valid readiness gate reproduced from action-plan.v1, "
+            "action-approval-validation.v1, run-evidence-chain.v1, and "
+            "action-preflight-binding.v1. "
+            "Writes command-trace.v1, run-result.v1, and run-postcheck.v1. "
+            "No free shell. Exactly one fast-forward pull."
+        ),
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file (action must be git-pull-ff-only).",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--approval-validation",
+        required=True,
+        help="Path to an action-approval-validation.v1 JSON file.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--run-evidence-chain",
+        required=True,
+        help="Path to a run-evidence-chain.v1 JSON file.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--preflight-binding",
+        required=True,
+        help="Path to an action-preflight-binding.v1 JSON file.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--repo-path",
+        required=True,
+        help="Explicit path to the local git repository to pull in.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--command-trace-out",
+        required=True,
+        help="Output path for command-trace.v1 JSON. Must not already exist.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--run-result-out",
+        required=True,
+        help="Output path for run-result.v1 JSON. Must not already exist.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--postcheck-out",
+        required=True,
+        help="Output path for run-postcheck.v1 JSON. Must not already exist.",
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit run-result.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -1071,6 +1152,47 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_evidence_chain_path=args.run_evidence_chain,
             )
         print(json.dumps(readiness, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "run-git-pull-ff-only":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_pull_blocked(f"invalid_action_plan_json: {exc}")
+
+        try:
+            with Path(args.approval_validation).open("r", encoding="utf-8") as handle:
+                approval_validation_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_pull_blocked(f"invalid_approval_validation_json: {exc}")
+
+        try:
+            with Path(args.run_evidence_chain).open("r", encoding="utf-8") as handle:
+                run_evidence_chain_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_pull_blocked(f"invalid_run_evidence_chain_json: {exc}")
+
+        try:
+            with Path(args.preflight_binding).open("r", encoding="utf-8") as handle:
+                preflight_binding_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_pull_blocked(f"invalid_preflight_binding_json: {exc}")
+
+        try:
+            run_result = run_git_pull_ff_only(
+                action_plan=action_plan_data,
+                approval_validation=approval_validation_data,
+                run_evidence_chain=run_evidence_chain_data,
+                preflight_binding=preflight_binding_data,
+                repo_path=args.repo_path,
+                command_trace_out=args.command_trace_out,
+                run_result_out=args.run_result_out,
+                postcheck_out=args.postcheck_out,
+            )
+        except ValueError as exc:
+            return _emit_pull_blocked(str(exc))
+        print(json.dumps(run_result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "action" and args.action_command == "bind-preflight-to-action":

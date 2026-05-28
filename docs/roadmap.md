@@ -854,3 +854,66 @@ Boundary:
 - no execution authorisation
 - output artifact always carries `does_not_execute=true`,
   `does_not_mutate=true`, `does_not_authorise_actions=true`
+
+## Phase 8E — Stage-D git-pull-ff-only Executor
+
+Phase 8E activates Stage D for exactly one mutating action: `git-pull-ff-only`.
+It introduces `steuerboard/action_git_pull.py` and the CLI subcommand
+`action run-git-pull-ff-only`.
+
+### What the runner does
+
+Given four input artifacts — `action-plan.v1`, `action-approval-validation.v1`,
+`run-evidence-chain.v1`, and `action-preflight-binding.v1` — the runner:
+
+1. Schema-validates all four input artifacts.
+2. Asserts `action_plan.action == "git-pull-ff-only"`.
+3. Asserts `preflight_binding.binding_state == "binding_valid"` and that a
+   `preflight_for_action_plan` proof object is present.
+4. Checks all three output paths: must not exist, parents must exist.
+5. Resolves the git worktree toplevel via `git rev-parse --show-toplevel` and
+   asserts no output path is inside the worktree.
+6. **Internally reproduces** the Stage-D readiness gate by calling
+   `validate_execution_readiness()` inside a `TemporaryDirectory`.  The runner
+   never trusts a pre-computed `action-execution-readiness.v1` artifact — only
+   if the four underlying artifacts together prove `status == "ready"` will
+   the pull proceed.
+7. Checks that the worktree is clean (`git status --porcelain=v1` empty) before
+   any mutation.
+8. Records `HEAD` before the pull.
+9. Executes exactly one subprocess call:
+   `["git", "--no-optional-locks", "-C", <toplevel>, "pull", "--ff-only"]`.
+   No `shell=True`.  No merge, rebase, reset, or clean.
+
+### Output artifacts
+
+On any precondition failure no output is written and no Git mutation occurs.
+On execution the runner writes three artifacts atomically (with a rollback
+chain on partial failure):
+
+- **`command-trace.v1`** — records the exact command, exit code, and stdout/
+  stderr excerpts.
+- **`run-result.v1`** — records `action: git-pull-ff-only`, `status`, plan
+  hash, and timestamps.
+- **`run-postcheck.v1`** — records `action: git-pull-ff-only`, postcheck
+  status, and (on success) `head_before`/`head_after` observations.
+
+### Postcheck status semantics
+
+| Condition | `run_result.status` | `postcheck.status` | Reason code |
+|---|---|---|---|
+| `git pull` exit code ≠ 0 | `failure` | `failed` | `pull_exit_code_nonzero` |
+| "Already up to date" / HEAD unchanged | `success` | `inconclusive` | `head_unchanged_after_pull` |
+| HEAD unreadable after pull | `success` | `inconclusive` | `head_unreadable_after_pull` |
+| Merge commit detected (`HEAD^2` exists) | `failure` | `failed` | `merge_commit_detected` |
+| Post-pull status check error | `success` | `inconclusive` | `post_pull_status_check_failed` |
+| Worktree dirty after pull | `failure` | `failed` | `worktree_not_clean_after_pull` |
+| All checks pass | `success` | `passed` | — |
+
+### Boundary
+
+Phase 8E makes exactly one mutating Git call under a single, statically-known
+argv vector (`--ff-only`).  It does not expand the action allowlist further,
+does not introduce `switch-main` execution, and does not remove the Phase 8A
+read-only runner.
+
