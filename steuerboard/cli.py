@@ -492,6 +492,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output path for run-result.v1 JSON. Must not already exist.",
     )
     action_run_read_only_parser.add_argument(
+        "--preflight-for-action-plan",
+        required=False,
+        default=None,
+        help=(
+            "Optional Phase 8D.2 path to an action-plan.v1 JSON file for a "
+            "git-pull-ff-only plan. When supplied, embeds contract-defined "
+            "proof material (plan_ref, plan_action, plan_content_sha256) into "
+            "the emitted run-result.v1 so downstream binding can prove this "
+            "read-only run was produced as preflight for that exact pull plan. "
+            "Does not change the executed command or action."
+        ),
+    )
+    action_run_read_only_parser.add_argument(
         "--json",
         action="store_true",
         required=True,
@@ -606,10 +619,13 @@ def build_parser() -> argparse.ArgumentParser:
         required=False,
         default=None,
         help=(
-            "Optional Phase 8D.1 action-preflight-binding.v1 JSON file. "
-            "When supplied, the binding artifact is consistency-checked and recorded; "
-            "its binding_state is consumed conservatively. In this slice, binding_valid "
-            "does not make the binding gate pass because no contract-defined proof field exists yet."
+            "Optional Phase 8D.1/8D.2 action-preflight-binding.v1 JSON file. "
+            "When supplied, the binding artifact is consistency-checked and recorded. "
+            "Phase 8D.2: when the binding carries a preflight_for_action_plan proof "
+            "object whose plan_ref, plan_action, and plan_content_sha256 match the "
+            "supplied action plan, binding_valid elevates the binding gate to proven "
+            "and readiness can reach 'ready'. Without matching proof, readiness "
+            "remains inconclusive."
         ),
     )
     action_validate_execution_readiness_parser.add_argument(
@@ -844,12 +860,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, json.JSONDecodeError) as exc:
             parser.error(f"invalid action-plan JSON: {exc}")
 
+        preflight_for_action_plan: dict | None = None
+        if args.preflight_for_action_plan is not None:
+            try:
+                with Path(args.preflight_for_action_plan).open("r", encoding="utf-8") as handle:
+                    preflight_for_action_plan = json.load(handle)
+            except (OSError, json.JSONDecodeError) as exc:
+                print(
+                    json.dumps(
+                        {
+                            "schema_version": "run-result.v1",
+                            "run_id": "run-blocked-precondition",
+                            "status": "blocked",
+                            "redaction_verified": True,
+                            "blocked_reasons": [f"invalid_preflight_for_action_plan_json: {exc}"],
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
+                return 1
+
         try:
             run_result = run_read_only_action(
                 action_plan=action_plan,
                 repo_path=args.repo_path,
                 command_trace_out=args.command_trace_out,
                 run_result_out=args.run_result_out,
+                preflight_for_action_plan=preflight_for_action_plan,
             )
         except ValueError as exc:
             print(

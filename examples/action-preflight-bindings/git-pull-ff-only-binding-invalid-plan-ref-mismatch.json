@@ -1,0 +1,81 @@
+{
+  "schema_version": "action-preflight-binding.v1",
+  "binding_id": "preflight-binding-edfc9148900c584d2f36b841125a7682fd6343ee6ea7cd662c7cad18390a4bd1",
+  "checked_at": "2026-05-28T10:35:00Z",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "plan_action": "git-pull-ff-only",
+  "chain_ref": "chain-run-read-only-mismatch-plan-ref-001",
+  "chain_action": "git-status-read-only",
+  "binding_state": "binding_invalid",
+  "blocked_because": [
+    "binding_mismatch"
+  ],
+  "failure_reasons": [
+    "binding_mismatch"
+  ],
+  "checks": [
+    {
+      "check": "plan_action_supported",
+      "passed": true,
+      "expected": "git-pull-ff-only",
+      "actual": "git-pull-ff-only"
+    },
+    {
+      "check": "chain_action_supported",
+      "passed": true,
+      "expected": "git-status-read-only",
+      "actual": "git-status-read-only"
+    },
+    {
+      "check": "chain_status_valid",
+      "passed": true,
+      "expected": "valid",
+      "actual": "valid"
+    },
+    {
+      "check": "chain_redaction_verified",
+      "passed": true,
+      "expected": "true",
+      "actual": "true"
+    },
+    {
+      "check": "preflight_for_action_plan_present",
+      "passed": true,
+      "expected": "run_evidence_chain.preflight_for_action_plan object",
+      "actual": "present"
+    },
+    {
+      "check": "preflight_for_action_plan_plan_ref_matches",
+      "passed": false,
+      "expected": "plan-git-pull-ff-only-2026-05-23-001",
+      "actual": "plan-git-pull-ff-only-WRONG-001"
+    },
+    {
+      "check": "preflight_for_action_plan_plan_action_matches",
+      "passed": true,
+      "expected": "git-pull-ff-only",
+      "actual": "git-pull-ff-only"
+    },
+    {
+      "check": "preflight_for_action_plan_plan_content_sha256_matches",
+      "passed": true,
+      "expected": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
+      "actual": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770"
+    }
+  ],
+  "preflight_for_action_plan": {
+    "plan_ref": "plan-git-pull-ff-only-WRONG-001",
+    "plan_action": "git-pull-ff-only",
+    "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770"
+  },
+  "source_refs": [
+    "git.current_branch",
+    "action-plan.v1",
+    "run-evidence-chain.v1"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

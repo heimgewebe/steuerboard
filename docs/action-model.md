@@ -320,6 +320,122 @@ consistency; mismatches raise a precondition error) and records
 Readiness still does not execute, does not authorise, and does not create a
 runner. Boundary flags remain const true.
 
+## Phase 8D.2 — Contract-defined Preflight Proof Material
+
+Phase 8D.2 closes the epistemic gap that Phase 8D.1 honestly recorded: it adds
+a contract-defined object that proves a `git-status-read-only` run evidence
+chain was produced as preflight for a specific `git-pull-ff-only` action plan.
+
+Phase 8D.2 is not execution.
+Phase 8D.2 is not authorisation.
+Phase 8D.2 is not a runner.
+Phase 8D.2 is artifact-level proof material only.
+
+### Proof Object
+
+The new field is `preflight_for_action_plan` and carries three required
+properties:
+
+```json
+{
+  "preflight_for_action_plan": {
+    "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+    "plan_action": "git-pull-ff-only",
+    "plan_content_sha256": "<canonical sha256 of the pull plan>"
+  }
+}
+```
+
+- `plan_ref` — the `plan_id` of the future `git-pull-ff-only` action plan that
+  this read-only run was produced as preflight for.
+- `plan_action` — must be `git-pull-ff-only` for binding to be valid.
+- `plan_content_sha256` — the canonical SHA-256 of the pull plan as computed by
+  `canonical_json_sha256`, the same canonical hash used elsewhere in the
+  repository for `run-result.v1.plan_content_sha256` and
+  `action-approval.v1.plan_content_sha256`.
+
+The hash binds the proof to a specific bit-exact plan content. If the pull
+plan is edited, the hash no longer matches and the binding becomes
+`binding_invalid`. This is intentional: a plan-binding artifact must not
+silently track plan content drift.
+
+### Carried By
+
+- `run-result.v1` — optionally carries the proof when produced via
+  `action run-read-only --preflight-for-action-plan <pull-plan-json>`.
+- `run-evidence-chain.v1` — preserves the proof from `run-result.v1`
+  unchanged when the chain is validated.
+- `action-preflight-binding.v1` — records the proof object it found in the
+  chain whenever it was present.
+
+### Binding States in Phase 8D.2
+
+`bind-preflight-to-action` now distinguishes the following cases:
+
+- `binding_valid` — chain carries `preflight_for_action_plan`, all three
+  fields match the supplied pull plan exactly (`plan_ref ==
+  action_plan.plan_id`, `plan_action == "git-pull-ff-only"`,
+  `plan_content_sha256 == canonical_json_sha256(action_plan)`), and the
+  remaining gates (plan/chain action, chain status, redaction) pass.
+- `binding_inconclusive` — the chain has no `preflight_for_action_plan` object
+  and no hard gate fails. This is the honest result for pre-8D.2 chains.
+- `binding_invalid` — the proof object is present but at least one field does
+  not match the supplied pull plan, or one of the existing hard gates fails.
+  The mismatch is recorded as `blocked_because: ["binding_mismatch"]`.
+
+### Readiness Integration
+
+`validate-execution-readiness` now trusts a supplied
+`action-preflight-binding.v1` only when its `binding_state == binding_valid`
+**and** the binding artifact carries the `preflight_for_action_plan` proof
+object. The binding logic has already verified the proof against the supplied
+pull plan, so readiness can consume it directly without re-implementing the
+check.
+
+- `binding_valid` + proof present → readiness gate `preflight_chain_plan_binding_proven` passes.
+- `binding_valid` without proof → readiness stays `inconclusive` (conservative).
+- `binding_invalid` → readiness blocks with `preflight_binding_invalid`.
+- `binding_inconclusive` → readiness stays `inconclusive`.
+
+Stage-D execution remains future-only. A `ready` readiness artifact still does
+not execute, mutate, or authorise. There is still no Stage-D runner contract
+in the current slice.
+
+### CLI
+
+```bash
+python -m steuerboard action run-read-only <status-action-plan-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --preflight-for-action-plan <pull-action-plan-json> \
+  --json
+```
+
+Validation of `--preflight-for-action-plan`:
+
+- the referenced JSON must validate as `action-plan.v1`
+- the referenced plan's `action` must be exactly `git-pull-ff-only`
+- the executing plan's action remains `git-status-read-only` (already enforced
+  by the Phase 8A allowlist)
+- the executed command is unchanged — exactly one read-only `git status` call
+- the emitted `run-result.v1` carries `preflight_for_action_plan` with
+  `plan_ref`, `plan_action`, and the canonical `plan_content_sha256`
+
+### Boundary
+
+- pure artifact contract extension; no subprocess change, no Git mutation,
+  no network, no fetch, no pull
+- the executed command and read-only boundary in Phase 8A are unchanged
+- all produced artifacts continue to carry
+  `boundary.does_not_execute=true`, `boundary.does_not_mutate=true`,
+  `boundary.does_not_authorise_actions=true`
+- existing artifacts without `preflight_for_action_plan` remain
+  schema-valid; the field is strictly optional everywhere it appears
+- `binding_valid` is now achievable only with explicit, content-bound proof
+  material; it is never inferred from naming conventions, timestamps, or
+  source_refs
+
 ## Phase 8D.0: Stage-D Execution Readiness
 
 Phase 8D.0 introduces the `action-execution-readiness.v1` artifact — a pure

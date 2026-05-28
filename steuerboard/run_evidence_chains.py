@@ -441,6 +441,25 @@ def validate_run_evidence_chain(
         "checks": checks,
         "redaction_verified": redaction_verified,
     }
+    # Phase 8D.2: preserve preflight-target proof material from run-result into
+    # the chain so downstream binding can verify it against the supplied pull
+    # plan.  This is propagation only — the chain does not interpret the proof
+    # against any pull plan; that is the job of action-preflight-binding.v1.
+    preflight_for = run_result.get("preflight_for_action_plan")
+    if isinstance(preflight_for, dict):
+        plan_ref_value = preflight_for.get("plan_ref")
+        plan_action_value = preflight_for.get("plan_action")
+        plan_sha_value = preflight_for.get("plan_content_sha256")
+        if (
+            isinstance(plan_ref_value, str)
+            and isinstance(plan_action_value, str)
+            and isinstance(plan_sha_value, str)
+        ):
+            chain["preflight_for_action_plan"] = {
+                "plan_ref": plan_ref_value,
+                "plan_action": plan_action_value,
+                "plan_content_sha256": plan_sha_value,
+            }
     if status in {"invalid", "inconclusive"}:
         chain["failure_reasons"] = unique_failure_reasons
 

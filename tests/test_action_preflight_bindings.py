@@ -89,6 +89,10 @@ _EXAMPLE_FILES = [
     "git-pull-ff-only-binding-blocked-invalid-chain.json",
     "git-pull-ff-only-binding-blocked-redaction-unverified.json",
     "git-pull-ff-only-binding-blocked-unsupported-plan-action.json",
+    "git-pull-ff-only-binding-valid.json",
+    "git-pull-ff-only-binding-invalid-plan-ref-mismatch.json",
+    "git-pull-ff-only-binding-invalid-plan-content-sha256-mismatch.json",
+    "git-pull-ff-only-binding-invalid-plan-action-wrong.json",
 ]
 
 
@@ -111,6 +115,10 @@ def test_schema_examples_binding_id_matches_binding_material(filename):
         "blocked_because": list(instance.get("blocked_because", [])),
         "failure_reasons": list(instance.get("failure_reasons", [])),
     }
+    if "preflight_for_action_plan" in instance:
+        binding_material["preflight_for_action_plan"] = dict(
+            instance["preflight_for_action_plan"]
+        )
     expected = f"preflight-binding-{canonical_json_sha256(binding_material)}"
     assert instance["binding_id"] == expected
 
@@ -442,3 +450,146 @@ def test_cli_schema_invalid_plan_emits_schema_safe_sentinel(tmp_path):
     for reason in payload["failure_reasons"]:
         assert "\n" not in reason
         assert _SCHEMA_SAFE_LINE_RE.fullmatch(reason), f"Not schema-safe: {reason!r}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 8D.2 — contract-defined preflight proof material
+# ---------------------------------------------------------------------------
+
+
+def _pull_plan_proof_material(pull_plan: dict) -> dict:
+    return {
+        "plan_ref": pull_plan["plan_id"],
+        "plan_action": "git-pull-ff-only",
+        "plan_content_sha256": canonical_json_sha256(pull_plan),
+    }
+
+
+def _chain_with_proof(pull_plan: dict) -> dict:
+    chain = json.loads(json.dumps(_CHAIN_VALID))
+    chain["preflight_for_action_plan"] = _pull_plan_proof_material(pull_plan)
+    return chain
+
+
+def test_binding_valid_when_proof_matches(tmp_path):
+    """Phase 8D.2: chain carries proof matching the pull plan → binding_valid."""
+    chain = _chain_with_proof(_PULL_PLAN)
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=chain,
+        binding_out=out,
+    )
+    assert result["binding_state"] == "binding_valid"
+    assert result["blocked_because"] == []
+    assert "failure_reasons" not in result
+    assert "preflight_for_action_plan" in result
+    assert result["preflight_for_action_plan"]["plan_ref"] == _PULL_PLAN["plan_id"]
+    assert result["preflight_for_action_plan"]["plan_action"] == "git-pull-ff-only"
+    assert result["preflight_for_action_plan"]["plan_content_sha256"] == (
+        canonical_json_sha256(_PULL_PLAN)
+    )
+
+
+def test_binding_inconclusive_when_proof_absent(tmp_path):
+    """Phase 8D.2: chain has no proof object → binding stays inconclusive.
+
+    Preserves pre-8D.2 behaviour for artifacts produced before Phase 8D.2.
+    """
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=_CHAIN_VALID,
+        binding_out=out,
+    )
+    assert result["binding_state"] == "binding_inconclusive"
+    assert result["blocked_because"] == []
+    assert "binding_cannot_be_proven_from_supplied_artifacts" in result["failure_reasons"]
+    assert "preflight_for_action_plan" not in result
+
+
+def test_binding_invalid_when_proof_plan_ref_mismatches(tmp_path):
+    """Phase 8D.2: chain proof references a different plan_id → binding_invalid."""
+    chain = _chain_with_proof(_PULL_PLAN)
+    chain["preflight_for_action_plan"]["plan_ref"] = "plan-git-pull-ff-only-OTHER-001"
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=chain,
+        binding_out=out,
+    )
+    assert result["binding_state"] == "binding_invalid"
+    assert "binding_mismatch" in result["blocked_because"]
+    assert "binding_mismatch" in result["failure_reasons"]
+
+
+def test_binding_invalid_when_proof_plan_content_sha256_mismatches(tmp_path):
+    """Phase 8D.2: chain proof carries wrong content hash → binding_invalid."""
+    chain = _chain_with_proof(_PULL_PLAN)
+    chain["preflight_for_action_plan"]["plan_content_sha256"] = "0" * 64
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=chain,
+        binding_out=out,
+    )
+    assert result["binding_state"] == "binding_invalid"
+    assert "binding_mismatch" in result["blocked_because"]
+    assert "binding_mismatch" in result["failure_reasons"]
+
+
+def test_binding_invalid_when_proof_plan_action_is_not_git_pull_ff_only(tmp_path):
+    """Phase 8D.2: chain proof plan_action != git-pull-ff-only → binding_invalid."""
+    chain = _chain_with_proof(_PULL_PLAN)
+    chain["preflight_for_action_plan"]["plan_action"] = "switch-main"
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=chain,
+        binding_out=out,
+    )
+    assert result["binding_state"] == "binding_invalid"
+    assert "binding_mismatch" in result["blocked_because"]
+    assert "binding_mismatch" in result["failure_reasons"]
+
+
+def test_binding_valid_artifact_records_proof_material(tmp_path):
+    """The binding artifact carries the proof object it found in the chain."""
+    chain = _chain_with_proof(_PULL_PLAN)
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=chain,
+        binding_out=out,
+    )
+    assert result["preflight_for_action_plan"] == chain["preflight_for_action_plan"]
+
+
+def test_binding_id_includes_proof_in_material(tmp_path):
+    """binding_id must change when proof material is part of the binding."""
+    out_with_proof = str(tmp_path / "binding-with-proof.json")
+    out_without_proof = str(tmp_path / "binding-without-proof.json")
+    with_proof = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=_chain_with_proof(_PULL_PLAN),
+        binding_out=out_with_proof,
+    )
+    without_proof = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=_CHAIN_VALID,
+        binding_out=out_without_proof,
+    )
+    # Different binding_state and proof presence => different binding_id
+    assert with_proof["binding_id"] != without_proof["binding_id"]
+
+
+def test_binding_valid_artifact_validates_against_schema(tmp_path):
+    out = str(tmp_path / "binding.json")
+    result = bind_preflight_to_action(
+        action_plan=_PULL_PLAN,
+        run_evidence_chain=_chain_with_proof(_PULL_PLAN),
+        binding_out=out,
+    )
+    schema = load_json(_SCHEMA)
+    validate_instance(result, schema, Path(out))
+    assert result["binding_state"] == "binding_valid"
