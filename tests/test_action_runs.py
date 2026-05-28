@@ -878,3 +878,203 @@ def test_cli_rejects_run_result_output_inside_inspected_repo_schema_valid(tmp_pa
     assert output["status"] == "blocked"
     assert not outside_trace.exists()
     assert not inside_result.exists()
+
+
+# ---------------------------------------------------------------------------
+# Phase 8D.2 — preflight-for-action-plan proof material
+# ---------------------------------------------------------------------------
+
+
+def _pull_plan_fixture() -> dict:
+    return {
+        "schema_version": "action-plan.v1",
+        "plan_id": "plan-git-pull-ff-only-test-001",
+        "action": "git-pull-ff-only",
+        "assessment_ref": "assess-test-001",
+        "decision": "blocked",
+        "blocked_because": ["git_pull_ff_only_evidence_missing_remote_freshness"],
+        "source_refs": ["git.current_branch"],
+        "rule_refs": [],
+        "freshness_refs": [],
+        "falsification_refs": [],
+        "missing_evidence": [],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+
+def test_run_read_only_emits_preflight_for_action_plan_when_supplied(tmp_path: Path):
+    """Phase 8D.2: when a pull plan is supplied, the run-result carries the proof."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    status_plan = _pilot_plan()
+    pull_plan = _pull_plan_fixture()
+
+    run_result = run_read_only_action(
+        action_plan=status_plan,
+        repo_path=str(repo),
+        command_trace_out=str(artifacts / "trace.json"),
+        run_result_out=str(artifacts / "result.json"),
+        preflight_for_action_plan=pull_plan,
+    )
+
+    validate_instance(run_result, _run_result_schema(), Path("run-result.json"))
+    assert run_result["status"] == "success"
+    assert "preflight_for_action_plan" in run_result
+    assert run_result["preflight_for_action_plan"]["plan_ref"] == pull_plan["plan_id"]
+    assert run_result["preflight_for_action_plan"]["plan_action"] == "git-pull-ff-only"
+    assert run_result["preflight_for_action_plan"]["plan_content_sha256"] == (
+        canonical_json_sha256(pull_plan)
+    )
+
+
+def test_run_read_only_omits_proof_when_not_supplied(tmp_path: Path):
+    """Phase 8D.2: existing callers that do not pass --preflight-for-action-plan
+    get an unchanged run-result with no preflight_for_action_plan field."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    run_result = run_read_only_action(
+        action_plan=_pilot_plan(),
+        repo_path=str(repo),
+        command_trace_out=str(artifacts / "trace.json"),
+        run_result_out=str(artifacts / "result.json"),
+    )
+    assert "preflight_for_action_plan" not in run_result
+
+
+def test_run_read_only_rejects_proof_with_wrong_target_action(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    bad_target = _pull_plan_fixture()
+    bad_target["action"] = "switch-main"
+    bad_target["blocked_because"] = ["dirty_worktree"]
+
+    with pytest.raises(ValueError, match="preflight_for_action_plan.action must be"):
+        run_read_only_action(
+            action_plan=_pilot_plan(),
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+            preflight_for_action_plan=bad_target,
+        )
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_run_read_only_rejects_schema_invalid_proof(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    with pytest.raises(ValueError, match="preflight_for_action_plan does not validate"):
+        run_read_only_action(
+            action_plan=_pilot_plan(),
+            repo_path=str(repo),
+            command_trace_out=str(artifacts / "trace.json"),
+            run_result_out=str(artifacts / "result.json"),
+            preflight_for_action_plan={"schema_version": "action-plan.v1"},
+        )
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()
+
+
+def test_cli_run_read_only_with_preflight_for_action_plan(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    status_plan_path = tmp_path / "status-plan.json"
+    pull_plan_path = tmp_path / "pull-plan.json"
+
+    status_plan = _pilot_plan()
+    pull_plan = _pull_plan_fixture()
+
+    status_plan_path.write_text(json.dumps(status_plan), encoding="utf-8")
+    pull_plan_path.write_text(json.dumps(pull_plan), encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "run-read-only",
+            str(status_plan_path),
+            "--repo-path",
+            str(repo),
+            "--command-trace-out",
+            str(artifacts / "trace.json"),
+            "--run-result-out",
+            str(artifacts / "result.json"),
+            "--preflight-for-action-plan",
+            str(pull_plan_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    validate_instance(output, _run_result_schema(), Path("cli-with-proof.json"))
+    assert output["status"] == "success"
+    assert output["preflight_for_action_plan"]["plan_ref"] == pull_plan["plan_id"]
+    assert output["preflight_for_action_plan"]["plan_action"] == "git-pull-ff-only"
+    assert output["preflight_for_action_plan"]["plan_content_sha256"] == (
+        canonical_json_sha256(pull_plan)
+    )
+
+
+def test_cli_run_read_only_rejects_invalid_preflight_json(tmp_path: Path):
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
+    status_plan_path = tmp_path / "status-plan.json"
+    bad_pull_plan_path = tmp_path / "bad-pull-plan.json"
+
+    status_plan_path.write_text(json.dumps(_pilot_plan()), encoding="utf-8")
+    bad_pull_plan_path.write_text("{not valid json", encoding="utf-8")
+
+    result = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "run-read-only",
+            str(status_plan_path),
+            "--repo-path",
+            str(repo),
+            "--command-trace-out",
+            str(artifacts / "trace.json"),
+            "--run-result-out",
+            str(artifacts / "result.json"),
+            "--preflight-for-action-plan",
+            str(bad_pull_plan_path),
+            "--json",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    validate_instance(output, _run_result_schema(), Path("cli-bad-preflight.json"))
+    assert output["status"] == "blocked"
+    assert any("invalid_preflight_for_action_plan_json" in r for r in output["blocked_reasons"])
+    assert not (artifacts / "trace.json").exists()
+    assert not (artifacts / "result.json").exists()

@@ -256,6 +256,7 @@ Command:
       --repo-path <repo-path> \
       --command-trace-out <trace-json> \
       --run-result-out <run-result-json> \
+      [--preflight-for-action-plan <pull-action-plan-json>] \
       --json
 
 The command:
@@ -444,6 +445,90 @@ Boundary for Phase 8D.0:
 - output artifact always carries `does_not_execute=true`,
   `does_not_mutate=true`, `does_not_authorise_actions=true`
 - `--readiness-out` parent must exist and target must not already exist
+
+## Phase 8D.2: Contract-defined Preflight Proof Material
+
+Phase 8D.2 closes the Phase 8D.1 epistemic gap by adding an explicit,
+schema-validated proof object — `preflight_for_action_plan` — that proves a
+`git-status-read-only` run evidence chain was produced as preflight for a
+specific `git-pull-ff-only` action plan.
+
+The proof object shape is:
+
+```json
+{
+  "preflight_for_action_plan": {
+    "plan_ref": "<pull-plan.plan_id>",
+    "plan_action": "git-pull-ff-only",
+    "plan_content_sha256": "<canonical sha256 of the pull plan>"
+  }
+}
+```
+
+It can appear on three artifacts: `run-result.v1`, `run-evidence-chain.v1`,
+and `action-preflight-binding.v1`. The field is optional everywhere; pre-8D.2
+artifacts remain schema-valid.
+
+The hash uses the same `canonical_json_sha256` function already used elsewhere
+in the repository for plan-content binding (`run-result.v1.plan_content_sha256`,
+`action-approval.v1.plan_content_sha256`). Editing the pull plan changes the
+hash and invalidates the binding — by design.
+
+### `action run-read-only --preflight-for-action-plan`
+
+The Phase 8A read-only runner accepts an optional
+`--preflight-for-action-plan <pull-action-plan-json>` argument.
+
+When supplied:
+
+- the referenced JSON must validate as `action-plan.v1`
+- the referenced plan's `action` must be exactly `git-pull-ff-only`
+- the executing plan's action stays `git-status-read-only` (existing allowlist)
+- the executed command is unchanged: exactly one read-only `git status` call
+- the emitted `run-result.v1` carries `preflight_for_action_plan` with
+  `plan_ref`, `plan_action: "git-pull-ff-only"`, and
+  `plan_content_sha256 = canonical_json_sha256(<pull-plan>)`
+- the proof material is then propagated into `run-evidence-chain.v1` when the
+  chain is validated by `validate-run-chain`
+
+Without `--preflight-for-action-plan`, behaviour is unchanged: the emitted
+`run-result.v1` has no `preflight_for_action_plan` field, and downstream
+binding remains `binding_inconclusive`.
+
+### Binding states in Phase 8D.2
+
+`bind-preflight-to-action` now distinguishes the following cases:
+
+- `binding_valid` — chain carries `preflight_for_action_plan`, and
+  `plan_ref == action_plan.plan_id`,
+  `plan_action == "git-pull-ff-only"`, and
+  `plan_content_sha256 == canonical_json_sha256(action_plan)` for the supplied
+  pull plan.
+- `binding_invalid` (with `binding_mismatch`) — proof is present but any of
+  `plan_ref`, `plan_action`, or `plan_content_sha256` does not match.
+- `binding_inconclusive` — chain has no `preflight_for_action_plan` object.
+  This preserves the honest pre-8D.2 result for artifacts that do not carry
+  proof.
+
+### Readiness integration
+
+`validate-execution-readiness` trusts `binding_state == binding_valid` only
+when the binding artifact carries the `preflight_for_action_plan` proof
+object. With proof, the `preflight_chain_plan_binding_proven` gate passes;
+without proof, readiness stays `inconclusive` (conservative consumption).
+`binding_invalid` continues to block readiness with `preflight_binding_invalid`.
+
+Stage-D execution remains future-only. A `ready` readiness artifact still does
+not execute, mutate, or authorise. There is still no Stage-D runner contract.
+
+Boundary for Phase 8D.2:
+
+- pure artifact contract extension
+- no subprocess additions to pure binding/readiness modules
+- no Git mutation, no fetch, no pull, no network
+- existing artifacts without the proof field remain schema-valid
+- `binding_valid` is now achievable only with explicit, content-bound proof;
+  it is never inferred from naming conventions, timestamps, or source_refs
 
 ## Phase 8D.1: action bind-preflight-to-action
 

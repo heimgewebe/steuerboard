@@ -338,19 +338,29 @@ def validate_execution_readiness(
 
         binding_state = preflight_binding.get("binding_state", "")
         binding_invalid = binding_state == "binding_invalid"
-        # In the current action-preflight-binding.v1 contract, there is no
-        # explicit proof field that can elevate the plan-binding gate to proven.
-        binding_proven = False
+        # Phase 8D.2: trust binding_valid only when the binding artifact
+        # carries the contract-defined proof object
+        # `preflight_for_action_plan`.  The binding logic has already verified
+        # that this proof matches the supplied pull plan, so readiness may
+        # consume it directly without re-implementing the proof check.
+        binding_proof = preflight_binding.get("preflight_for_action_plan")
+        binding_proof_present = isinstance(binding_proof, dict)
+        binding_proven = (binding_state == "binding_valid") and binding_proof_present
         _record_check(
             checks,
             check="preflight_chain_plan_binding_proven",
             passed=binding_proven,
-            expected="contract-defined binding proof present in action-preflight-binding.v1",
-            actual=f"action-preflight-binding.v1.binding_state=={binding_state!r}",
+            expected="binding_state==binding_valid with preflight_for_action_plan proof",
+            actual=(
+                "binding_state=={state!r}, preflight_for_action_plan={proof}".format(
+                    state=binding_state,
+                    proof="present" if binding_proof_present else "absent",
+                )
+            ),
         )
         if binding_invalid:
             hard_failure_reasons.append("preflight_binding_invalid")
-        elif not hard_failure_reasons:
+        elif not binding_proven and not hard_failure_reasons:
             inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
 
     # -----------------------------------------------------------------------

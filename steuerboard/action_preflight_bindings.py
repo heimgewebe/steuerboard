@@ -237,41 +237,86 @@ def bind_preflight_to_action(
     if not chain_redaction:
         blocked_because.append("chain_redaction_unverified")
 
-    # Binding-key gate.
-    # The current run-evidence-chain.v1 contract fixes action to
-    # "git-status-read-only" and exposes only plan_ref pointing to the
-    # status plan, not to the pull plan. There is no contract-defined field
-    # that ties the chain to the supplied pull plan.
-    # As a result, contractual proof of binding cannot be established from
-    # the supplied artifacts alone. Refuse to fake the bridge: emit
-    # binding_inconclusive instead.
-    chain_plan_ref = str(run_evidence_chain.get("plan_ref", ""))
-    binding_basis_match = (chain_action == plan_action) and (chain_plan_ref == plan_id)
+    # Phase 8D.2 binding-key gate.
+    # The chain may now carry a contract-defined proof object
+    # `preflight_for_action_plan` that states "this read-only status run was
+    # produced as preflight for this exact git-pull-ff-only action plan".
+    # When that object is present we verify plan_ref, plan_action, and
+    # plan_content_sha256 against the supplied pull plan:
+    #   - all three match  -> binding_valid
+    #   - any field mismatches -> binding_invalid (binding_mismatch)
+    # When the object is absent we stay binding_inconclusive with
+    # binding_cannot_be_proven_from_supplied_artifacts — this preserves the
+    # honest pre-8D.2 behaviour for artifacts that do not carry proof.
+    preflight_for = run_evidence_chain.get("preflight_for_action_plan")
+    proof_present = isinstance(preflight_for, dict)
+    proof_plan_ref: str | None = None
+    proof_plan_action: str | None = None
+    proof_plan_sha: str | None = None
+    if proof_present:
+        raw_plan_ref = preflight_for.get("plan_ref")
+        raw_plan_action = preflight_for.get("plan_action")
+        raw_plan_sha = preflight_for.get("plan_content_sha256")
+        proof_plan_ref = raw_plan_ref if isinstance(raw_plan_ref, str) else None
+        proof_plan_action = raw_plan_action if isinstance(raw_plan_action, str) else None
+        proof_plan_sha = raw_plan_sha if isinstance(raw_plan_sha, str) else None
+
+    expected_plan_sha = canonical_json_sha256(action_plan)
+
+    proof_plan_ref_match = proof_present and proof_plan_ref == plan_id
+    proof_plan_action_match = proof_present and proof_plan_action == "git-pull-ff-only"
+    proof_plan_sha_match = proof_present and proof_plan_sha == expected_plan_sha
+
     _record_check(
         checks,
-        check="binding_basis_from_contract_fields",
-        passed=binding_basis_match,
-        expected=(
-            f"chain.action=={plan_action!r} and chain.plan_ref=={plan_id!r}"
-        ),
-        actual=(
-            f"chain.action=={chain_action!r} and chain.plan_ref=={chain_plan_ref!r}"
-        ),
+        check="preflight_for_action_plan_present",
+        passed=proof_present,
+        expected="run_evidence_chain.preflight_for_action_plan object",
+        actual="present" if proof_present else "absent",
     )
 
-    only_chain_status_inconclusive_or_other = chain_status == "inconclusive"
-    if only_chain_status_inconclusive_or_other:
+    if proof_present:
+        _record_check(
+            checks,
+            check="preflight_for_action_plan_plan_ref_matches",
+            passed=proof_plan_ref_match,
+            expected=str(plan_id),
+            actual=str(proof_plan_ref),
+        )
+        _record_check(
+            checks,
+            check="preflight_for_action_plan_plan_action_matches",
+            passed=proof_plan_action_match,
+            expected="git-pull-ff-only",
+            actual=str(proof_plan_action),
+        )
+        _record_check(
+            checks,
+            check="preflight_for_action_plan_plan_content_sha256_matches",
+            passed=proof_plan_sha_match,
+            expected=expected_plan_sha,
+            actual=str(proof_plan_sha),
+        )
+
+    proof_fully_matches = (
+        proof_present
+        and proof_plan_ref_match
+        and proof_plan_action_match
+        and proof_plan_sha_match
+    )
+
+    if proof_present and not proof_fully_matches:
+        blocked_because.append("binding_mismatch")
+
+    if chain_status == "inconclusive":
         inconclusive_reasons.append("chain_inconclusive")
 
-    # If no hard blocked reason has been recorded yet, and the binding basis
-    # cannot be established from contract-defined fields, the honest result
-    # is binding_inconclusive with binding_cannot_be_proven_from_supplied_artifacts.
     binding_basis_proven = (
         plan_action_supported
         and chain_action_supported
         and chain_status_valid
         and chain_redaction
-        and binding_basis_match
+        and proof_fully_matches
     )
 
     if not binding_basis_proven and not blocked_because:
@@ -301,6 +346,16 @@ def bind_preflight_to_action(
         ]
     )
 
+    recorded_proof: dict[str, str] | None = None
+    if proof_present:
+        recorded_proof = {
+            "plan_ref": str(proof_plan_ref) if proof_plan_ref is not None else "",
+            "plan_action": str(proof_plan_action) if proof_plan_action is not None else "",
+            "plan_content_sha256": (
+                str(proof_plan_sha) if proof_plan_sha is not None else ""
+            ),
+        }
+
     binding_material = {
         "plan_ref": plan_id,
         "plan_action": plan_action,
@@ -310,6 +365,8 @@ def bind_preflight_to_action(
         "blocked_because": list(blocked_because),
         "failure_reasons": list(sanitized_failure_reasons),
     }
+    if recorded_proof is not None:
+        binding_material["preflight_for_action_plan"] = dict(recorded_proof)
     binding_id = f"preflight-binding-{canonical_json_sha256(binding_material)}"
 
     artifact: dict[str, Any] = {
@@ -330,6 +387,8 @@ def bind_preflight_to_action(
             "does_not_authorise_actions": True,
         },
     }
+    if recorded_proof is not None:
+        artifact["preflight_for_action_plan"] = dict(recorded_proof)
     if sanitized_failure_reasons:
         artifact["failure_reasons"] = sanitized_failure_reasons
 

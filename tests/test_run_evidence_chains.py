@@ -450,3 +450,31 @@ def test_cli_sentinel_schema_valid_when_input_paths_duplicate(tmp_path: Path):
     payload = json.loads(proc.stdout)
     validate_instance(payload, _chain_schema(), Path("cli-dup-sentinel.json"))
     assert payload["status"] == "inconclusive"
+
+
+# ---------------------------------------------------------------------------
+# Phase 8D.2 — preflight-for-action-plan proof material propagation
+# ---------------------------------------------------------------------------
+
+
+def test_chain_preserves_preflight_for_action_plan_when_present(tmp_path: Path):
+    """Phase 8D.2: run-result.preflight_for_action_plan propagates into chain."""
+    proof = {
+        "plan_ref": "plan-git-pull-ff-only-test-001",
+        "plan_action": "git-pull-ff-only",
+        "plan_content_sha256": "a" * 64,
+    }
+
+    def mutate(_plan, _trace, run_result, _postcheck, _paths):
+        run_result["preflight_for_action_plan"] = dict(proof)
+
+    chain = _validate_happy_chain(tmp_path, mutate=mutate)
+    assert chain["status"] == "valid"
+    assert "preflight_for_action_plan" in chain
+    assert chain["preflight_for_action_plan"] == proof
+
+
+def test_chain_omits_preflight_for_action_plan_when_absent(tmp_path: Path):
+    """Pre-8D.2 producers do not emit the field; chains stay backwards compatible."""
+    chain = _validate_happy_chain(tmp_path)
+    assert "preflight_for_action_plan" not in chain

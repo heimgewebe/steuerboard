@@ -1,0 +1,51 @@
+{
+  "action": "git-status-read-only",
+  "chain_id": "chain-run-read-only-example-pilot-proof-001",
+  "checked_at": "2026-05-28T10:00:06Z",
+  "checks": [
+    {
+      "actual": "git-status-read-only",
+      "check": "action_plan_action_supported",
+      "expected": "git-status-read-only",
+      "passed": true
+    },
+    {
+      "actual": "present",
+      "check": "plan_binding_available",
+      "expected": "run-result contains plan_ref and plan_content_sha256",
+      "passed": true
+    },
+    {
+      "actual": "passed",
+      "check": "postcheck_status_passed_for_valid",
+      "expected": "passed",
+      "passed": true
+    }
+  ],
+  "evidence_paths": [
+    "/workspace/examples/action-plans/git-status-read-only-pilot.json",
+    "/workspace/examples/evidence/command-trace-read-only-pilot.json",
+    "/workspace/examples/run-results/run-read-only-success-with-preflight-proof.json",
+    "/workspace/examples/run-postchecks/git-status-read-only-passed.json"
+  ],
+  "plan_ref": "plan-git-status-read-only-2026-05-26-001",
+  "postcheck_ref": "postcheck-read-only-example-pilot-001",
+  "preflight_for_action_plan": {
+    "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+    "plan_action": "git-pull-ff-only",
+    "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770"
+  },
+  "redaction_verified": true,
+  "run_id": "run-read-only-example-pilot-proof-001",
+  "run_result_ref": "run-read-only-example-pilot-proof-001",
+  "schema_version": "run-evidence-chain.v1",
+  "source_refs": [
+    "git.status_porcelain",
+    "run-result.v1",
+    "command-trace.v1",
+    "action-plan.v1",
+    "run-postcheck.v1"
+  ],
+  "status": "valid",
+  "trace_ref": "trace-read-only-example-pilot-proof-001"
+}

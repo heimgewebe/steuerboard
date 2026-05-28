@@ -683,3 +683,84 @@ def test_readiness_cli_with_preflight_binding_valid_remains_inconclusive(tmp_pat
     assert result["preflight_binding_ref"] == "preflight-binding-test"
     assert result["blocked_because"] == []
     assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 8D.2 — readiness with contract-defined preflight proof material
+# ---------------------------------------------------------------------------
+
+
+def _hand_crafted_binding_with_proof(
+    *,
+    plan_ref: str = "plan-git-pull-ff-only-2026-05-23-001",
+    plan_action: str = "git-pull-ff-only",
+    chain_ref: str | None = None,
+    chain_action: str = "git-status-read-only",
+    proof: dict | None = None,
+) -> dict:
+    if chain_ref is None:
+        chain_ref = _CHAIN_VALID["chain_id"]
+    if proof is None:
+        from steuerboard.canonical_json import canonical_json_sha256
+        proof = {
+            "plan_ref": plan_ref,
+            "plan_action": plan_action,
+            "plan_content_sha256": canonical_json_sha256(_PLAN),
+        }
+    return {
+        "schema_version": "action-preflight-binding.v1",
+        "binding_id": "preflight-binding-test-proven",
+        "checked_at": "2026-05-28T09:00:00Z",
+        "plan_ref": plan_ref,
+        "plan_action": plan_action,
+        "chain_ref": chain_ref,
+        "chain_action": chain_action,
+        "binding_state": "binding_valid",
+        "blocked_because": [],
+        "checks": [{"check": "example", "passed": True}],
+        "preflight_for_action_plan": dict(proof),
+        "source_refs": ["action-plan.v1", "run-evidence-chain.v1"],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+
+
+def test_readiness_ready_with_binding_valid_carrying_proof(tmp_path):
+    """Phase 8D.2: readiness is ready when binding_valid carries proof material."""
+    binding = _hand_crafted_binding_with_proof()
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "ready"
+    assert result["blocked_because"] == []
+    assert "failure_reasons" not in result
+    assert result["preflight_binding_ref"] == "preflight-binding-test-proven"
+
+
+def test_readiness_inconclusive_when_binding_valid_lacks_proof(tmp_path):
+    """Phase 8D.2: binding_valid without proof keeps readiness inconclusive.
+
+    Conservative consumption: readiness must not elevate without explicit proof.
+    """
+    binding = _hand_crafted_binding(binding_state="binding_valid")
+    # Sanity: this binding does not have a proof object.
+    assert "preflight_for_action_plan" not in binding
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "inconclusive"
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+    assert result["preflight_binding_ref"] == "preflight-binding-test"

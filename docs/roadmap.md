@@ -754,6 +754,73 @@ Phase 8D.0 readiness without `--preflight-binding` is unchanged: best
 achievable status remains `inconclusive` with
 `preflight_chain_plan_binding_unproven`.
 
+## Phase 8D.2 — Contract-defined Preflight Proof Material
+
+**Status:** started
+**Schemas:** `run-result.v1`, `run-evidence-chain.v1`, `action-preflight-binding.v1`
+**CLI:** `python -m steuerboard action run-read-only ... --preflight-for-action-plan <pull-plan-json>`
+
+Phase 8D.2 introduces a single, contract-defined object —
+`preflight_for_action_plan` — that proves a `git-status-read-only` run evidence
+chain was produced as preflight for a specific `git-pull-ff-only` action plan.
+It closes the epistemic gap Phase 8D.1 had to record honestly: in Phase 8D.1
+the binding could never emit `binding_valid` because no contract-defined field
+tied a read-only chain to a pull plan.
+
+Scope:
+
+- add an optional `preflight_for_action_plan` object to:
+  - `run-result.v1`
+  - `run-evidence-chain.v1`
+  - `action-preflight-binding.v1`
+- extend `action run-read-only` with `--preflight-for-action-plan <pull-plan-json>`
+- propagate proof from `run-result.v1` into `run-evidence-chain.v1`
+- accept proof in `bind-preflight-to-action`:
+  - `binding_valid` when proof matches plan_ref / plan_action / plan_content_sha256
+  - `binding_invalid` (with `binding_mismatch`) when proof is present but any field mismatches
+  - `binding_inconclusive` when proof is absent (preserves pre-8D.2 behaviour)
+- `validate-execution-readiness` consumes `binding_valid` only when the
+  binding artifact carries the proof object
+- new examples cover the binding-valid case and three binding-invalid
+  mismatch cases plus the inconclusive (no-proof) case
+
+Proof object shape:
+
+```json
+{
+  "preflight_for_action_plan": {
+    "plan_ref": "<pull-plan.plan_id>",
+    "plan_action": "git-pull-ff-only",
+    "plan_content_sha256": "<canonical_json_sha256 of pull plan>"
+  }
+}
+```
+
+Why `plan_content_sha256` is required:
+
+- without a content hash, binding tracks only `plan_id`, which leaves a plan
+  free to change content without invalidating prior preflight evidence
+- the canonical hash is `canonical_json_sha256` — the same canonical hash
+  used by `run-result.v1.plan_content_sha256` and
+  `action-approval.v1.plan_content_sha256`; Phase 8D.2 does not introduce a
+  second canonical hash implementation
+
+Phase 8D.2 is not execution.
+Phase 8D.2 is not authorisation.
+Phase 8D.2 is not a runner.
+
+Boundary:
+
+- no subprocess additions to pure binding modules
+- no Git mutation; the executed command in Phase 8A is unchanged
+- no fetch, no pull, no merge, no rebase, no reset, no clean
+- no network access added
+- output artifacts always carry `does_not_execute=true`,
+  `does_not_mutate=true`, `does_not_authorise_actions=true`
+- artifacts produced before Phase 8D.2 remain schema-valid and continue to
+  produce `binding_inconclusive`; only artifacts that explicitly carry the
+  proof object can yield `binding_valid`
+
 ## Phase 8D.0 — Stage-D Execution Readiness
 
 **Status:** started

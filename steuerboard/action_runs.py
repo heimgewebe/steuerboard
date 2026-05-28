@@ -135,6 +135,39 @@ def _validate_action_plan_schema(action_plan: Any) -> str:
     return action
 
 
+def _validate_preflight_for_action_plan(preflight_for_action_plan: Any) -> dict[str, str]:
+    """Validate a Phase 8D.2 preflight target action plan and return proof material.
+
+    The preflight target plan must be a schema-valid action-plan.v1 whose
+    action is exactly "git-pull-ff-only".  The returned dict carries the
+    contract-defined proof material that will be embedded in run-result.v1
+    (and propagated into run-evidence-chain.v1) so that downstream binding
+    can prove this read-only run was produced as preflight for that pull plan.
+
+    Raises ValueError on schema or contract failures.
+    """
+    if not isinstance(preflight_for_action_plan, dict):
+        raise ValueError("preflight_for_action_plan must be a JSON object")
+    schema = _get_action_plan_schema()
+    try:
+        jsonschema_validate(instance=preflight_for_action_plan, schema=schema)
+    except SchemaValidationError as exc:
+        raise ValueError(
+            f"preflight_for_action_plan does not validate against action-plan.v1: {exc}"
+        ) from exc
+    target_action = preflight_for_action_plan["action"]
+    if target_action != "git-pull-ff-only":
+        raise ValueError(
+            "preflight_for_action_plan.action must be 'git-pull-ff-only'; got "
+            f"{target_action!r}"
+        )
+    return {
+        "plan_ref": preflight_for_action_plan["plan_id"],
+        "plan_action": target_action,
+        "plan_content_sha256": canonical_json_sha256(preflight_for_action_plan),
+    }
+
+
 def _write_artifacts_atomic(
     trace_target: Path,
     trace_data: dict[str, Any],
@@ -205,6 +238,7 @@ def run_read_only_action(
     repo_path: str,
     command_trace_out: str,
     run_result_out: str,
+    preflight_for_action_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute a Phase 8A read-only action and produce command-trace.v1 + run-result.v1.
 
@@ -216,6 +250,14 @@ def run_read_only_action(
     - Both artifacts are written via temp-files + os.replace().
       Temp files are cleaned up on any failure; no orphaned partial artifacts are left.
       On any precondition failure, no output file is written.
+
+    Phase 8D.2: when ``preflight_for_action_plan`` is supplied, it must be a
+    schema-valid action-plan.v1 whose action is ``git-pull-ff-only``.  The
+    contract-defined proof material (plan_ref, plan_action, plan_content_sha256
+    of that pull plan) is embedded into the emitted run-result.v1 so that
+    downstream binding can prove this read-only run was produced as preflight
+    for that exact pull plan.  This does not alter the executed command, the
+    executed action, or any boundary invariant.
 
     Returns the run-result.v1 dict.
     """
@@ -233,6 +275,11 @@ def run_read_only_action(
         raise ValueError(
             f"action '{action}' is not in the Phase 8A read-only allowlist"
         )
+
+    # --- Precondition: optional preflight-target plan validation ---
+    proof_material: dict[str, str] | None = None
+    if preflight_for_action_plan is not None:
+        proof_material = _validate_preflight_for_action_plan(preflight_for_action_plan)
 
     # --- Precondition: validate output paths before touching the filesystem ---
     trace_target = _require_output_path(command_trace_out, "command_trace_out")
@@ -327,6 +374,8 @@ def run_read_only_action(
         "redaction_verified": True,
         "evidence_paths": [str(trace_target)],
     }
+    if proof_material is not None:
+        run_result["preflight_for_action_plan"] = dict(proof_material)
 
     # --- Write outputs via temp files with best-effort rollback ---
     # Both artifacts are written to temp files in their target directories first.
