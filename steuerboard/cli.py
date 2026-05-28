@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .action_approval_validations import validate_action_approval_binding
+from .action_execution_readiness import validate_execution_readiness
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .action_runs import run_read_only_action
 from .assessment import assess_repo
@@ -18,6 +19,81 @@ from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
+
+
+def _sanitize_sentinel_reason(reason: str | object) -> str:
+    """Sanitize a reason for use in a sentinel artifact.
+
+    Converts multi-line or whitespace-heavy strings into single-line,
+    compact form to comply with schema pattern ^\S(?:.*\S)?$.
+
+    Parameters
+    ----------
+    reason
+        Raw reason (string or any object; will be converted to string).
+        May contain newlines or excess whitespace.
+
+    Returns
+    -------
+    str
+        Single-line, whitespace-collapsed string.
+        If empty after sanitization, returns "unknown_error".
+    """
+    # Convert to string if needed
+    reason_str = str(reason) if not isinstance(reason, str) else reason
+    # Collapse all whitespace/newlines into single space
+    sanitized = " ".join(reason_str.split())
+    # If empty, return placeholder
+    return sanitized if sanitized else "unknown_error"
+
+
+def _emit_readiness_inconclusive(
+    reason: str,
+    *,
+    action_plan_path: str,
+    approval_validation_path: str,
+    run_evidence_chain_path: str,
+) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    sanitized_reason = _sanitize_sentinel_reason(reason)
+    print(
+        json.dumps(
+            {
+                "schema_version": "action-execution-readiness.v1",
+                "readiness_id": "readiness-blocked-precondition",
+                "checked_at": checked_at,
+                "action": "unknown",
+                "plan_ref": "unknown",
+                "approval_validation_ref": "unknown",
+                "chain_ref": "unknown",
+                "status": "inconclusive",
+                "blocked_because": [],
+                "failure_reasons": [sanitized_reason],
+                "checks": [
+                    {
+                        "check": "preconditions_satisfied",
+                        "passed": False,
+                        "actual": sanitized_reason,
+                    }
+                ],
+                "source_refs": [
+                    "action-plan.v1",
+                    "action-approval-validation.v1",
+                    "run-evidence-chain.v1",
+                ],
+                "boundary": {
+                    "does_not_execute": True,
+                    "does_not_mutate": True,
+                    "does_not_authorise_actions": True,
+                },
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
 
 
 def _emit_chain_inconclusive(
@@ -453,6 +529,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit run-evidence-chain.v1 JSON.",
     )
 
+    action_validate_execution_readiness_parser = action_subparsers.add_parser(
+        "validate-execution-readiness",
+        help=(
+            "Validate Stage-D execution readiness from action-plan.v1, "
+            "action-approval-validation.v1, and run-evidence-chain.v1. "
+            "Writes action-execution-readiness.v1. "
+            "No execution, no pull, no fetch, no free shell. "
+            "Phase 8D.0 — pure readiness assessment artifact only."
+        ),
+    )
+    action_validate_execution_readiness_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file.",
+    )
+    action_validate_execution_readiness_parser.add_argument(
+        "--approval-validation",
+        required=True,
+        help="Path to an action-approval-validation.v1 JSON file.",
+    )
+    action_validate_execution_readiness_parser.add_argument(
+        "--run-evidence-chain",
+        required=True,
+        help="Path to a run-evidence-chain.v1 JSON file.",
+    )
+    action_validate_execution_readiness_parser.add_argument(
+        "--readiness-out",
+        required=True,
+        help="Output path for action-execution-readiness.v1 JSON. Must not already exist.",
+    )
+    action_validate_execution_readiness_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit action-execution-readiness.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -772,6 +884,57 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_postcheck_path=args.run_postcheck,
             )
         print(json.dumps(chain, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "validate-execution-readiness":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_readiness_inconclusive(
+                f"invalid_action_plan_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                approval_validation_path=args.approval_validation,
+                run_evidence_chain_path=args.run_evidence_chain,
+            )
+
+        try:
+            with Path(args.approval_validation).open("r", encoding="utf-8") as handle:
+                approval_validation_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_readiness_inconclusive(
+                f"invalid_approval_validation_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                approval_validation_path=args.approval_validation,
+                run_evidence_chain_path=args.run_evidence_chain,
+            )
+
+        try:
+            with Path(args.run_evidence_chain).open("r", encoding="utf-8") as handle:
+                run_evidence_chain_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_readiness_inconclusive(
+                f"invalid_run_evidence_chain_json: {exc}",
+                action_plan_path=args.action_plan_json,
+                approval_validation_path=args.approval_validation,
+                run_evidence_chain_path=args.run_evidence_chain,
+            )
+
+        try:
+            readiness = validate_execution_readiness(
+                action_plan=action_plan_data,
+                approval_validation=approval_validation_data,
+                run_evidence_chain=run_evidence_chain_data,
+                readiness_out=args.readiness_out,
+            )
+        except ValueError as exc:
+            return _emit_readiness_inconclusive(
+                str(exc),
+                action_plan_path=args.action_plan_json,
+                approval_validation_path=args.approval_validation,
+                run_evidence_chain_path=args.run_evidence_chain,
+            )
+        print(json.dumps(readiness, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")

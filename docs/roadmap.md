@@ -697,3 +697,37 @@ Boundary for this slice:
 - `--chain-out` must stay outside the inspected repo when `repo_toplevel` is known
 
 Stage D remains future-only after this phase.
+
+## Phase 8D.0 — Stage-D Execution Readiness
+
+**Status:** started
+**Schema:** `action-execution-readiness.v1`
+**CLI:** `python -m steuerboard action validate-execution-readiness`
+
+Phase 8D.0 introduces the `action-execution-readiness.v1` artifact — a pure
+readiness gate that validates whether an action plan, an approval validation,
+and a preflight run evidence chain together satisfy the Stage-D conditions for
+executing the supported action (`git-pull-ff-only` only in this slice).
+
+Scope:
+
+- validate all three prerequisite artifact types against their schemas
+- evaluate seven named readiness gates (plan action supported, approval binding
+  valid, approval plan ref match, approval action match, chain status valid,
+  chain redaction verified, preflight chain plan binding proven)
+- emit `action-execution-readiness.v1` artifact with status `ready | blocked |
+  inconclusive`
+- in this slice, `run-evidence-chain.v1` always records `git-status-read-only`;
+  plan binding to `git-pull-ff-only` is structurally unproven → status is at
+  best `inconclusive` with `preflight_chain_plan_binding_unproven`
+
+Boundary:
+
+- no subprocess calls
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- no execution authorisation
+- output artifact always carries `does_not_execute=true`,
+  `does_not_mutate=true`, `does_not_authorise_actions=true`

@@ -221,6 +221,73 @@ Boundary:
 
 Stage D remains future-only.
 
+## Phase 8D.0: Stage-D Execution Readiness
+
+Phase 8D.0 introduces the `action-execution-readiness.v1` artifact — a pure
+readiness assessment that gates Stage-D execution by validating that all three
+prerequisite artifacts (action plan, approval validation, and preflight run
+evidence chain) satisfy the required conditions.
+
+### CLI
+
+```
+python -m steuerboard action validate-execution-readiness <action-plan-json> \
+  --approval-validation <approval-validation-json> \
+  --run-evidence-chain <chain-json> \
+  --readiness-out <readiness-json> \
+  --json
+```
+
+### Status Semantics
+
+- `ready` — all hard gates pass AND plan binding is contractually proven
+- `blocked` — at least one hard gate fails (rejected/expired approval, invalid
+  chain, unsupported action, plan ref or action mismatch, redaction unverified)
+- `inconclusive` — no hard failure but plan binding cannot be contractually
+  proven (e.g., `preflight_chain_plan_binding_unproven`)
+
+In the current slice, `run-evidence-chain.v1` always records a
+`git-status-read-only` chain, which structurally cannot prove binding to a
+`git-pull-ff-only` plan.  Therefore the best achievable status in this slice
+is `inconclusive` with `preflight_chain_plan_binding_unproven`.
+
+### Hard Gates (blocked)
+
+| Reason | Condition |
+|--------|-----------|
+| `unsupported_action` | plan.action is not in the supported set |
+| `approval_not_binding_valid` | approval_validation.binding_state ≠ binding_valid |
+| `approval_plan_ref_mismatch` | approval_validation.plan_ref ≠ plan.plan_id |
+| `approval_action_mismatch` | approval_validation.action ≠ plan.action |
+| `chain_invalid` | run_evidence_chain.status == invalid |
+| `chain_redaction_unverified` | run_evidence_chain.redaction_verified ≠ true |
+
+### Decision Contract in 8D.0
+
+In this slice, `action_plan.decision` is not evaluated as an independent hard
+readiness blocker. Readiness is derived from explicit approval-validation and
+run-evidence-chain gates plus plan/approval/chain consistency checks.
+
+This keeps Phase 8D.0 as a pure evidence-based gate that can incorporate newer
+approval/chain artifacts without being forced to mirror the original plan
+decision field.
+
+### Inconclusive Reasons
+
+| Reason | Condition |
+|--------|-----------|
+| `chain_inconclusive` | run_evidence_chain.status == inconclusive |
+| `preflight_chain_plan_binding_unproven` | chain.action ≠ plan.action or chain.plan_ref ≠ plan.plan_id |
+
+### Boundary
+
+- pure artifact validation: no subprocesses, no Git, no network, no mutation
+- reads only the three explicitly passed artifact dicts
+- validates all three inputs against their JSON Schemas before processing
+- does NOT execute git pull, does NOT authorise actions, does NOT create a runner
+- output artifact always includes `boundary.does_not_execute=true`,
+  `boundary.does_not_mutate=true`, `boundary.does_not_authorise_actions=true`
+
 ## Contract Note: Redefinition of action-plan.v1
 
 This phase redefines the previously reserved `action-plan.v1` schema shape.

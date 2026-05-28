@@ -22,6 +22,7 @@ SCHEMA_MAP = {
     "action-approval-validations": SCHEMAS_DIR / "action-approval-validation.v1.schema.json",
     "action-capabilities": SCHEMAS_DIR / "action-capability.v1.schema.json",
     "action-approvals": SCHEMAS_DIR / "action-approval.v1.schema.json",
+    "action-execution-readiness": SCHEMAS_DIR / "action-execution-readiness.v1.schema.json",
     "action-plans": SCHEMAS_DIR / "action-plan.v1.schema.json",
     "assessment-explanations": SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json",
     "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",
