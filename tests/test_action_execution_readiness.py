@@ -463,13 +463,14 @@ def test_readiness_without_preflight_binding_remains_inconclusive(tmp_path):
         readiness_out=out,
     )
     assert result["status"] == "inconclusive"
+    assert "preflight_binding_ref" not in result
     assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
     assert result["boundary"]["does_not_execute"] is True
     assert result["boundary"]["does_not_mutate"] is True
     assert result["boundary"]["does_not_authorise_actions"] is True
 
 
-def test_readiness_ready_with_valid_preflight_binding(tmp_path):
+def test_readiness_with_binding_valid_still_inconclusive_without_proof(tmp_path):
     binding = _hand_crafted_binding(binding_state="binding_valid")
     out = str(tmp_path / "readiness.json")
     result = validate_execution_readiness(
@@ -479,9 +480,10 @@ def test_readiness_ready_with_valid_preflight_binding(tmp_path):
         readiness_out=out,
         preflight_binding=binding,
     )
-    assert result["status"] == "ready"
+    assert result["status"] == "inconclusive"
     assert result["blocked_because"] == []
-    assert "failure_reasons" not in result
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
     assert result["boundary"]["does_not_execute"] is True
     assert result["boundary"]["does_not_mutate"] is True
     assert result["boundary"]["does_not_authorise_actions"] is True
@@ -498,6 +500,7 @@ def test_readiness_blocked_with_invalid_preflight_binding(tmp_path):
         preflight_binding=binding,
     )
     assert result["status"] == "blocked"
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
     assert "preflight_binding_invalid" in result["blocked_because"]
     assert "preflight_binding_invalid" in result["failure_reasons"]
 
@@ -513,6 +516,7 @@ def test_readiness_inconclusive_with_inconclusive_preflight_binding(tmp_path):
         preflight_binding=binding,
     )
     assert result["status"] == "inconclusive"
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
     assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
     assert result["blocked_because"] == []
 
@@ -596,8 +600,8 @@ def test_readiness_preserves_boundary_with_invalid_binding(tmp_path):
     assert result["boundary"]["does_not_authorise_actions"] is True
 
 
-def test_readiness_cli_with_preflight_binding_ready(tmp_path):
-    """End-to-end CLI test: valid binding via --preflight-binding yields ready."""
+def test_readiness_cli_with_preflight_binding_valid_remains_inconclusive(tmp_path):
+    """End-to-end CLI test: binding_valid remains inconclusive in current slice."""
     plan_path = tmp_path / "plan.json"
     approval_path = tmp_path / "approval.json"
     chain_path = tmp_path / "chain.json"
@@ -633,6 +637,7 @@ def test_readiness_cli_with_preflight_binding_ready(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr
     result = json.loads(proc.stdout)
-    assert result["status"] == "ready"
+    assert result["status"] == "inconclusive"
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
     assert result["blocked_because"] == []
-    assert "failure_reasons" not in result
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]

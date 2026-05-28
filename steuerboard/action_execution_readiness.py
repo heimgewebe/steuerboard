@@ -146,10 +146,11 @@ def validate_execution_readiness(
         Must not already exist; parent directory must exist.
     preflight_binding:
         Optional Phase 8D.1 action-preflight-binding.v1 artifact. When supplied,
-        readiness uses the binding's binding_state to evaluate the plan binding
-        gate. The binding artifact must reference the same plan and chain that
-        readiness is validating (plan_ref, chain_ref, plan_action, chain_action
-        consistency) or readiness raises ValueError.
+        readiness verifies the binding artifact references the same plan and
+        chain and records preflight_binding_ref in the readiness artifact.
+        In the current artifact contract, binding_valid is not independently
+        provable, so readiness remains inconclusive unless a future contract
+        adds explicit proof material.
 
     Returns
     -------
@@ -336,21 +337,20 @@ def validate_execution_readiness(
             )
 
         binding_state = preflight_binding.get("binding_state", "")
-        binding_valid = binding_state == "binding_valid"
-        binding_inconclusive = binding_state == "binding_inconclusive"
+        binding_invalid = binding_state == "binding_invalid"
+        # In the current action-preflight-binding.v1 contract, there is no
+        # explicit proof field that can elevate the plan-binding gate to proven.
+        binding_proven = False
         _record_check(
             checks,
             check="preflight_chain_plan_binding_proven",
-            passed=binding_valid,
-            expected="action-preflight-binding.v1.binding_state==binding_valid",
+            passed=binding_proven,
+            expected="contract-defined binding proof present in action-preflight-binding.v1",
             actual=f"action-preflight-binding.v1.binding_state=={binding_state!r}",
         )
-        if binding_state == "binding_invalid":
+        if binding_invalid:
             hard_failure_reasons.append("preflight_binding_invalid")
-        elif binding_inconclusive and not hard_failure_reasons:
-            inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
-        elif not binding_valid and not hard_failure_reasons:
-            # Unrecognized binding_state value: be conservative and keep readiness inconclusive.
+        elif not hard_failure_reasons:
             inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
 
     # -----------------------------------------------------------------------
@@ -375,8 +375,17 @@ def validate_execution_readiness(
             "action-plan.v1",
             "action-approval-validation.v1",
             "run-evidence-chain.v1",
+            *(
+                ["action-preflight-binding.v1"]
+                if preflight_binding is not None
+                else []
+            ),
         ]
     )
+
+    preflight_binding_ref: str | None = None
+    if preflight_binding is not None:
+        preflight_binding_ref = str(preflight_binding.get("binding_id", "unknown"))
 
     readiness_material = {
         "plan_id": plan_id,
@@ -385,6 +394,8 @@ def validate_execution_readiness(
         "status": status,
         "failure_reasons": failure_reasons,
     }
+    if preflight_binding_ref is not None:
+        readiness_material["preflight_binding_ref"] = preflight_binding_ref
     readiness_id = f"readiness-{canonical_json_sha256(readiness_material)}"
 
     artifact: dict[str, Any] = {
@@ -413,6 +424,8 @@ def validate_execution_readiness(
             "does_not_authorise_actions": True,
         },
     }
+    if preflight_binding_ref is not None:
+        artifact["preflight_binding_ref"] = preflight_binding_ref
     if failure_reasons:
         artifact["failure_reasons"] = failure_reasons
 

@@ -306,11 +306,13 @@ achievable status remains `inconclusive` with
 
 With `--preflight-binding`, readiness verifies the binding artifact references
 the same plan and chain (`plan_ref`, `chain_ref`, `plan_action`, `chain_action`
-consistency; mismatches raise a precondition error). The binding's
-`binding_state` is then consumed:
+consistency; mismatches raise a precondition error) and records
+`preflight_binding_ref` in the emitted readiness artifact. The binding's
+`binding_state` is then consumed conservatively:
 
-- `binding_valid` — plan-binding gate passes; if all other hard gates pass,
-  readiness becomes `ready`
+- `binding_valid` — remains `inconclusive` in the current slice, because
+  `action-preflight-binding.v1` does not yet carry contract-defined proof
+  material that can elevate plan-binding to proven
 - `binding_invalid` — readiness is `blocked` with `preflight_binding_invalid`
 - `binding_inconclusive` — readiness stays `inconclusive` with
   `preflight_chain_plan_binding_unproven`

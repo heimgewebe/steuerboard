@@ -406,7 +406,7 @@ Arguments:
 | `--approval-validation` | Path to an `action-approval-validation.v1` JSON artifact |
 | `--run-evidence-chain` | Path to a `run-evidence-chain.v1` JSON artifact |
 | `--readiness-out` | Output path for the `action-execution-readiness.v1` artifact (must not exist; parent must exist) |
-| `--preflight-binding` | Optional Phase 8D.1 `action-preflight-binding.v1` JSON. When supplied, the binding's `binding_state` drives the plan-binding gate after ref/action consistency checks. |
+| `--preflight-binding` | Optional Phase 8D.1 `action-preflight-binding.v1` JSON. When supplied, readiness verifies ref/action consistency and records `preflight_binding_ref` in the output artifact. |
 | `--json` | Required flag; emits JSON to stdout |
 
 Status values:
@@ -420,9 +420,11 @@ with `preflight_chain_plan_binding_unproven`, because the preflight chain
 records `git-status-read-only` which cannot prove binding to a
 `git-pull-ff-only` plan.
 
-With `--preflight-binding`, readiness consumes the binding's `binding_state`:
+With `--preflight-binding`, readiness consumes the binding's `binding_state`
+conservatively:
 
-- `binding_valid` enables `ready` when all other hard gates pass
+- `binding_valid` still yields `inconclusive` in the current slice (no
+  contract-defined binding proof field exists yet)
 - `binding_invalid` blocks readiness with `preflight_binding_invalid`
 - `binding_inconclusive` keeps readiness inconclusive with
   `preflight_chain_plan_binding_unproven`

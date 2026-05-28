@@ -53,6 +53,11 @@
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
     },
+    "preflight_binding_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
     "status": {
       "enum": [
         "ready",
