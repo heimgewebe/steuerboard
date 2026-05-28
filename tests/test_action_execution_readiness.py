@@ -18,7 +18,6 @@ from scripts.validate_examples import (
     validate_instance,
 )
 from steuerboard.action_execution_readiness import validate_execution_readiness
-from steuerboard.canonical_json import canonical_json_sha256
 
 _EXAMPLES = EXAMPLES_DIR / "action-execution-readiness"
 _SCHEMA = SCHEMAS_DIR / "action-execution-readiness.v1.schema.json"
@@ -342,6 +341,13 @@ def test_cli_schema_invalid_json_sentinel_reason_sanitized(tmp_path):
         assert reason[0] != " ", f"Reason starts with whitespace: {reason!r}"
         if len(reason) > 1:
             assert reason[-1] != " ", f"Reason ends with whitespace: {reason!r}"
+    
+    # Verify both failure_reasons and checks[0].actual are sanitized identically
+    assert payload["checks"][0]["actual"] == payload["failure_reasons"][0]
+    assert "\n" not in payload["checks"][0]["actual"]
+    assert payload["checks"][0]["actual"][0] != " "
+    if len(payload["checks"][0]["actual"]) > 1:
+        assert payload["checks"][0]["actual"][-1] != " "
 
 def test_no_subprocess_in_module():
     source = inspect.getsource(_mod)

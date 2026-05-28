@@ -21,7 +21,7 @@ from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
 
 
-def _sanitize_sentinel_reason(reason: str) -> str:
+def _sanitize_sentinel_reason(reason: str | object) -> str:
     """Sanitize a reason for use in a sentinel artifact.
 
     Converts multi-line or whitespace-heavy strings into single-line,
@@ -30,7 +30,8 @@ def _sanitize_sentinel_reason(reason: str) -> str:
     Parameters
     ----------
     reason
-        Raw reason string (may contain newlines, excess whitespace).
+        Raw reason (string or any object; will be converted to string).
+        May contain newlines or excess whitespace.
 
     Returns
     -------
@@ -38,8 +39,10 @@ def _sanitize_sentinel_reason(reason: str) -> str:
         Single-line, whitespace-collapsed string.
         If empty after sanitization, returns "unknown_error".
     """
+    # Convert to string if needed
+    reason_str = str(reason) if not isinstance(reason, str) else reason
     # Collapse all whitespace/newlines into single space
-    sanitized = " ".join(reason.split())
+    sanitized = " ".join(reason_str.split())
     # If empty, return placeholder
     return sanitized if sanitized else "unknown_error"
 
