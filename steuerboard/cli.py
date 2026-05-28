@@ -21,6 +21,29 @@ from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
 
 
+def _sanitize_sentinel_reason(reason: str) -> str:
+    """Sanitize a reason for use in a sentinel artifact.
+
+    Converts multi-line or whitespace-heavy strings into single-line,
+    compact form to comply with schema pattern ^\S(?:.*\S)?$.
+
+    Parameters
+    ----------
+    reason
+        Raw reason string (may contain newlines, excess whitespace).
+
+    Returns
+    -------
+    str
+        Single-line, whitespace-collapsed string.
+        If empty after sanitization, returns "unknown_error".
+    """
+    # Collapse all whitespace/newlines into single space
+    sanitized = " ".join(reason.split())
+    # If empty, return placeholder
+    return sanitized if sanitized else "unknown_error"
+
+
 def _emit_readiness_inconclusive(
     reason: str,
     *,
@@ -30,6 +53,7 @@ def _emit_readiness_inconclusive(
 ) -> int:
     now = datetime.now(timezone.utc)
     checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    sanitized_reason = _sanitize_sentinel_reason(reason)
     print(
         json.dumps(
             {
@@ -42,12 +66,12 @@ def _emit_readiness_inconclusive(
                 "chain_ref": "unknown",
                 "status": "inconclusive",
                 "blocked_because": [],
-                "failure_reasons": [reason],
+                "failure_reasons": [sanitized_reason],
                 "checks": [
                     {
                         "check": "preconditions_satisfied",
                         "passed": False,
-                        "actual": reason,
+                        "actual": sanitized_reason,
                     }
                 ],
                 "source_refs": [

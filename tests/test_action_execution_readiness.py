@@ -292,9 +292,56 @@ def test_cli_invalid_action_plan_json_sentinel_uses_unknown_action(tmp_path):
     assert any("invalid_action_plan_json" in reason for reason in payload["failure_reasons"])
 
 
-# ---------------------------------------------------------------------------
-# Boundary: no subprocess import in the module
-# ---------------------------------------------------------------------------
+def test_cli_schema_invalid_json_sentinel_reason_sanitized(tmp_path):
+    """Test that multi-line ValidationError strings are sanitized in sentinel output."""
+    plan_path = tmp_path / "plan.json"
+    approval_path = tmp_path / "approval.json"
+    chain_path = tmp_path / "chain.json"
+    readiness_out = tmp_path / "readiness.json"
+
+    # Valid JSON but missing required schema fields for action-plan.v1
+    invalid_plan = {
+        "schema_version": "action-plan.v1",
+        # missing required fields like action, plan_id, etc.
+    }
+    plan_path.write_text(json.dumps(invalid_plan))
+    approval_path.write_text(json.dumps(_APPROVAL_VALIDATION_BINDING_VALID))
+    chain_path.write_text(json.dumps(_CHAIN_VALID))
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-execution-readiness",
+            str(plan_path),
+            "--approval-validation",
+            str(approval_path),
+            "--run-evidence-chain",
+            str(chain_path),
+            "--readiness-out",
+            str(readiness_out),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(_REPO_ROOT),
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    # Validate that the sentinel output is schema-valid
+    validate_instance(payload, load_json(_SCHEMA), _EXAMPLES / "invalid-action-plan-json-sentinel.json")
+    assert payload["status"] == "inconclusive"
+    assert payload["action"] == "unknown"
+    # The reason should be sanitized (single-line, no embedded newlines)
+    for reason in payload["failure_reasons"]:
+        # Pattern from schema: ^\S(?:.*\S)?$
+        # No newlines, starts with non-ws, ends with non-ws (or single char)
+        assert "\n" not in reason, f"Reason contains newline: {reason!r}"
+        assert reason[0] != " ", f"Reason starts with whitespace: {reason!r}"
+        if len(reason) > 1:
+            assert reason[-1] != " ", f"Reason ends with whitespace: {reason!r}"
 
 def test_no_subprocess_in_module():
     source = inspect.getsource(_mod)
