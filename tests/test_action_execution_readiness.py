@@ -764,3 +764,65 @@ def test_readiness_inconclusive_when_binding_valid_lacks_proof(tmp_path):
     assert result["status"] == "inconclusive"
     assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
     assert result["preflight_binding_ref"] == "preflight-binding-test"
+
+
+def test_readiness_inconclusive_when_proof_plan_ref_mismatches(tmp_path):
+    """Phase 8D.2 security: crafted binding with wrong plan_ref in proof stays inconclusive."""
+    from steuerboard.canonical_json import canonical_json_sha256
+    bad_proof = {
+        "plan_ref": "plan-git-pull-ff-only-DIFFERENT-001",
+        "plan_action": "git-pull-ff-only",
+        "plan_content_sha256": canonical_json_sha256(_PLAN),
+    }
+    binding = _hand_crafted_binding_with_proof(proof=bad_proof)
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "inconclusive"
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+
+
+def test_readiness_inconclusive_when_proof_plan_content_sha_mismatches(tmp_path):
+    """Phase 8D.2 security: crafted binding with wrong plan_content_sha256 stays inconclusive."""
+    bad_proof = {
+        "plan_ref": _PLAN["plan_id"],
+        "plan_action": "git-pull-ff-only",
+        "plan_content_sha256": "0" * 64,
+    }
+    binding = _hand_crafted_binding_with_proof(proof=bad_proof)
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "inconclusive"
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+
+
+def test_readiness_inconclusive_when_proof_plan_action_mismatches(tmp_path):
+    """Phase 8D.2 security: crafted binding with wrong plan_action in proof stays inconclusive."""
+    from steuerboard.canonical_json import canonical_json_sha256
+    bad_proof = {
+        "plan_ref": _PLAN["plan_id"],
+        "plan_action": "git-status-read-only",
+        "plan_content_sha256": canonical_json_sha256(_PLAN),
+    }
+    binding = _hand_crafted_binding_with_proof(proof=bad_proof)
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "inconclusive"
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]

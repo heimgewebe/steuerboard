@@ -619,10 +619,13 @@ def build_parser() -> argparse.ArgumentParser:
         required=False,
         default=None,
         help=(
-            "Optional Phase 8D.1 action-preflight-binding.v1 JSON file. "
-            "When supplied, the binding artifact is consistency-checked and recorded; "
-            "its binding_state is consumed conservatively. In this slice, binding_valid "
-            "does not make the binding gate pass because no contract-defined proof field exists yet."
+            "Optional Phase 8D.1/8D.2 action-preflight-binding.v1 JSON file. "
+            "When supplied, the binding artifact is consistency-checked and recorded. "
+            "Phase 8D.2: when the binding carries a preflight_for_action_plan proof "
+            "object whose plan_ref, plan_action, and plan_content_sha256 match the "
+            "supplied action plan, binding_valid elevates the binding gate to proven "
+            "and readiness can reach 'ready'. Without matching proof, readiness "
+            "remains inconclusive."
         ),
     )
     action_validate_execution_readiness_parser.add_argument(

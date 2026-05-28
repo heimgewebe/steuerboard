@@ -145,12 +145,15 @@ def validate_execution_readiness(
         Output path for the action-execution-readiness.v1 JSON artifact.
         Must not already exist; parent directory must exist.
     preflight_binding:
-        Optional Phase 8D.1 action-preflight-binding.v1 artifact. When supplied,
-        readiness verifies the binding artifact references the same plan and
-        chain and records preflight_binding_ref in the readiness artifact.
-        In the current artifact contract, binding_valid is not independently
-        provable, so readiness remains inconclusive unless a future contract
-        adds explicit proof material.
+        Optional Phase 8D.1/8D.2 action-preflight-binding.v1 artifact. When
+        supplied, readiness verifies the binding artifact references the same
+        plan and chain and records preflight_binding_ref in the readiness
+        artifact.  Phase 8D.2: when the binding carries a
+        ``preflight_for_action_plan`` proof object whose ``plan_ref``,
+        ``plan_action``, and ``plan_content_sha256`` all match the supplied
+        ``action_plan``, readiness elevates to ``ready`` (assuming all other
+        gates pass).  Without matching proof, readiness remains
+        ``inconclusive``.
 
     Returns
     -------
@@ -339,22 +342,43 @@ def validate_execution_readiness(
         binding_state = preflight_binding.get("binding_state", "")
         binding_invalid = binding_state == "binding_invalid"
         # Phase 8D.2: trust binding_valid only when the binding artifact
-        # carries the contract-defined proof object
-        # `preflight_for_action_plan`.  The binding logic has already verified
-        # that this proof matches the supplied pull plan, so readiness may
-        # consume it directly without re-implementing the proof check.
+        # carries a `preflight_for_action_plan` proof object AND that proof's
+        # fields match the action_plan supplied to this readiness call.
+        # Readiness must not delegate this content-check to the binding
+        # artifact itself — a hand-crafted binding.v1 with binding_valid and
+        # an arbitrary proof object must never produce `ready`.
         binding_proof = preflight_binding.get("preflight_for_action_plan")
         binding_proof_present = isinstance(binding_proof, dict)
-        binding_proven = (binding_state == "binding_valid") and binding_proof_present
+        if binding_proof_present:
+            plan_content_hash = canonical_json_sha256(action_plan)
+            proof_plan_ref_match = binding_proof.get("plan_ref") == plan_id
+            proof_plan_action_match = binding_proof.get("plan_action") == plan_action
+            proof_content_hash_match = binding_proof.get("plan_content_sha256") == plan_content_hash
+            binding_proof_content_valid = (
+                proof_plan_ref_match
+                and proof_plan_action_match
+                and proof_content_hash_match
+            )
+        else:
+            binding_proof_content_valid = False
+        binding_proven = (binding_state == "binding_valid") and binding_proof_content_valid
+        proof_status = (
+            "present+content_verified"
+            if binding_proof_content_valid
+            else ("present+content_mismatch" if binding_proof_present else "absent")
+        )
         _record_check(
             checks,
             check="preflight_chain_plan_binding_proven",
             passed=binding_proven,
-            expected="binding_state==binding_valid with preflight_for_action_plan proof",
+            expected=(
+                "binding_state==binding_valid with preflight_for_action_plan "
+                "proof matching plan_ref, plan_action, plan_content_sha256"
+            ),
             actual=(
                 "binding_state=={state!r}, preflight_for_action_plan={proof}".format(
                     state=binding_state,
-                    proof="present" if binding_proof_present else "absent",
+                    proof=proof_status,
                 )
             ),
         )
