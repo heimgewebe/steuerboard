@@ -1,6 +1,6 @@
 {
   "schema_version": "action-preflight-binding.v1",
-  "binding_id": "preflight-binding-d2c1a08a35e8a4b1c97f2e0d2b9c0a8e3f4d5c6b7a8e9f0d1c2b3a4e5d6c7b8a9",
+  "binding_id": "preflight-binding-35d53fab682308e165d85dfa54043dcaad5921b7058dc8537466b6351b0c2ecb",
   "checked_at": "2026-05-28T09:00:00Z",
   "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
   "plan_action": "git-pull-ff-only",

@@ -1,6 +1,6 @@
 {
   "schema_version": "action-preflight-binding.v1",
-  "binding_id": "preflight-binding-c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7",
+  "binding_id": "preflight-binding-16a5c5ce51ecbffa2ac9fe06e56cd6df2dbe1cb020b9b7343a09b202fd6667e6",
   "checked_at": "2026-05-28T09:15:00Z",
   "plan_ref": "plan-switch-main-2026-05-23-001",
   "plan_action": "switch-main",

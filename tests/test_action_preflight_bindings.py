@@ -18,6 +18,7 @@ from scripts.validate_examples import (
     validate_instance,
 )
 from steuerboard.action_preflight_bindings import bind_preflight_to_action
+from steuerboard.canonical_json import canonical_json_sha256
 
 _EXAMPLES = EXAMPLES_DIR / "action-preflight-bindings"
 _SCHEMA = SCHEMAS_DIR / "action-preflight-binding.v1.schema.json"
@@ -96,6 +97,22 @@ def test_schema_examples_validate(filename):
     schema = load_json(_SCHEMA)
     instance = load_json(_EXAMPLES / filename)
     validate_instance(instance, schema, _EXAMPLES / filename)
+
+
+@pytest.mark.parametrize("filename", _EXAMPLE_FILES)
+def test_schema_examples_binding_id_matches_binding_material(filename):
+    instance = load_json(_EXAMPLES / filename)
+    binding_material = {
+        "plan_ref": instance["plan_ref"],
+        "plan_action": instance["plan_action"],
+        "chain_ref": instance["chain_ref"],
+        "chain_action": instance["chain_action"],
+        "binding_state": instance["binding_state"],
+        "blocked_because": list(instance.get("blocked_because", [])),
+        "failure_reasons": list(instance.get("failure_reasons", [])),
+    }
+    expected = f"preflight-binding-{canonical_json_sha256(binding_material)}"
+    assert instance["binding_id"] == expected
 
 
 # ---------------------------------------------------------------------------
