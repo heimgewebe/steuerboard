@@ -585,6 +585,48 @@ def test_readiness_rejects_binding_chain_action_mismatch(tmp_path):
         )
 
 
+def test_readiness_different_binding_state_produces_different_readiness_id(tmp_path):
+    """Prove that different binding_state values produce different readiness_id.
+
+    Two bindings with same binding_id but different binding_state should
+    produce different readiness_id because binding_state is included in
+    readiness_material, which is hashed to compute readiness_id.
+    """
+    binding_valid = _hand_crafted_binding(binding_state="binding_valid")
+    binding_inconclusive = _hand_crafted_binding(binding_state="binding_inconclusive")
+
+    # Verify they have the same binding_id
+    assert binding_valid["binding_id"] == binding_inconclusive["binding_id"]
+    assert binding_valid["binding_id"] == "preflight-binding-test"
+
+    out_valid = str(tmp_path / "readiness_valid.json")
+    result_valid = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out_valid,
+        preflight_binding=binding_valid,
+    )
+
+    out_inconclusive = str(tmp_path / "readiness_inconclusive.json")
+    result_inconclusive = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out_inconclusive,
+        preflight_binding=binding_inconclusive,
+    )
+
+    # Different binding_state should produce different readiness_id
+    assert result_valid["readiness_id"] != result_inconclusive["readiness_id"]
+    # Both should record preflight_binding_ref and preflight_binding_state
+    assert result_valid["preflight_binding_ref"] == "preflight-binding-test"
+    assert result_inconclusive["preflight_binding_ref"] == "preflight-binding-test"
+    # But the binding_state should differ in the id calculation
+    assert result_valid["status"] == "inconclusive"
+    assert result_inconclusive["status"] == "inconclusive"
+
+
 def test_readiness_preserves_boundary_with_invalid_binding(tmp_path):
     binding = _hand_crafted_binding(binding_state="binding_invalid")
     out = str(tmp_path / "readiness.json")

@@ -396,6 +396,9 @@ def validate_execution_readiness(
     }
     if preflight_binding_ref is not None:
         readiness_material["preflight_binding_ref"] = preflight_binding_ref
+        readiness_material["preflight_binding_state"] = str(
+            preflight_binding.get("binding_state", "unknown")
+        )
     readiness_id = f"readiness-{canonical_json_sha256(readiness_material)}"
 
     artifact: dict[str, Any] = {

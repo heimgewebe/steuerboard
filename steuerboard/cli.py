@@ -607,8 +607,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Optional Phase 8D.1 action-preflight-binding.v1 JSON file. "
-            "When supplied, the binding's binding_state is consumed as the "
-            "preflight_chain_plan_binding_proven gate after ref/action consistency checks."
+            "When supplied, the binding artifact is consistency-checked and recorded; "
+            "its binding_state is consumed conservatively. In this slice, binding_valid "
+            "does not make the binding gate pass because no contract-defined proof field exists yet."
         ),
     )
     action_validate_execution_readiness_parser.add_argument(

@@ -479,7 +479,8 @@ Binding states:
 
 Exit codes:
 
-- `0` for `binding_valid` and `binding_inconclusive`
+- `0` for all successfully emitted `action-preflight-binding.v1` artifacts:
+  `binding_valid`, `binding_invalid`, and `binding_inconclusive`
 - nonzero only for malformed JSON, schema-invalid input, or output-path
   precondition failure (the sentinel JSON written to stdout in those cases
   also satisfies `action-preflight-binding.v1`)
