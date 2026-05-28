@@ -881,8 +881,9 @@ Given four input artifacts — `action-plan.v1`, `action-approval-validation.v1`
 7. Checks that the worktree is clean (`git status --porcelain=v1` empty) before
    any mutation.
 8. Records `HEAD` before the pull.
-9. Executes exactly one subprocess call:
+9. Executes exactly one mutating Git subprocess call:
    `["git", "--no-optional-locks", "-C", <toplevel>, "pull", "--ff-only"]`.
+  Read-only pre/post checks are separate non-mutating subprocess calls.
    No `shell=True`.  No merge, rebase, reset, or clean.
 
 ### Output artifacts
@@ -903,9 +904,9 @@ chain on partial failure):
 | Condition | `run_result.status` | `postcheck.status` | Reason code |
 |---|---|---|---|
 | `git pull` exit code ≠ 0 | `failure` | `failed` | `pull_exit_code_nonzero` |
-| "Already up to date" / HEAD unchanged | `success` | `inconclusive` | `head_unchanged_after_pull` |
+| "Already up to date" (explicit git output) | `success` | `inconclusive` | `already_up_to_date` |
+| HEAD unchanged without explicit up-to-date output | `success` | `inconclusive` | `head_unchanged_after_pull` |
 | HEAD unreadable after pull | `success` | `inconclusive` | `head_unreadable_after_pull` |
-
 | Post-pull status check error | `success` | `inconclusive` | `post_pull_status_check_failed` |
 | Worktree dirty after pull | `failure` | `failed` | `worktree_not_clean_after_pull` |
 | All checks pass | `success` | `passed` | — |

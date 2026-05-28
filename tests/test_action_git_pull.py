@@ -395,8 +395,8 @@ def test_postcheck_passed_after_fast_forward(tmp_path):
     assert postcheck["status"] == "passed"
 
 
-def test_already_up_to_date_produces_inconclusive_postcheck(tmp_path):
-    """When already up to date, postcheck must be inconclusive (not success)."""
+def test_head_unchanged_without_explicit_up_to_date_output_is_inconclusive(tmp_path):
+    """When HEAD is unchanged without explicit up-to-date text, reason is head_unchanged_after_pull."""
     _, local = _setup_pull_repos(tmp_path)
     # Pull first to advance local to same as upstream
     subprocess.run(["git", "-C", str(local), "pull", "--ff-only"], check=True,
@@ -406,13 +406,42 @@ def test_already_up_to_date_produces_inconclusive_postcheck(tmp_path):
     postcheck = json.loads((tmp_path / "postcheck.json").read_text(encoding="utf-8"))
     assert postcheck["status"] == "inconclusive"
     failure_reasons = postcheck.get("failure_reasons", [])
-    # HEAD didn't change → either already_up_to_date or head_unchanged_after_pull
-    assert any(
-        r in ("already_up_to_date", "head_unchanged_after_pull")
-        or "already_up_to_date" in r
-        or "head_unchanged" in r
-        for r in failure_reasons
-    ), f"Expected up-to-date inconclusive reason, got: {failure_reasons}"
+    assert "head_unchanged_after_pull" in failure_reasons, (
+        f"Expected head_unchanged_after_pull reason, got: {failure_reasons}"
+    )
+
+
+def test_explicit_already_up_to_date_output_uses_already_up_to_date_reason(tmp_path):
+    """When git explicitly reports up-to-date, reason code must be already_up_to_date."""
+    _, local = _setup_pull_repos(tmp_path)
+    # Pull first so a second pull is up-to-date
+    subprocess.run(
+        ["git", "-C", str(local), "pull", "--ff-only"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    real_run = subprocess.run
+
+    def mock_explicit_up_to_date(args, **kwargs):
+        if (
+            isinstance(args, (list, tuple))
+            and len(args) >= 2
+            and args[0] == "git"
+            and "pull" in args
+            and "--ff-only" in args
+        ):
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=0, stdout=b"Already up to date.\n", stderr=b"")
+        return real_run(args, **kwargs)
+
+    with patch("steuerboard.action_git_pull.subprocess.run", side_effect=mock_explicit_up_to_date):
+        _call_run(tmp_path, repo=local)
+
+    postcheck = json.loads((tmp_path / "postcheck.json").read_text(encoding="utf-8"))
+    assert postcheck["status"] == "inconclusive"
+    assert "already_up_to_date" in postcheck.get("failure_reasons", [])
 
 
 def test_failed_ff_only_not_possible(tmp_path):

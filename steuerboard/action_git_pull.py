@@ -99,6 +99,15 @@ def _redact_excerpt(value: str) -> str:
     return value.strip()[:_EXCERPT_LIMIT]
 
 
+def _is_already_up_to_date_output(stdout: str, stderr: str) -> bool:
+    """Detect up-to-date pull output across common git wording variants."""
+    text = f"{stdout}\n{stderr}".lower()
+    return (
+        "already up to date" in text
+        or "already up-to-date" in text
+    )
+
+
 def _normalize_exit_code(returncode: int) -> int:
     if returncode < 0:
         return 128 + abs(returncode)
@@ -483,7 +492,7 @@ def run_git_pull_ff_only(
         postcheck_status = "failed"
         postcheck_failure_reasons.append("pull_exit_code_nonzero")
         postcheck_observations.append(f"pull exit_code={pull_exit}")
-    elif "already up to date" in pull_stdout.lower():
+    elif _is_already_up_to_date_output(pull_stdout, pull_stderr):
         # Phase 8E does not model "already up to date" as success.
         run_status = "success"
         postcheck_status = "inconclusive"
