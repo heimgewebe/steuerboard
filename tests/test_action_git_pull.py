@@ -113,7 +113,11 @@ def _get_head(repo: Path) -> str:
 # the canonical _PLAN content sha256
 # ---------------------------------------------------------------------------
 
-def _chain_with_preflight(base_chain: dict | None = None) -> dict:
+def _chain_with_preflight(
+    base_chain: dict | None = None,
+    *,
+    repo_toplevel: Path | str | None = None,
+) -> dict:
     chain = copy.deepcopy(base_chain or _CHAIN_VALID)
     plan_sha = canonical_json_sha256(_PLAN)
     chain["preflight_for_action_plan"] = {
@@ -121,6 +125,8 @@ def _chain_with_preflight(base_chain: dict | None = None) -> dict:
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": plan_sha,
     }
+    if repo_toplevel is not None:
+        chain["repo_toplevel"] = str(Path(repo_toplevel).resolve())
     return chain
 
 
@@ -144,7 +150,11 @@ def _call_run(
     return run_git_pull_ff_only(
         action_plan=action_plan or _PLAN,
         approval_validation=approval_validation or _APPROVAL_VALIDATION,
-        run_evidence_chain=run_evidence_chain if run_evidence_chain is not None else _chain_with_preflight(),
+        run_evidence_chain=(
+            run_evidence_chain
+            if run_evidence_chain is not None
+            else _chain_with_preflight(repo_toplevel=repo)
+        ),
         preflight_binding=preflight_binding or _BINDING_VALID,
         repo_path=str(repo),
         command_trace_out=str(tmp_path / "trace.json"),
@@ -398,11 +408,23 @@ def test_postcheck_passed_after_fast_forward(tmp_path):
 def test_head_unchanged_without_explicit_up_to_date_output_is_inconclusive(tmp_path):
     """When HEAD is unchanged without explicit up-to-date text, reason is head_unchanged_after_pull."""
     _, local = _setup_pull_repos(tmp_path)
-    # Pull first to advance local to same as upstream
-    subprocess.run(["git", "-C", str(local), "pull", "--ff-only"], check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    result = _call_run(tmp_path, repo=local)
+    real_run = subprocess.run
+
+    def mock_pull_without_up_to_date_text(args, **kwargs):
+        if (
+            isinstance(args, (list, tuple))
+            and len(args) >= 2
+            and args[0] == "git"
+            and "pull" in args
+            and "--ff-only" in args
+        ):
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=0, stdout=b"Fast-forward check complete.\n", stderr=b"")
+        return real_run(args, **kwargs)
+
+    with patch("steuerboard.action_git_pull.subprocess.run", side_effect=mock_pull_without_up_to_date_text):
+        _call_run(tmp_path, repo=local)
     postcheck = json.loads((tmp_path / "postcheck.json").read_text(encoding="utf-8"))
     assert postcheck["status"] == "inconclusive"
     failure_reasons = postcheck.get("failure_reasons", [])
@@ -442,6 +464,40 @@ def test_explicit_already_up_to_date_output_uses_already_up_to_date_reason(tmp_p
     postcheck = json.loads((tmp_path / "postcheck.json").read_text(encoding="utf-8"))
     assert postcheck["status"] == "inconclusive"
     assert "already_up_to_date" in postcheck.get("failure_reasons", [])
+
+
+def test_repo_toplevel_mismatch_blocks_before_pull_and_writes_no_outputs(tmp_path):
+    """Readiness-bound repo_toplevel mismatch must block before mutating pull."""
+    _, repo_a = _setup_pull_repos(tmp_path)
+    repo_b = tmp_path / "repo-b"
+    _init_repo(repo_b)
+
+    mismatched_chain = _chain_with_preflight(repo_toplevel=repo_a)
+    real_run = subprocess.run
+    pull_calls: list[list[str]] = []
+
+    def spy_run(args, **kwargs):
+        if isinstance(args, (list, tuple)) and "pull" in args and "--ff-only" in args:
+            pull_calls.append(list(args))
+        return real_run(args, **kwargs)
+
+    with patch("steuerboard.action_git_pull.subprocess.run", side_effect=spy_run):
+        with pytest.raises(ValueError, match="repo_toplevel_mismatch"):
+            _call_run(tmp_path, repo=repo_b, run_evidence_chain=mismatched_chain)
+
+    assert pull_calls == []
+    assert not (tmp_path / "trace.json").exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "postcheck.json").exists()
+
+
+def test_repo_toplevel_match_allows_pull_execution(tmp_path):
+    """Readiness-bound repo_toplevel match keeps the happy path executable."""
+    _, local = _setup_pull_repos(tmp_path)
+    matching_chain = _chain_with_preflight(repo_toplevel=local)
+    _call_run(tmp_path, repo=local, run_evidence_chain=matching_chain)
+    run_res = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    assert run_res["status"] == "success"
 
 
 def test_failed_ff_only_not_possible(tmp_path):

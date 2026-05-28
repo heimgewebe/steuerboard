@@ -62,6 +62,10 @@ def _normalize_path_string(path_str: str) -> str:
     return str(Path(path_str).expanduser().resolve(strict=False))
 
 
+def _normalize_repo_toplevel(path_str: str) -> str:
+    return str(Path(path_str).expanduser().resolve(strict=False))
+
+
 def _validate_trace_command(command: Any) -> str:
     if not isinstance(command, list):
         raise ValueError("command-trace 'command' field must be an array")
@@ -320,6 +324,31 @@ def validate_run_evidence_chain(
     if not postcheck_result_matches:
         hard_failure_reasons.append("postcheck_run_result_ref_mismatch")
 
+    postcheck_repo_toplevel = run_postcheck.get("repo_toplevel")
+    if isinstance(postcheck_repo_toplevel, str) and postcheck_repo_toplevel:
+        normalized_postcheck_repo_toplevel = _normalize_repo_toplevel(postcheck_repo_toplevel)
+    else:
+        normalized_postcheck_repo_toplevel = ""
+    if validated_trace_repo_toplevel is not None:
+        normalized_trace_repo_toplevel = _normalize_repo_toplevel(validated_trace_repo_toplevel)
+    else:
+        normalized_trace_repo_toplevel = ""
+
+    repo_toplevel_matches = (
+        bool(normalized_trace_repo_toplevel)
+        and bool(normalized_postcheck_repo_toplevel)
+        and normalized_trace_repo_toplevel == normalized_postcheck_repo_toplevel
+    )
+    _record_check(
+        checks,
+        check="repo_toplevel_matches_trace_and_postcheck",
+        passed=repo_toplevel_matches,
+        expected=normalized_trace_repo_toplevel or "<trace repo_toplevel>",
+        actual=normalized_postcheck_repo_toplevel or "<missing>",
+    )
+    if not repo_toplevel_matches:
+        hard_failure_reasons.append("repo_toplevel_mismatch")
+
     postcheck_redaction = run_postcheck["redaction_verified"] is True
     _record_check(
         checks,
@@ -441,6 +470,8 @@ def validate_run_evidence_chain(
         "checks": checks,
         "redaction_verified": redaction_verified,
     }
+    if normalized_trace_repo_toplevel:
+        chain["repo_toplevel"] = normalized_trace_repo_toplevel
     # Phase 8D.2: preserve preflight-target proof material from run-result into
     # the chain so downstream binding can verify it against the supplied pull
     # plan.  This is propagation only — the chain does not interpret the proof

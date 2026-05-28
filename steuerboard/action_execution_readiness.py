@@ -297,6 +297,7 @@ def validate_execution_readiness(
     chain_id = run_evidence_chain.get("chain_id", "")
     chain_action = run_evidence_chain.get("action", "")
     chain_plan_ref = run_evidence_chain.get("plan_ref", "")
+    chain_repo_toplevel = run_evidence_chain.get("repo_toplevel", "")
 
     if preflight_binding is None:
         # Without an explicit binding artifact, the binding remains
@@ -461,6 +462,8 @@ def validate_execution_readiness(
             "does_not_authorise_actions": True,
         },
     }
+    if isinstance(chain_repo_toplevel, str) and chain_repo_toplevel:
+        artifact["repo_toplevel"] = chain_repo_toplevel
     if preflight_binding_ref is not None:
         artifact["preflight_binding_ref"] = preflight_binding_ref
     if failure_reasons:

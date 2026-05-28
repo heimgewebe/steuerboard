@@ -53,6 +53,10 @@
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
     },
+    "repo_toplevel": {
+      "type": "string",
+      "minLength": 1
+    },
     "preflight_binding_ref": {
       "type": "string",
       "minLength": 1,

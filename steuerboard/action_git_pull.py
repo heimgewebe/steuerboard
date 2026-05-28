@@ -420,7 +420,22 @@ def run_git_pull_ff_only(
         )
 
     # -----------------------------------------------------------------------
-    # Precondition 8: pre-pull worktree must be clean.
+    # Precondition 8: repo_path must match readiness-bound repo_toplevel.
+    # -----------------------------------------------------------------------
+    approved_repo_toplevel = reproduced_readiness.get("repo_toplevel")
+    if not isinstance(approved_repo_toplevel, str) or not approved_repo_toplevel:
+        raise ValueError(
+            "readiness gate not satisfied: readiness artifact missing repo_toplevel binding"
+        )
+    approved_toplevel_path = Path(approved_repo_toplevel).expanduser().resolve(strict=False)
+    if approved_toplevel_path != toplevel:
+        raise ValueError(
+            "repo_toplevel_mismatch: "
+            f"readiness approves {approved_toplevel_path} but --repo-path resolves to {toplevel}"
+        )
+
+    # -----------------------------------------------------------------------
+    # Precondition 9: pre-pull worktree must be clean.
     # -----------------------------------------------------------------------
     pre_status_exit, pre_status_stdout, pre_status_stderr = _run_git(
         ["git", "--no-optional-locks", "-C", str(toplevel), "status", "--porcelain=v1"]
@@ -435,7 +450,7 @@ def run_git_pull_ff_only(
         )
 
     # -----------------------------------------------------------------------
-    # Precondition 9: read HEAD before pull.
+    # Precondition 10: read HEAD before pull.
     # -----------------------------------------------------------------------
     head_before_exit, head_before_stdout, _ = _run_git(
         ["git", "-C", str(toplevel), "rev-parse", "HEAD"]
