@@ -11,7 +11,8 @@
     "chain_redaction_unverified"
   ],
   "failure_reasons": [
-    "chain_redaction_unverified"
+    "chain_redaction_unverified",
+    "chain_inconclusive"
   ],
   "checks": [
     {
