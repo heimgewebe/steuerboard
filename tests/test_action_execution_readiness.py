@@ -286,6 +286,9 @@ def test_cli_invalid_action_plan_json_sentinel_uses_unknown_action(tmp_path):
     validate_instance(payload, load_json(_SCHEMA), _EXAMPLES / "invalid-action-plan-json-sentinel.json")
     assert payload["status"] == "inconclusive"
     assert payload["action"] == "unknown"
+    assert payload["plan_ref"] == "unknown"
+    assert payload["approval_validation_ref"] == "unknown"
+    assert payload["chain_ref"] == "unknown"
     assert any("invalid_action_plan_json" in reason for reason in payload["failure_reasons"])
 
 

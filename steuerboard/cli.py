@@ -37,13 +37,9 @@ def _emit_readiness_inconclusive(
                 "readiness_id": "readiness-blocked-precondition",
                 "checked_at": checked_at,
                 "action": "unknown",
-                "plan_ref": str(Path(action_plan_path).expanduser().resolve(strict=False)),
-                "approval_validation_ref": str(
-                    Path(approval_validation_path).expanduser().resolve(strict=False)
-                ),
-                "chain_ref": str(
-                    Path(run_evidence_chain_path).expanduser().resolve(strict=False)
-                ),
+                "plan_ref": "unknown",
+                "approval_validation_ref": "unknown",
+                "chain_ref": "unknown",
                 "status": "inconclusive",
                 "blocked_because": [],
                 "failure_reasons": [reason],
