@@ -404,3 +404,282 @@ def test_schema_rejects_inconclusive_with_nonempty_blocked_because():
             load_json(_SCHEMA),
             _EXAMPLES / "invalid-inconclusive-nonempty-blocked-because.json",
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 8D.1: --preflight-binding integration tests
+# ---------------------------------------------------------------------------
+
+
+def _hand_crafted_binding(
+    *,
+    binding_state: str,
+    plan_ref: str = "plan-git-pull-ff-only-2026-05-23-001",
+    plan_action: str = "git-pull-ff-only",
+    chain_ref: str | None = None,
+    chain_action: str = "git-status-read-only",
+) -> dict:
+    """Construct an action-preflight-binding.v1 with the requested binding_state.
+
+    binding_valid is not achievable from current artifacts in the production
+    binding function; we hand-craft one to exercise the readiness integration
+    path that consumes a supplied binding.
+    """
+    if chain_ref is None:
+        chain_ref = _CHAIN_VALID["chain_id"]
+    artifact: dict = {
+        "schema_version": "action-preflight-binding.v1",
+        "binding_id": "preflight-binding-test",
+        "checked_at": "2026-05-28T09:00:00Z",
+        "plan_ref": plan_ref,
+        "plan_action": plan_action,
+        "chain_ref": chain_ref,
+        "chain_action": chain_action,
+        "binding_state": binding_state,
+        "blocked_because": [],
+        "checks": [{"check": "example", "passed": True}],
+        "source_refs": ["action-plan.v1", "run-evidence-chain.v1"],
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_actions": True,
+        },
+    }
+    if binding_state == "binding_invalid":
+        artifact["blocked_because"] = ["chain_invalid"]
+        artifact["failure_reasons"] = ["chain_invalid"]
+    elif binding_state == "binding_inconclusive":
+        artifact["failure_reasons"] = ["binding_cannot_be_proven_from_supplied_artifacts"]
+    return artifact
+
+
+def test_readiness_without_preflight_binding_remains_inconclusive(tmp_path):
+    """Phase 8D.0 behavior unchanged when --preflight-binding is omitted."""
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+    )
+    assert result["status"] == "inconclusive"
+    assert "preflight_binding_ref" not in result
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+    assert result["boundary"]["does_not_execute"] is True
+    assert result["boundary"]["does_not_mutate"] is True
+    assert result["boundary"]["does_not_authorise_actions"] is True
+
+
+def test_readiness_with_binding_valid_still_inconclusive_without_proof(tmp_path):
+    binding = _hand_crafted_binding(binding_state="binding_valid")
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "inconclusive"
+    assert result["blocked_because"] == []
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
+    assert result["boundary"]["does_not_execute"] is True
+    assert result["boundary"]["does_not_mutate"] is True
+    assert result["boundary"]["does_not_authorise_actions"] is True
+
+
+def test_readiness_blocked_with_invalid_preflight_binding(tmp_path):
+    binding = _hand_crafted_binding(binding_state="binding_invalid")
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "blocked"
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
+    assert "preflight_binding_invalid" in result["blocked_because"]
+    assert "preflight_binding_invalid" in result["failure_reasons"]
+
+
+def test_readiness_inconclusive_with_inconclusive_preflight_binding(tmp_path):
+    binding = _hand_crafted_binding(binding_state="binding_inconclusive")
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["status"] == "inconclusive"
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]
+    assert result["blocked_because"] == []
+
+
+def test_readiness_rejects_binding_plan_ref_mismatch(tmp_path):
+    binding = _hand_crafted_binding(
+        binding_state="binding_valid",
+        plan_ref="plan-some-other-plan-001",
+    )
+    out = str(tmp_path / "readiness.json")
+    with pytest.raises(ValueError, match="preflight_binding.plan_ref"):
+        validate_execution_readiness(
+            action_plan=_PLAN,
+            approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+            run_evidence_chain=_CHAIN_VALID,
+            readiness_out=out,
+            preflight_binding=binding,
+        )
+
+
+def test_readiness_rejects_binding_chain_ref_mismatch(tmp_path):
+    binding = _hand_crafted_binding(
+        binding_state="binding_valid",
+        chain_ref="chain-some-other-chain-001",
+    )
+    out = str(tmp_path / "readiness.json")
+    with pytest.raises(ValueError, match="preflight_binding.chain_ref"):
+        validate_execution_readiness(
+            action_plan=_PLAN,
+            approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+            run_evidence_chain=_CHAIN_VALID,
+            readiness_out=out,
+            preflight_binding=binding,
+        )
+
+
+def test_readiness_rejects_binding_plan_action_mismatch(tmp_path):
+    binding = _hand_crafted_binding(
+        binding_state="binding_valid",
+        plan_action="switch-main",
+    )
+    out = str(tmp_path / "readiness.json")
+    with pytest.raises(ValueError, match="preflight_binding.plan_action"):
+        validate_execution_readiness(
+            action_plan=_PLAN,
+            approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+            run_evidence_chain=_CHAIN_VALID,
+            readiness_out=out,
+            preflight_binding=binding,
+        )
+
+
+def test_readiness_rejects_binding_chain_action_mismatch(tmp_path):
+    binding = _hand_crafted_binding(
+        binding_state="binding_valid",
+        chain_action="git-pull-ff-only",
+    )
+    out = str(tmp_path / "readiness.json")
+    with pytest.raises(ValueError, match="preflight_binding.chain_action"):
+        validate_execution_readiness(
+            action_plan=_PLAN,
+            approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+            run_evidence_chain=_CHAIN_VALID,
+            readiness_out=out,
+            preflight_binding=binding,
+        )
+
+
+def test_readiness_different_binding_state_produces_different_readiness_id(tmp_path):
+    """Prove that different binding_state values produce different readiness_id.
+
+    Two bindings with same binding_id but different binding_state should
+    produce different readiness_id because binding_state is included in
+    readiness_material, which is hashed to compute readiness_id.
+    """
+    binding_valid = _hand_crafted_binding(binding_state="binding_valid")
+    binding_inconclusive = _hand_crafted_binding(binding_state="binding_inconclusive")
+
+    # Verify they have the same binding_id
+    assert binding_valid["binding_id"] == binding_inconclusive["binding_id"]
+    assert binding_valid["binding_id"] == "preflight-binding-test"
+
+    out_valid = str(tmp_path / "readiness_valid.json")
+    result_valid = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out_valid,
+        preflight_binding=binding_valid,
+    )
+
+    out_inconclusive = str(tmp_path / "readiness_inconclusive.json")
+    result_inconclusive = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out_inconclusive,
+        preflight_binding=binding_inconclusive,
+    )
+
+    # Different binding_state should produce different readiness_id
+    assert result_valid["readiness_id"] != result_inconclusive["readiness_id"]
+    # Both should record preflight_binding_ref and preflight_binding_state
+    assert result_valid["preflight_binding_ref"] == "preflight-binding-test"
+    assert result_inconclusive["preflight_binding_ref"] == "preflight-binding-test"
+    # But the binding_state should differ in the id calculation
+    assert result_valid["status"] == "inconclusive"
+    assert result_inconclusive["status"] == "inconclusive"
+
+
+def test_readiness_preserves_boundary_with_invalid_binding(tmp_path):
+    binding = _hand_crafted_binding(binding_state="binding_invalid")
+    out = str(tmp_path / "readiness.json")
+    result = validate_execution_readiness(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION_BINDING_VALID,
+        run_evidence_chain=_CHAIN_VALID,
+        readiness_out=out,
+        preflight_binding=binding,
+    )
+    assert result["boundary"]["does_not_execute"] is True
+    assert result["boundary"]["does_not_mutate"] is True
+    assert result["boundary"]["does_not_authorise_actions"] is True
+
+
+def test_readiness_cli_with_preflight_binding_valid_remains_inconclusive(tmp_path):
+    """End-to-end CLI test: binding_valid remains inconclusive in current slice."""
+    plan_path = tmp_path / "plan.json"
+    approval_path = tmp_path / "approval.json"
+    chain_path = tmp_path / "chain.json"
+    binding_path = tmp_path / "binding.json"
+    readiness_out = tmp_path / "readiness.json"
+
+    plan_path.write_text(json.dumps(_PLAN))
+    approval_path.write_text(json.dumps(_APPROVAL_VALIDATION_BINDING_VALID))
+    chain_path.write_text(json.dumps(_CHAIN_VALID))
+    binding_path.write_text(json.dumps(_hand_crafted_binding(binding_state="binding_valid")))
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "action",
+            "validate-execution-readiness",
+            str(plan_path),
+            "--approval-validation",
+            str(approval_path),
+            "--run-evidence-chain",
+            str(chain_path),
+            "--readiness-out",
+            str(readiness_out),
+            "--preflight-binding",
+            str(binding_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(_REPO_ROOT),
+    )
+    assert proc.returncode == 0, proc.stderr
+    result = json.loads(proc.stdout)
+    assert result["status"] == "inconclusive"
+    assert result["preflight_binding_ref"] == "preflight-binding-test"
+    assert result["blocked_because"] == []
+    assert "preflight_chain_plan_binding_unproven" in result["failure_reasons"]

@@ -1,19 +1,19 @@
 {
-  "$id": "https://example.invalid/steuerboard/schemas/action-execution-readiness.v1.schema.json",
+  "$id": "https://example.invalid/steuerboard/schemas/action-preflight-binding.v1.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Action Execution Readiness v1",
-  "description": "Phase 8D.0 Stage-D readiness assessment artifact. Pure validation artifact — no execution, no mutation, no action authorisation.",
+  "title": "Action Preflight Binding v1",
+  "description": "Phase 8D.1 pure artifact-level binding assessment. Binds one git-pull-ff-only action-plan.v1 to one git-status-read-only run-evidence-chain.v1 without executing, mutating, or authorising actions.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "readiness_id",
+    "binding_id",
     "checked_at",
-    "action",
     "plan_ref",
-    "approval_validation_ref",
+    "plan_action",
     "chain_ref",
-    "status",
+    "chain_action",
+    "binding_state",
     "blocked_because",
     "checks",
     "source_refs",
@@ -21,9 +21,9 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "action-execution-readiness.v1"
+      "const": "action-preflight-binding.v1"
     },
-    "readiness_id": {
+    "binding_id": {
       "type": "string",
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
@@ -33,17 +33,12 @@
       "format": "date-time",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
-    "action": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^\\S(?:.*\\S)?$"
-    },
     "plan_ref": {
       "type": "string",
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
     },
-    "approval_validation_ref": {
+    "plan_action": {
       "type": "string",
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
@@ -53,29 +48,28 @@
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
     },
-    "preflight_binding_ref": {
+    "chain_action": {
       "type": "string",
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
     },
-    "status": {
+    "binding_state": {
       "enum": [
-        "ready",
-        "blocked",
-        "inconclusive"
+        "binding_valid",
+        "binding_invalid",
+        "binding_inconclusive"
       ]
     },
     "blocked_because": {
       "type": "array",
       "items": {
         "enum": [
-          "unsupported_action",
-          "approval_not_binding_valid",
-          "approval_plan_ref_mismatch",
-          "approval_action_mismatch",
+          "unsupported_plan_action",
+          "unsupported_chain_action",
           "chain_invalid",
           "chain_redaction_unverified",
-          "preflight_binding_invalid"
+          "binding_material_missing",
+          "binding_mismatch"
         ]
       }
     },
@@ -147,10 +141,13 @@
     {
       "if": {
         "properties": {
-          "status": {
-            "const": "ready"
+          "binding_state": {
+            "const": "binding_valid"
           }
-        }
+        },
+        "required": [
+          "binding_state"
+        ]
       },
       "then": {
         "properties": {
@@ -168,10 +165,13 @@
     {
       "if": {
         "properties": {
-          "status": {
-            "const": "blocked"
+          "binding_state": {
+            "const": "binding_invalid"
           }
-        }
+        },
+        "required": [
+          "binding_state"
+        ]
       },
       "then": {
         "required": [
@@ -190,10 +190,13 @@
     {
       "if": {
         "properties": {
-          "status": {
-            "const": "inconclusive"
+          "binding_state": {
+            "const": "binding_inconclusive"
           }
-        }
+        },
+        "required": [
+          "binding_state"
+        ]
       },
       "then": {
         "required": [

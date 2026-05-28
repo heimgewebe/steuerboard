@@ -698,6 +698,62 @@ Boundary for this slice:
 
 Stage D remains future-only after this phase.
 
+## Phase 8D.1 — Action Preflight Binding (artifact bridge)
+
+**Status:** started
+**Schema:** `action-preflight-binding.v1`
+**CLI:** `python -m steuerboard action bind-preflight-to-action`
+
+Phase 8D.1 introduces the `action-preflight-binding.v1` artifact — a pure
+artifact-level bridge that binds a `git-pull-ff-only` action plan to a
+`git-status-read-only` run evidence chain. It exists so that the preflight
+relationship between the two artifacts becomes explicit and auditable rather
+than implicit.
+
+Scope:
+
+- new schema: `action-preflight-binding.v1`
+- new module: `steuerboard/action_preflight_bindings.py` (pure function, no I/O
+  beyond reading the two input dicts and atomically writing the output file)
+- CLI: `python -m steuerboard action bind-preflight-to-action ... --json`
+- examples for inconclusive and three blocked variants
+- optional `--preflight-binding` argument added to
+  `python -m steuerboard action validate-execution-readiness`
+
+Binding state contract:
+
+- `binding_valid` is reserved for the case where the chain provably belongs to
+  the supplied pull plan from contract-defined fields. In the current slice
+  this is not achievable, because `run-evidence-chain.v1.action` is fixed to
+  `git-status-read-only` and the chain exposes no field that references the
+  pull plan.
+- `binding_invalid` means at least one hard gate fails (unsupported plan
+  action, unsupported chain action, chain status invalid, chain redaction
+  unverified, or binding material mismatches).
+- `binding_inconclusive` is the honest result for the standard
+  pull-plan-plus-status-chain combination: the artifacts do not contain
+  contract-defined fields that prove binding.
+
+Phase 8D.1 is not execution.
+Phase 8D.1 is not authorisation.
+Phase 8D.1 is not a pull gate.
+
+Boundary:
+
+- no subprocess calls
+- no Git commands
+- no network
+- no mutation
+- no approval runner
+- no execution authorisation
+- output artifact always carries `does_not_execute=true`,
+  `does_not_mutate=true`, `does_not_authorise_actions=true`
+- `--binding-out` parent must exist and target must not already exist
+
+Phase 8D.0 readiness without `--preflight-binding` is unchanged: best
+achievable status remains `inconclusive` with
+`preflight_chain_plan_binding_unproven`.
+
 ## Phase 8D.0 — Stage-D Execution Readiness
 
 **Status:** started
