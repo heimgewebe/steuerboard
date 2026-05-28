@@ -221,6 +221,103 @@ Boundary:
 
 Stage D remains future-only.
 
+## Phase 8D.1 — Action Preflight Binding (artifact bridge)
+
+Phase 8D.1 introduces the `action-preflight-binding.v1` artifact — a pure
+artifact-level binding between a `git-pull-ff-only` action plan and a
+`git-status-read-only` run evidence chain.
+
+Phase 8D.1 is not execution.
+Phase 8D.1 is not authorisation.
+Phase 8D.1 is not a pull gate.
+
+The bridge exists to make the preflight relationship between the two artifacts
+explicit and auditable rather than implicit. It does not relax the readiness
+gate; it provides a separate, schema-validated artifact whose `binding_state`
+can be consumed by Phase 8D.0 readiness when supplied.
+
+### CLI
+
+```bash
+python -m steuerboard action bind-preflight-to-action <action-plan-json> \
+  --run-evidence-chain <chain-json> \
+  --binding-out <binding-json> \
+  --json
+```
+
+The command:
+
+- reads only the two explicitly passed input artifacts
+- schema-validates `action-plan.v1` and `run-evidence-chain.v1`
+- emits `action-preflight-binding.v1` JSON to stdout
+- writes the artifact to `--binding-out` (parent must exist; target must not pre-exist)
+
+### Binding states
+
+- `binding_valid` — the chain provably belongs to the supplied pull plan from
+  contract-defined fields. Not achievable from current artifacts in this slice.
+- `binding_invalid` — at least one hard gate fails (unsupported plan action,
+  unsupported chain action, chain status invalid, chain redaction unverified,
+  or binding material is present but mismatches).
+- `binding_inconclusive` — no hard failure, but the chain artifact's
+  contract-defined fields do not contain a binding key that ties it to the
+  supplied pull plan. This is the honest result for the current
+  `run-evidence-chain.v1` contract.
+
+### Epistemic gap and the missing binding key
+
+In this slice, `run-evidence-chain.v1.action` is fixed to
+`git-status-read-only` and `chain.plan_ref` points to the status plan only.
+The chain artifact does not expose any contract-defined field (such as an
+`assessment_ref`, a `bound_action_plans` list, or an explicit
+`pull_plan_ref`) that ties it to a `git-pull-ff-only` plan. Therefore the
+production binding function cannot honestly emit `binding_valid` for any
+combination of current pull plan and current status chain.
+
+Closing this gap requires either:
+
+- extending `run-evidence-chain.v1` with an explicit binding field that
+  references the pull plan it was produced for, or
+- a separate binding manifest that records the causal relationship at
+  production time, or
+- a future evidence-chain variant whose `action` field can record
+  `git-pull-ff-only` once Stage-D execution exists.
+
+Until one of these is added to the contract, `bind-preflight-to-action`
+remains honestly `binding_inconclusive` for the standard combination.
+
+### Boundary
+
+- pure artifact validation: no subprocesses, no Git, no network, no mutation
+- reads only the two explicitly passed artifacts
+- validates both inputs against their JSON Schemas before processing
+- does NOT execute git pull, does NOT authorise actions, does NOT create a runner
+- output artifact always includes `boundary.does_not_execute=true`,
+  `boundary.does_not_mutate=true`, `boundary.does_not_authorise_actions=true`
+
+### Integration with Phase 8D.0 readiness
+
+`python -m steuerboard action validate-execution-readiness` accepts an
+optional `--preflight-binding <action-preflight-binding-json>` argument.
+
+Without `--preflight-binding`, Phase 8D.0 behavior is unchanged: the best
+achievable status remains `inconclusive` with
+`preflight_chain_plan_binding_unproven`.
+
+With `--preflight-binding`, readiness verifies the binding artifact references
+the same plan and chain (`plan_ref`, `chain_ref`, `plan_action`, `chain_action`
+consistency; mismatches raise a precondition error). The binding's
+`binding_state` is then consumed:
+
+- `binding_valid` — plan-binding gate passes; if all other hard gates pass,
+  readiness becomes `ready`
+- `binding_invalid` — readiness is `blocked` with `preflight_binding_invalid`
+- `binding_inconclusive` — readiness stays `inconclusive` with
+  `preflight_chain_plan_binding_unproven`
+
+Readiness still does not execute, does not authorise, and does not create a
+runner. Boundary flags remain const true.
+
 ## Phase 8D.0: Stage-D Execution Readiness
 
 Phase 8D.0 introduces the `action-execution-readiness.v1` artifact — a pure

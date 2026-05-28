@@ -390,6 +390,7 @@ python -m steuerboard action validate-execution-readiness <action-plan-json> \
   --approval-validation <approval-validation-json> \
   --run-evidence-chain <chain-json> \
   --readiness-out <readiness-json> \
+  [--preflight-binding <action-preflight-binding-json>] \
   --json
 ```
 
@@ -405,6 +406,7 @@ Arguments:
 | `--approval-validation` | Path to an `action-approval-validation.v1` JSON artifact |
 | `--run-evidence-chain` | Path to a `run-evidence-chain.v1` JSON artifact |
 | `--readiness-out` | Output path for the `action-execution-readiness.v1` artifact (must not exist; parent must exist) |
+| `--preflight-binding` | Optional Phase 8D.1 `action-preflight-binding.v1` JSON. When supplied, the binding's `binding_state` drives the plan-binding gate after ref/action consistency checks. |
 | `--json` | Required flag; emits JSON to stdout |
 
 Status values:
@@ -413,9 +415,21 @@ Status values:
 - `blocked` — at least one hard gate fails
 - `inconclusive` — no hard failure but plan binding cannot be proven
 
-In the current slice the best achievable status is `inconclusive` with
-`preflight_chain_plan_binding_unproven`, because the preflight chain records
-`git-status-read-only` which cannot prove binding to a `git-pull-ff-only` plan.
+Without `--preflight-binding`, the best achievable status is `inconclusive`
+with `preflight_chain_plan_binding_unproven`, because the preflight chain
+records `git-status-read-only` which cannot prove binding to a
+`git-pull-ff-only` plan.
+
+With `--preflight-binding`, readiness consumes the binding's `binding_state`:
+
+- `binding_valid` enables `ready` when all other hard gates pass
+- `binding_invalid` blocks readiness with `preflight_binding_invalid`
+- `binding_inconclusive` keeps readiness inconclusive with
+  `preflight_chain_plan_binding_unproven`
+
+Readiness raises a precondition error if the supplied binding's `plan_ref`,
+`chain_ref`, `plan_action`, or `chain_action` do not match the supplied plan
+and chain.
 
 Boundary for Phase 8D.0:
 
@@ -428,3 +442,52 @@ Boundary for Phase 8D.0:
 - output artifact always carries `does_not_execute=true`,
   `does_not_mutate=true`, `does_not_authorise_actions=true`
 - `--readiness-out` parent must exist and target must not already exist
+
+## Phase 8D.1: action bind-preflight-to-action
+
+```
+python -m steuerboard action bind-preflight-to-action <action-plan-json> \
+  --run-evidence-chain <chain-json> \
+  --binding-out <binding-json> \
+  --json
+```
+
+Pure artifact bridge that binds one `git-pull-ff-only` `action-plan.v1` to one
+`git-status-read-only` `run-evidence-chain.v1`. Emits one
+`action-preflight-binding.v1` artifact to stdout and to `--binding-out`.
+
+Arguments:
+
+| Argument | Description |
+|----------|-------------|
+| `<action-plan-json>` | Path to an `action-plan.v1` JSON artifact (action `git-pull-ff-only`) |
+| `--run-evidence-chain` | Path to a `run-evidence-chain.v1` JSON artifact (action `git-status-read-only`) |
+| `--binding-out` | Output path for the `action-preflight-binding.v1` artifact (must not exist; parent must exist) |
+| `--json` | Required flag; emits JSON to stdout |
+
+Binding states:
+
+- `binding_valid` — chain provably belongs to the supplied pull plan from
+  contract-defined fields. Not achievable from current artifacts.
+- `binding_invalid` — at least one hard gate fails (unsupported plan or chain
+  action, chain status invalid, chain redaction unverified, binding mismatch)
+- `binding_inconclusive` — no hard failure but the chain artifact does not
+  contain a contract-defined field that ties it to the pull plan. This is the
+  honest natural result for the current `run-evidence-chain.v1` contract.
+
+Exit codes:
+
+- `0` for `binding_valid` and `binding_inconclusive`
+- nonzero only for malformed JSON, schema-invalid input, or output-path
+  precondition failure (the sentinel JSON written to stdout in those cases
+  also satisfies `action-preflight-binding.v1`)
+
+Boundary for Phase 8D.1:
+
+- pure artifact validation: no subprocess, no Git, no network, no mutation
+- reads only the two explicitly passed input artifacts
+- validates both inputs against their JSON Schemas before processing
+- does not execute git pull, does not authorise actions, does not create a runner
+- output artifact always carries `does_not_execute=true`,
+  `does_not_mutate=true`, `does_not_authorise_actions=true`
+- `--binding-out` parent must exist and target must not already exist

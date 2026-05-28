@@ -1,0 +1,56 @@
+{
+  "schema_version": "action-preflight-binding.v1",
+  "binding_id": "preflight-binding-d2c1a08a35e8a4b1c97f2e0d2b9c0a8e3f4d5c6b7a8e9f0d1c2b3a4e5d6c7b8a9",
+  "checked_at": "2026-05-28T09:00:00Z",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "plan_action": "git-pull-ff-only",
+  "chain_ref": "chain-run-read-only-example-pilot-valid-001",
+  "chain_action": "git-status-read-only",
+  "binding_state": "binding_inconclusive",
+  "blocked_because": [],
+  "failure_reasons": [
+    "binding_cannot_be_proven_from_supplied_artifacts"
+  ],
+  "checks": [
+    {
+      "check": "plan_action_supported",
+      "passed": true,
+      "expected": "git-pull-ff-only",
+      "actual": "git-pull-ff-only"
+    },
+    {
+      "check": "chain_action_supported",
+      "passed": true,
+      "expected": "git-status-read-only",
+      "actual": "git-status-read-only"
+    },
+    {
+      "check": "chain_status_valid",
+      "passed": true,
+      "expected": "valid",
+      "actual": "valid"
+    },
+    {
+      "check": "chain_redaction_verified",
+      "passed": true,
+      "expected": "true",
+      "actual": "true"
+    },
+    {
+      "check": "binding_basis_from_contract_fields",
+      "passed": false,
+      "expected": "chain.action=='git-pull-ff-only' and chain.plan_ref=='plan-git-pull-ff-only-2026-05-23-001'",
+      "actual": "chain.action=='git-status-read-only' and chain.plan_ref=='plan-git-status-read-only-2026-05-26-001'"
+    }
+  ],
+  "source_refs": [
+    "git.current_branch",
+    "action-plan.v1",
+    "run-evidence-chain.v1"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

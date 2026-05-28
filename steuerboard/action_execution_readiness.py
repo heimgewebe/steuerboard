@@ -129,6 +129,7 @@ def validate_execution_readiness(
     approval_validation: dict[str, Any],
     run_evidence_chain: dict[str, Any],
     readiness_out: str,
+    preflight_binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate Stage-D readiness and write action-execution-readiness.v1.
 
@@ -143,6 +144,12 @@ def validate_execution_readiness(
     readiness_out:
         Output path for the action-execution-readiness.v1 JSON artifact.
         Must not already exist; parent directory must exist.
+    preflight_binding:
+        Optional Phase 8D.1 action-preflight-binding.v1 artifact. When supplied,
+        readiness uses the binding's binding_state to evaluate the plan binding
+        gate. The binding artifact must reference the same plan and chain that
+        readiness is validating (plan_ref, chain_ref, plan_action, chain_action
+        consistency) or readiness raises ValueError.
 
     Returns
     -------
@@ -153,7 +160,8 @@ def validate_execution_readiness(
     ------
     ValueError
         If any input artifact is schema-invalid, or if preconditions on
-        the output path are not met.
+        the output path are not met, or if a supplied preflight binding does
+        not reference the same plan and chain that readiness is validating.
     """
     # Validate all three inputs against their schemas first.
     _validate_against_schema(action_plan, "action-plan.v1.schema.json", "action-plan.v1")
@@ -167,6 +175,12 @@ def validate_execution_readiness(
         "run-evidence-chain.v1.schema.json",
         "run-evidence-chain.v1",
     )
+    if preflight_binding is not None:
+        _validate_against_schema(
+            preflight_binding,
+            "action-preflight-binding.v1.schema.json",
+            "action-preflight-binding.v1",
+        )
 
     readiness_target = _require_output_path(readiness_out, "readiness_out")
 
@@ -270,30 +284,74 @@ def validate_execution_readiness(
 
     # -----------------------------------------------------------------------
     # Check 7: Plan binding between the pull plan and the read-only preflight
-    # chain.  In this slice, run-evidence-chain.v1 always records a
-    # git-status-read-only chain (action is fixed by schema).  The pull plan's
-    # plan_id can never appear as chain.plan_ref for a different action type.
-    # Therefore plan binding is structurally unproven in this slice and the
-    # status cannot be "ready" even when all other gates pass.
+    # chain.  Without a preflight-binding artifact, this slice cannot prove
+    # binding contractually because run-evidence-chain.v1 fixes action to
+    # "git-status-read-only".  With a Phase 8D.1 action-preflight-binding.v1
+    # artifact, the binding state is consumed directly after the readiness
+    # logic verifies that the binding references the same plan and chain.
     # -----------------------------------------------------------------------
+    chain_id = run_evidence_chain.get("chain_id", "")
     chain_action = run_evidence_chain.get("action", "")
     chain_plan_ref = run_evidence_chain.get("plan_ref", "")
-    # Plan binding is provable only when the chain was produced under the
-    # same plan_id and for the same action.  Since current chain schema fixes
-    # action == "git-status-read-only", binding to a "git-pull-ff-only" plan
-    # is structurally unproven.
-    plan_binding_proven = (chain_action == plan_action) and (chain_plan_ref == plan_id)
-    _record_check(
-        checks,
-        check="preflight_chain_plan_binding_proven",
-        passed=plan_binding_proven,
-        expected=f"chain.action=={plan_action!r} and chain.plan_ref=={plan_id!r}",
-        actual=f"chain.action=={chain_action!r} and chain.plan_ref=={chain_plan_ref!r}",
-    )
-    if not plan_binding_proven and not hard_failure_reasons:
-        # Only escalate to inconclusive when no hard failure already dominates,
-        # to keep the reason list minimal and interpretable.
-        inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
+
+    if preflight_binding is None:
+        # Without an explicit binding artifact, the binding remains
+        # structurally unproven in this slice.
+        plan_binding_proven = (chain_action == plan_action) and (chain_plan_ref == plan_id)
+        _record_check(
+            checks,
+            check="preflight_chain_plan_binding_proven",
+            passed=plan_binding_proven,
+            expected=f"chain.action=={plan_action!r} and chain.plan_ref=={plan_id!r}",
+            actual=f"chain.action=={chain_action!r} and chain.plan_ref=={chain_plan_ref!r}",
+        )
+        if not plan_binding_proven and not hard_failure_reasons:
+            inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
+    else:
+        # With an explicit binding artifact, require ref/action consistency
+        # before consulting its binding_state.
+        binding_plan_ref = preflight_binding.get("plan_ref", "")
+        binding_chain_ref = preflight_binding.get("chain_ref", "")
+        binding_plan_action = preflight_binding.get("plan_action", "")
+        binding_chain_action = preflight_binding.get("chain_action", "")
+        if binding_plan_ref != plan_id:
+            raise ValueError(
+                "preflight_binding.plan_ref must match action_plan.plan_id "
+                f"(binding.plan_ref={binding_plan_ref!r}, plan.plan_id={plan_id!r})"
+            )
+        if binding_chain_ref != chain_id:
+            raise ValueError(
+                "preflight_binding.chain_ref must match run_evidence_chain.chain_id "
+                f"(binding.chain_ref={binding_chain_ref!r}, chain.chain_id={chain_id!r})"
+            )
+        if binding_plan_action != plan_action:
+            raise ValueError(
+                "preflight_binding.plan_action must match action_plan.action "
+                f"(binding.plan_action={binding_plan_action!r}, plan.action={plan_action!r})"
+            )
+        if binding_chain_action != chain_action:
+            raise ValueError(
+                "preflight_binding.chain_action must match run_evidence_chain.action "
+                f"(binding.chain_action={binding_chain_action!r}, chain.action={chain_action!r})"
+            )
+
+        binding_state = preflight_binding.get("binding_state", "")
+        binding_valid = binding_state == "binding_valid"
+        binding_inconclusive = binding_state == "binding_inconclusive"
+        _record_check(
+            checks,
+            check="preflight_chain_plan_binding_proven",
+            passed=binding_valid,
+            expected="action-preflight-binding.v1.binding_state==binding_valid",
+            actual=f"action-preflight-binding.v1.binding_state=={binding_state!r}",
+        )
+        if binding_state == "binding_invalid":
+            hard_failure_reasons.append("preflight_binding_invalid")
+        elif binding_inconclusive and not hard_failure_reasons:
+            inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
+        elif not binding_valid and not hard_failure_reasons:
+            # Unrecognized binding_state value: be conservative and keep readiness inconclusive.
+            inconclusive_reasons.append("preflight_chain_plan_binding_unproven")
 
     # -----------------------------------------------------------------------
     # Determine final status.
@@ -345,6 +403,7 @@ def validate_execution_readiness(
             "approval_action_mismatch",
             "chain_invalid",
             "chain_redaction_unverified",
+            "preflight_binding_invalid",
         }],
         "checks": checks,
         "source_refs": source_refs,

@@ -9,6 +9,7 @@ from typing import Sequence
 from .action_approval_validations import validate_action_approval_binding
 from .action_execution_readiness import validate_execution_readiness
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
+from .action_preflight_bindings import bind_preflight_to_action
 from .action_runs import run_read_only_action
 from .assessment import assess_repo
 from .run_evidence_chains import validate_run_evidence_chain
@@ -140,6 +141,48 @@ def _emit_chain_inconclusive(
                 ],
                 "failure_reasons": [reason],
                 "redaction_verified": False,
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
+
+
+def _emit_preflight_binding_inconclusive(reason: str) -> int:
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    sanitized_reason = _sanitize_sentinel_reason(reason)
+    print(
+        json.dumps(
+            {
+                "schema_version": "action-preflight-binding.v1",
+                "binding_id": "preflight-binding-blocked-precondition",
+                "checked_at": checked_at,
+                "plan_ref": "unknown",
+                "plan_action": "unknown",
+                "chain_ref": "unknown",
+                "chain_action": "unknown",
+                "binding_state": "binding_inconclusive",
+                "blocked_because": [],
+                "failure_reasons": [sanitized_reason],
+                "checks": [
+                    {
+                        "check": "preconditions_satisfied",
+                        "passed": False,
+                        "actual": sanitized_reason,
+                    }
+                ],
+                "source_refs": [
+                    "action-plan.v1",
+                    "run-evidence-chain.v1",
+                ],
+                "boundary": {
+                    "does_not_execute": True,
+                    "does_not_mutate": True,
+                    "does_not_authorise_actions": True,
+                },
             },
             indent=2,
             ensure_ascii=False,
@@ -559,10 +602,49 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output path for action-execution-readiness.v1 JSON. Must not already exist.",
     )
     action_validate_execution_readiness_parser.add_argument(
+        "--preflight-binding",
+        required=False,
+        default=None,
+        help=(
+            "Optional Phase 8D.1 action-preflight-binding.v1 JSON file. "
+            "When supplied, the binding's binding_state is consumed as the "
+            "preflight_chain_plan_binding_proven gate after ref/action consistency checks."
+        ),
+    )
+    action_validate_execution_readiness_parser.add_argument(
         "--json",
         action="store_true",
         required=True,
         help="Emit action-execution-readiness.v1 JSON.",
+    )
+
+    action_bind_preflight_parser = action_subparsers.add_parser(
+        "bind-preflight-to-action",
+        help=(
+            "Bind one git-pull-ff-only action-plan.v1 to one git-status-read-only "
+            "run-evidence-chain.v1 as a Phase 8D.1 action-preflight-binding.v1 artifact. "
+            "Pure artifact validation only — no execution, no mutation, no authorisation."
+        ),
+    )
+    action_bind_preflight_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file (git-pull-ff-only).",
+    )
+    action_bind_preflight_parser.add_argument(
+        "--run-evidence-chain",
+        required=True,
+        help="Path to a run-evidence-chain.v1 JSON file (git-status-read-only).",
+    )
+    action_bind_preflight_parser.add_argument(
+        "--binding-out",
+        required=True,
+        help="Output path for action-preflight-binding.v1 JSON. Must not already exist.",
+    )
+    action_bind_preflight_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit action-preflight-binding.v1 JSON.",
     )
 
     approval_parser = subparsers.add_parser(
@@ -920,12 +1002,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_evidence_chain_path=args.run_evidence_chain,
             )
 
+        preflight_binding_data: dict | None = None
+        if args.preflight_binding is not None:
+            try:
+                with Path(args.preflight_binding).open("r", encoding="utf-8") as handle:
+                    preflight_binding_data = json.load(handle)
+            except (OSError, json.JSONDecodeError) as exc:
+                return _emit_readiness_inconclusive(
+                    f"invalid_preflight_binding_json: {exc}",
+                    action_plan_path=args.action_plan_json,
+                    approval_validation_path=args.approval_validation,
+                    run_evidence_chain_path=args.run_evidence_chain,
+                )
+
         try:
             readiness = validate_execution_readiness(
                 action_plan=action_plan_data,
                 approval_validation=approval_validation_data,
                 run_evidence_chain=run_evidence_chain_data,
                 readiness_out=args.readiness_out,
+                preflight_binding=preflight_binding_data,
             )
         except ValueError as exc:
             return _emit_readiness_inconclusive(
@@ -935,6 +1031,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_evidence_chain_path=args.run_evidence_chain,
             )
         print(json.dumps(readiness, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "bind-preflight-to-action":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_preflight_binding_inconclusive(f"invalid_action_plan_json: {exc}")
+
+        try:
+            with Path(args.run_evidence_chain).open("r", encoding="utf-8") as handle:
+                run_evidence_chain_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_preflight_binding_inconclusive(
+                f"invalid_run_evidence_chain_json: {exc}"
+            )
+
+        try:
+            binding = bind_preflight_to_action(
+                action_plan=action_plan_data,
+                run_evidence_chain=run_evidence_chain_data,
+                binding_out=args.binding_out,
+            )
+        except ValueError as exc:
+            return _emit_preflight_binding_inconclusive(str(exc))
+        print(json.dumps(binding, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")
