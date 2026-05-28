@@ -131,16 +131,20 @@ steuerboard action run-git-pull-ff-only \
 
 ### Security contract
 
-- The runner reproduces the Stage-D readiness gate internally using the four
-  input artifacts. It never trusts a pre-computed `action-execution-readiness.v1`
-  artifact.
-- Only `preflight_binding.binding_state == "binding_valid"` AND a
-  `preflight_for_action_plan` proof object allows execution.
+- The runner verifies `preflight_binding.preflight_for_action_plan.plan_ref`,
+  `plan_action`, and `plan_content_sha256` against the supplied `action_plan`
+  directly — not delegated to `validate_execution_readiness()`.
+- Only `preflight_binding.binding_state == "binding_valid"` AND a proof block
+  with matching `plan_ref`, `plan_action`, and `plan_content_sha256` allows execution.
 - No `shell=True`. No merge, rebase, reset, or clean.
 - Output paths must not exist before the command runs.
 - No output path may reside inside the git worktree.
-- Exactly one subprocess call is made: `["git", "--no-optional-locks", "-C",
-  <toplevel>, "pull", "--ff-only"]`.
+- All three output paths must be distinct.
+- Precondition failures emit a stdout sentinel (`run-result.v1` with `status: blocked`)
+  but write no output files.
+- Exactly one **mutating** Git subprocess call: `["git", "--no-optional-locks", "-C",
+  <toplevel>, "pull", "--ff-only"]`. Read-only pre/post checks (status, rev-parse) are
+  separate non-mutating subprocess calls.
 
 ### Output artifacts
 

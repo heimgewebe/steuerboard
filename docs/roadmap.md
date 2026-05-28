@@ -905,15 +905,17 @@ chain on partial failure):
 | `git pull` exit code ≠ 0 | `failure` | `failed` | `pull_exit_code_nonzero` |
 | "Already up to date" / HEAD unchanged | `success` | `inconclusive` | `head_unchanged_after_pull` |
 | HEAD unreadable after pull | `success` | `inconclusive` | `head_unreadable_after_pull` |
-| Merge commit detected (`HEAD^2` exists) | `failure` | `failed` | `merge_commit_detected` |
+
 | Post-pull status check error | `success` | `inconclusive` | `post_pull_status_check_failed` |
 | Worktree dirty after pull | `failure` | `failed` | `worktree_not_clean_after_pull` |
 | All checks pass | `success` | `passed` | — |
 
 ### Boundary
 
-Phase 8E makes exactly one mutating Git call under a single, statically-known
-argv vector (`--ff-only`).  It does not expand the action allowlist further,
+Phase 8E makes exactly one **mutating** Git subprocess call under a single,
+statically-known argv vector (`--ff-only`).  Read-only pre/post checks
+(worktree status, HEAD rev-parse) are separate non-mutating subprocess calls.
+Phase 8E does not expand the action allowlist further,
 does not introduce `switch-main` execution, and does not remove the Phase 8A
 read-only runner.
 

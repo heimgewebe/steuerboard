@@ -630,7 +630,8 @@ Exit codes:
 
 Boundary for Phase 8E:
 
-- exactly one mutating Git subprocess call: `git --no-optional-locks pull --ff-only`
+- exactly one **mutating** Git subprocess call: `git --no-optional-locks pull --ff-only`
+- read-only pre/post checks (worktree status, HEAD rev-parse) are separate non-mutating calls
 - no `shell=True`
 - no merge, rebase, reset, or clean
 - three output artifacts written atomically with rollback on partial failure

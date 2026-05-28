@@ -6,8 +6,10 @@ Boundary contract:
   run evidence chain, preflight binding) and internally reproduces the
   Stage-D readiness gate by calling validate_execution_readiness().
   Execution is allowed only when the reproduced status is "ready".
-- Executes exactly one mutating command:
+- Executes exactly one mutating Git subprocess call:
       git --no-optional-locks -C <repo-toplevel> pull --ff-only
+  Read-only pre/post checks (status, rev-parse) are separate, non-mutating
+  subprocess calls.
 - No free shell, no shell=True, no merge, no rebase, no reset, no clean.
 - All output files must not exist before the call; parents must exist.
 - Output files are outside the inspected repository worktree.
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 import uuid
@@ -86,7 +89,13 @@ def _is_path_inside(parent: Path, child: Path) -> bool:
         return False
 
 
-def _excerpt(value: str) -> str:
+# Pattern matching credential-like substrings in URLs (user:token@host).
+_CREDENTIAL_RE = re.compile(r"(https?://)([^@/\s]+:[^@/\s]+@)", re.IGNORECASE)
+
+
+def _redact_excerpt(value: str) -> str:
+    """Remove credential-like patterns from excerpt text and truncate."""
+    value = _CREDENTIAL_RE.sub(r"\1[REDACTED]@", value)
     return value.strip()[:_EXCERPT_LIMIT]
 
 
@@ -315,12 +324,49 @@ def run_git_pull_ff_only(
             "preflight_binding must carry a preflight_for_action_plan proof object"
         )
 
+    # Verify the proof object against the supplied action_plan without
+    # delegating this responsibility to validate_execution_readiness().
+    # A binding_valid state plus a present proof block is not sufficient;
+    # the runner must confirm the proof binds exactly to this plan.
+    _proof = preflight_binding["preflight_for_action_plan"]
+    if _proof.get("plan_ref") != action_plan.get("plan_id"):
+        raise ValueError(
+            f"preflight_binding.preflight_for_action_plan.plan_ref "
+            f"{_proof.get('plan_ref')!r} does not match "
+            f"action_plan.plan_id {action_plan.get('plan_id')!r}"
+        )
+    if _proof.get("plan_action") != "git-pull-ff-only":
+        raise ValueError(
+            f"preflight_binding.preflight_for_action_plan.plan_action "
+            f"must be 'git-pull-ff-only'; got {_proof.get('plan_action')!r}"
+        )
+    _expected_sha = canonical_json_sha256(action_plan)
+    if _proof.get("plan_content_sha256") != _expected_sha:
+        raise ValueError(
+            "preflight_binding.preflight_for_action_plan.plan_content_sha256 "
+            "does not match the canonical JSON sha256 of the supplied action_plan"
+        )
+
     # -----------------------------------------------------------------------
     # Precondition 4: validate output paths.
     # -----------------------------------------------------------------------
     trace_target = _require_output_path(command_trace_out, "command_trace_out")
     run_result_target = _require_output_path(run_result_out, "run_result_out")
     postcheck_target = _require_output_path(postcheck_out, "postcheck_out")
+
+    # All three output paths must be distinct; writing one must not clobber another.
+    _seen_paths: dict[Path, str] = {}
+    for _out_path, _out_label in [
+        (trace_target, "command_trace_out"),
+        (run_result_target, "run_result_out"),
+        (postcheck_target, "postcheck_out"),
+    ]:
+        if _out_path in _seen_paths:
+            raise ValueError(
+                f"{_out_label} and {_seen_paths[_out_path]} resolve to the same file: "
+                f"{_out_path}"
+            )
+        _seen_paths[_out_path] = _out_label
 
     # -----------------------------------------------------------------------
     # Precondition 5: resolve git toplevel.
@@ -412,8 +458,8 @@ def run_git_pull_ff_only(
     pull_exit, pull_stdout, pull_stderr = _run_git(pull_command)
     finished_at = _utc_rfc3339_now()
 
-    stdout_excerpt = _excerpt(pull_stdout)
-    stderr_excerpt = _excerpt(pull_stderr)
+    stdout_excerpt = _redact_excerpt(pull_stdout)
+    stderr_excerpt = _redact_excerpt(pull_stderr)
 
     trace_data: dict[str, Any] = {
         "schema_version": "command-trace.v1",
@@ -422,7 +468,7 @@ def run_git_pull_ff_only(
         "exit_code": pull_exit,
         "stdout_excerpt": stdout_excerpt,
         "stderr_excerpt": stderr_excerpt,
-        "redacted": False,
+        "redacted": True,
     }
 
     # -----------------------------------------------------------------------
@@ -463,45 +509,33 @@ def run_git_pull_ff_only(
                     f"head_before={head_before!r} head_after={head_after!r}"
                 )
             else:
-                # HEAD advanced — verify no merge commit was created.
-                merge_parent_exit, _, _ = _run_git(
-                    ["git", "-C", str(toplevel), "rev-parse", "HEAD^2"]
+                # HEAD advanced — --ff-only prevents a locally created merge
+                # commit; trust the flag and check only worktree cleanliness.
+                post_status_exit, post_status_stdout, _ = _run_git(
+                    [
+                        "git",
+                        "--no-optional-locks",
+                        "-C",
+                        str(toplevel),
+                        "status",
+                        "--porcelain=v1",
+                    ]
                 )
-                if merge_parent_exit == 0:
-                    # HEAD has a second parent → a merge occurred, not a fast-forward.
+                if post_status_exit != 0:
+                    run_status = "success"
+                    postcheck_status = "inconclusive"
+                    postcheck_failure_reasons.append("post_pull_status_check_failed")
+                elif post_status_stdout.strip():
                     run_status = "failure"
                     postcheck_status = "failed"
-                    postcheck_failure_reasons.append("merge_commit_detected")
-                    postcheck_observations.append(
-                        "HEAD has a second parent; expected fast-forward only"
-                    )
+                    postcheck_failure_reasons.append("worktree_not_clean_after_pull")
+                    postcheck_observations.append("post-pull git status is non-empty")
                 else:
-                    # No merge commit — check worktree clean after pull.
-                    post_status_exit, post_status_stdout, _ = _run_git(
-                        [
-                            "git",
-                            "--no-optional-locks",
-                            "-C",
-                            str(toplevel),
-                            "status",
-                            "--porcelain=v1",
-                        ]
-                    )
-                    if post_status_exit != 0:
-                        run_status = "success"
-                        postcheck_status = "inconclusive"
-                        postcheck_failure_reasons.append("post_pull_status_check_failed")
-                    elif post_status_stdout.strip():
-                        run_status = "failure"
-                        postcheck_status = "failed"
-                        postcheck_failure_reasons.append("worktree_not_clean_after_pull")
-                        postcheck_observations.append("post-pull git status is non-empty")
-                    else:
-                        # All checks passed — fast-forward confirmed.
-                        run_status = "success"
-                        postcheck_status = "passed"
-                        postcheck_observations.append(f"head_before={head_before!r}")
-                        postcheck_observations.append(f"head_after={head_after!r}")
+                    # All checks passed — fast-forward confirmed.
+                    run_status = "success"
+                    postcheck_status = "passed"
+                    postcheck_observations.append(f"head_before={head_before!r}")
+                    postcheck_observations.append(f"head_after={head_after!r}")
 
     # -----------------------------------------------------------------------
     # Build run-result artifact.
@@ -554,6 +588,7 @@ def run_git_pull_ff_only(
     # -----------------------------------------------------------------------
     # Validate output artifacts before touching the filesystem.
     # -----------------------------------------------------------------------
+    _validate_against_schema(trace_data, "command-trace.v1.schema.json", "command-trace.v1")
     _validate_against_schema(run_result_data, "run-result.v1.schema.json", "run-result.v1")
     _validate_against_schema(
         postcheck_data, "run-postcheck.v1.schema.json", "run-postcheck.v1"

@@ -545,3 +545,131 @@ def test_readiness_example_validates():
     schema = _readiness_schema()
     instance = load_json(EXAMPLES_DIR / "action-execution-readiness" / "git-pull-ff-only-ready.json")
     validate_instance(instance, schema, EXAMPLES_DIR / "action-execution-readiness" / "git-pull-ff-only-ready.json")
+
+
+# ---------------------------------------------------------------------------
+# Blocker 1 — Proof self-verification tests
+# ---------------------------------------------------------------------------
+
+
+def test_rejects_proof_plan_ref_mismatch(tmp_path):
+    """Runner must reject when proof.plan_ref != action_plan.plan_id."""
+    bad_binding = copy.deepcopy(_BINDING_VALID)
+    bad_binding["preflight_for_action_plan"]["plan_ref"] = "plan-WRONG-ref"
+    with pytest.raises(ValueError, match="plan_ref"):
+        _call_run(tmp_path, preflight_binding=bad_binding)
+
+
+def test_rejects_proof_plan_action_mismatch(tmp_path):
+    """Runner must reject when proof.plan_action != git-pull-ff-only."""
+    bad_binding = copy.deepcopy(_BINDING_VALID)
+    bad_binding["preflight_for_action_plan"]["plan_action"] = "git-status-read-only"
+    with pytest.raises(ValueError, match="plan_action"):
+        _call_run(tmp_path, preflight_binding=bad_binding)
+
+
+def test_rejects_proof_plan_content_sha256_mismatch(tmp_path):
+    """Runner must reject when proof.plan_content_sha256 doesn't match actual plan."""
+    bad_binding = copy.deepcopy(_BINDING_VALID)
+    bad_binding["preflight_for_action_plan"]["plan_content_sha256"] = "a" * 64
+    with pytest.raises(ValueError, match="plan_content_sha256"):
+        _call_run(tmp_path, preflight_binding=bad_binding)
+
+
+def test_no_output_on_proof_plan_ref_mismatch(tmp_path):
+    """No output files must be written when proof.plan_ref mismatches."""
+    bad_binding = copy.deepcopy(_BINDING_VALID)
+    bad_binding["preflight_for_action_plan"]["plan_ref"] = "plan-WRONG-ref"
+    with pytest.raises(ValueError):
+        _call_run(tmp_path, preflight_binding=bad_binding)
+    assert not (tmp_path / "trace.json").exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "postcheck.json").exists()
+
+
+def test_no_output_on_proof_sha256_mismatch(tmp_path):
+    """No output files must be written when proof sha256 mismatches."""
+    bad_binding = copy.deepcopy(_BINDING_VALID)
+    bad_binding["preflight_for_action_plan"]["plan_content_sha256"] = "b" * 64
+    with pytest.raises(ValueError):
+        _call_run(tmp_path, preflight_binding=bad_binding)
+    assert not (tmp_path / "trace.json").exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "postcheck.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Blocker 2 — Redaction consistency test
+# ---------------------------------------------------------------------------
+
+
+def test_trace_redacted_true_and_run_result_redaction_verified_true(tmp_path):
+    """command-trace.redacted must be True; run-result.redaction_verified must be True."""
+    _, local = _setup_pull_repos(tmp_path)
+    _call_run(tmp_path, repo=local)
+    trace = json.loads((tmp_path / "trace.json").read_text(encoding="utf-8"))
+    run_res = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    assert trace["redacted"] is True, "command-trace.redacted must be True"
+    assert run_res["redaction_verified"] is True, "run-result.redaction_verified must be True"
+
+
+# ---------------------------------------------------------------------------
+# Blocker 3 — Distinct output paths tests
+# ---------------------------------------------------------------------------
+
+
+def _call_run_with_paths(
+    tmp_path: Path,
+    *,
+    trace_path: str,
+    result_path: str,
+    postcheck_path: str,
+) -> dict:
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    return run_git_pull_ff_only(
+        action_plan=_PLAN,
+        approval_validation=_APPROVAL_VALIDATION,
+        run_evidence_chain=_chain_with_preflight(),
+        preflight_binding=_BINDING_VALID,
+        repo_path=str(repo),
+        command_trace_out=trace_path,
+        run_result_out=result_path,
+        postcheck_out=postcheck_path,
+    )
+
+
+def test_rejects_duplicate_output_path_trace_equals_result(tmp_path):
+    """Must reject when command_trace_out == run_result_out."""
+    shared = str(tmp_path / "shared.json")
+    with pytest.raises(ValueError, match="same file"):
+        _call_run_with_paths(
+            tmp_path,
+            trace_path=shared,
+            result_path=shared,
+            postcheck_path=str(tmp_path / "postcheck.json"),
+        )
+
+
+def test_rejects_duplicate_output_path_trace_equals_postcheck(tmp_path):
+    """Must reject when command_trace_out == postcheck_out."""
+    shared = str(tmp_path / "shared.json")
+    with pytest.raises(ValueError, match="same file"):
+        _call_run_with_paths(
+            tmp_path,
+            trace_path=shared,
+            result_path=str(tmp_path / "result.json"),
+            postcheck_path=shared,
+        )
+
+
+def test_rejects_duplicate_output_path_result_equals_postcheck(tmp_path):
+    """Must reject when run_result_out == postcheck_out."""
+    shared = str(tmp_path / "shared.json")
+    with pytest.raises(ValueError, match="same file"):
+        _call_run_with_paths(
+            tmp_path,
+            trace_path=str(tmp_path / "trace.json"),
+            result_path=shared,
+            postcheck_path=shared,
+        )
