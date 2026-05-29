@@ -143,7 +143,7 @@ steuerboard action run-git-pull-ff-only \
 - No output path may reside inside the git worktree.
 - All three output paths must be distinct.
 - Precondition failures emit a stdout sentinel (`run-result.v1` with `status: blocked`)
-  but write no output files.
+  and exit nonzero, but write no output files and perform no Git mutation.
 - Exactly one **mutating** Git subprocess call: `["git", "--no-optional-locks", "-C",
   <toplevel>, "pull", "--ff-only"]`. Read-only pre/post checks (status, rev-parse) are
   separate non-mutating subprocess calls.

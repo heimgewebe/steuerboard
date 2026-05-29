@@ -627,9 +627,11 @@ Preconditions enforced before any mutation:
 
 Exit codes:
 
-- `0` for `run-result.v1` emitted (success, failure, or blocked)
-- nonzero only for precondition hard errors (malformed JSON, schema violation,
-  output path collision, readiness gate not `ready`)
+- `0` when the runner completes an execution attempt and emits `run-result.v1`
+  with `status` `success` or `failure`
+- nonzero for precondition blockers. The CLI still emits a redacted
+  `run-result.v1` sentinel with `status: blocked` to stdout, but writes no
+  output artifacts and performs no Git mutation
 
 Boundary for Phase 8E:
 
