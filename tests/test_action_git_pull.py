@@ -385,6 +385,8 @@ def test_happy_path_fast_forward_produces_valid_artifacts(tmp_path):
     assert run_res["action"] == "git-pull-ff-only"
     assert postcheck["status"] == "passed"
     assert postcheck["action"] == "git-pull-ff-only"
+    assert "git.rev_parse_head" in postcheck["source_refs"]
+    assert "git.rev_parse" not in postcheck["source_refs"]
 
     # HEAD must have advanced
     head_after = _get_head(local)
@@ -488,6 +490,7 @@ def test_failed_ff_only_not_possible(tmp_path):
     postcheck = json.loads((tmp_path / "postcheck.json").read_text(encoding="utf-8"))
 
     assert run_res["status"] == "failure"
+    assert "blocked_reasons" not in run_res
     assert postcheck["status"] == "failed"
     assert any("pull_exit_code_nonzero" in r for r in postcheck.get("failure_reasons", []))
 
@@ -518,6 +521,7 @@ def test_postcheck_failed_dirty_after_pull(tmp_path):
     run_res = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
     postcheck = json.loads((tmp_path / "postcheck.json").read_text(encoding="utf-8"))
     assert run_res["status"] == "failure"
+    assert "blocked_reasons" not in run_res
     assert postcheck["status"] == "failed"
     failure_reasons = postcheck.get("failure_reasons", [])
     assert any("worktree_not_clean_after_pull" in r for r in failure_reasons)

@@ -519,10 +519,10 @@ def run_git_pull_ff_only(
         "redaction_verified": True,
         "evidence_paths": [str(trace_target)],
     }
-    if run_status != "success":
-        run_result_data["blocked_reasons"] = postcheck_failure_reasons or [
-            f"pull_failed_exit_code_{pull_exit}"
-        ]
+    # Note: blocked_reasons is reserved for status == "blocked" (precondition
+    # failures that prevent execution).  A "failure" status means the pull was
+    # attempted but the result was negative; those reasons belong in the
+    # postcheck's failure_reasons, not in run-result.blocked_reasons.
 
     # -----------------------------------------------------------------------
     # Build postcheck artifact.
@@ -542,7 +542,7 @@ def run_git_pull_ff_only(
         "observations": postcheck_observations,
         "redaction_verified": True,
         "source_refs": [
-            "git.rev_parse",
+            "git.rev_parse_head",
             "git.status_porcelain",
             "run-result.v1",
             "command-trace.v1",
