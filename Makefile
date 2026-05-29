@@ -62,7 +62,7 @@ smoke:
 
 deploy-check:
 	@$(MAKE) validate
+	@$(MAKE) docs-check
 	@$(MAKE) test
 	@$(MAKE) smoke
-	@$(MAKE) docs-check
 	@echo "deploy-check: passed"
