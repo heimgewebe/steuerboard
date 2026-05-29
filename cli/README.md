@@ -579,3 +579,59 @@ Boundary for Phase 8D.1:
 - output artifact always carries `does_not_execute=true`,
   `does_not_mutate=true`, `does_not_authorise_actions=true`
 - `--binding-out` parent must exist and target must not already exist
+
+## Phase 8E: action run-git-pull-ff-only
+
+Executes a Stage-D approved `git pull --ff-only` for a single repository.
+The runner internally reproduces the readiness gate; it never trusts a
+pre-computed `action-execution-readiness.v1` artifact.
+
+```
+python -m steuerboard action run-git-pull-ff-only <action-plan-json> \
+  --approval-validation <approval-validation-json> \
+  --run-evidence-chain <run-evidence-chain-json> \
+  --preflight-binding <preflight-binding-json> \
+  --repo-path <path-to-git-repo> \
+  --command-trace-out <output-path> \
+  --run-result-out <output-path> \
+  --postcheck-out <output-path> \
+  --json
+```
+
+| Argument | Description |
+|---|---|
+| `action_plan_json` | Path to `action-plan.v1` JSON (action must be `git-pull-ff-only`) |
+| `--approval-validation` | Path to `action-approval-validation.v1` JSON |
+| `--run-evidence-chain` | Path to `run-evidence-chain.v1` JSON |
+| `--preflight-binding` | Path to `action-preflight-binding.v1` JSON |
+| `--repo-path` | Explicit path to the local git repository |
+| `--command-trace-out` | Output path for `command-trace.v1` (must not exist) |
+| `--run-result-out` | Output path for `run-result.v1` (must not exist) |
+| `--postcheck-out` | Output path for `run-postcheck.v1` (must not exist) |
+| `--json` | Required flag; emits `run-result.v1` JSON to stdout |
+
+Preconditions enforced before any mutation:
+
+- `action_plan.action == "git-pull-ff-only"`
+- `preflight_binding.binding_state == "binding_valid"` with a
+  `preflight_for_action_plan` proof block whose `plan_content_sha256` matches
+  the supplied plan
+- Readiness gate reproduced internally: all four artifacts must yield
+  `status == "ready"` from `validate_execution_readiness()`
+- All three output paths must not exist; their parent directories must exist
+- No output path may be inside the git worktree
+- Worktree must be clean before pull
+
+Exit codes:
+
+- `0` for `run-result.v1` emitted (success, failure, or blocked)
+- nonzero only for precondition hard errors (malformed JSON, schema violation,
+  output path collision, readiness gate not `ready`)
+
+Boundary for Phase 8E:
+
+- exactly one **mutating** Git subprocess call: `git --no-optional-locks pull --ff-only`
+- read-only pre/post checks (worktree status, HEAD rev-parse) are separate non-mutating calls
+- no `shell=True`
+- no merge, rebase, reset, or clean
+- three output artifacts written atomically with rollback on partial failure

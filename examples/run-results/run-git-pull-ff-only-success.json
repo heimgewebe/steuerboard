@@ -1,0 +1,14 @@
+{
+  "action": "git-pull-ff-only",
+  "evidence_paths": [
+    "examples/evidence/command-trace-git-pull-ff-only-success.json"
+  ],
+  "finished_at": "2026-05-28T12:00:02Z",
+  "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "redaction_verified": true,
+  "run_id": "run-git-pull-ff-only-example-001",
+  "schema_version": "run-result.v1",
+  "started_at": "2026-05-28T12:00:01Z",
+  "status": "success"
+}

@@ -109,3 +109,47 @@ After a future execution step, the evidence set must include:
 
 A git-pull-ff-only plan is not permission to execute; execution requires a
 separate approval and runner contract.
+
+## Phase 8E Execution Implementation
+
+Phase 8E implements the execution contract for `git-pull-ff-only`.
+
+### CLI command
+
+```
+steuerboard action run-git-pull-ff-only \
+  <action_plan_json> \
+  --approval-validation <path> \
+  --run-evidence-chain <path> \
+  --preflight-binding <path> \
+  --repo-path <path> \
+  --command-trace-out <path> \
+  --run-result-out <path> \
+  --postcheck-out <path> \
+  --json
+```
+
+### Security contract
+
+- The runner verifies `preflight_binding.preflight_for_action_plan.plan_ref`,
+  `plan_action`, and `plan_content_sha256` against the supplied `action_plan`
+  directly — not delegated to `validate_execution_readiness()`.
+- Only `preflight_binding.binding_state == "binding_valid"` AND a proof block
+  with matching `plan_ref`, `plan_action`, and `plan_content_sha256` allows execution.
+- No `shell=True`. No merge, rebase, reset, or clean.
+- Output paths must not exist before the command runs.
+- No output path may reside inside the git worktree.
+- All three output paths must be distinct.
+- Precondition failures emit a stdout sentinel (`run-result.v1` with `status: blocked`)
+  but write no output files.
+- Exactly one **mutating** Git subprocess call: `["git", "--no-optional-locks", "-C",
+  <toplevel>, "pull", "--ff-only"]`. Read-only pre/post checks (status, rev-parse) are
+  separate non-mutating subprocess calls.
+
+### Output artifacts
+
+All three output artifacts are written atomically with a rollback chain:
+
+1. `command-trace.v1` — exact command argv, exit code, stdout/stderr excerpts
+2. `run-result.v1` — action, status, plan hash, timestamps
+3. `run-postcheck.v1` — action, postcheck status, observations

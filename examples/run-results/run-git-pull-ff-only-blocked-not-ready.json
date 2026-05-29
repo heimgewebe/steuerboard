@@ -1,0 +1,10 @@
+{
+  "action": "git-pull-ff-only",
+  "blocked_reasons": [
+    "preflight_binding_state_not_binding_valid"
+  ],
+  "redaction_verified": true,
+  "run_id": "run-git-pull-ff-only-blocked-precondition",
+  "schema_version": "run-result.v1",
+  "status": "blocked"
+}

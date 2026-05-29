@@ -1,0 +1,25 @@
+{
+  "action": "git-pull-ff-only",
+  "checked_at": "2026-05-28T12:00:03Z",
+  "evidence_paths": [
+    "examples/evidence/command-trace-git-pull-ff-only-success.json",
+    "examples/run-results/run-git-pull-ff-only-success.json"
+  ],
+  "failure_reasons": [
+    "already_up_to_date"
+  ],
+  "observations": [],
+  "postcheck_id": "postcheck-git-pull-ff-only-inconclusive-example-001",
+  "redaction_verified": true,
+  "repo_toplevel": "/path/to/repo",
+  "run_id": "run-git-pull-ff-only-example-003",
+  "run_result_ref": "run-git-pull-ff-only-example-003",
+  "schema_version": "run-postcheck.v1",
+  "source_refs": [
+    "git.status_porcelain",
+    "run-result.v1",
+    "command-trace.v1"
+  ],
+  "status": "inconclusive",
+  "trace_ref": "trace-git-pull-ff-only-example-003"
+}
