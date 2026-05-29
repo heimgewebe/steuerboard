@@ -462,6 +462,7 @@ def _pull_plan_proof_material(pull_plan: dict) -> dict:
         "plan_ref": pull_plan["plan_id"],
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": canonical_json_sha256(pull_plan),
+        "repo_toplevel": "/home/user/steuerboard",
     }
 
 

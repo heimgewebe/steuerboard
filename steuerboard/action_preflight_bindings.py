@@ -253,13 +253,16 @@ def bind_preflight_to_action(
     proof_plan_ref: str | None = None
     proof_plan_action: str | None = None
     proof_plan_sha: str | None = None
+    proof_repo_toplevel: str | None = None
     if proof_present:
         raw_plan_ref = preflight_for.get("plan_ref")
         raw_plan_action = preflight_for.get("plan_action")
         raw_plan_sha = preflight_for.get("plan_content_sha256")
+        raw_repo_toplevel = preflight_for.get("repo_toplevel")
         proof_plan_ref = raw_plan_ref if isinstance(raw_plan_ref, str) else None
         proof_plan_action = raw_plan_action if isinstance(raw_plan_action, str) else None
         proof_plan_sha = raw_plan_sha if isinstance(raw_plan_sha, str) else None
+        proof_repo_toplevel = raw_repo_toplevel if isinstance(raw_repo_toplevel, str) else None
 
     expected_plan_sha = canonical_json_sha256(action_plan)
 
@@ -354,6 +357,7 @@ def bind_preflight_to_action(
             "plan_content_sha256": (
                 str(proof_plan_sha) if proof_plan_sha is not None else ""
             ),
+            "repo_toplevel": str(proof_repo_toplevel) if proof_repo_toplevel is not None else "",
         }
 
     binding_material = {

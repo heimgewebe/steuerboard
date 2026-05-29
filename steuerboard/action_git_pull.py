@@ -280,6 +280,11 @@ def run_git_pull_ff_only(
             "preflight_binding.preflight_for_action_plan.plan_content_sha256 "
             "does not match the canonical JSON sha256 of the supplied action_plan"
         )
+    approved_repo_toplevel = _proof.get("repo_toplevel", "")
+    if not approved_repo_toplevel:
+        raise ValueError(
+            "preflight_binding.preflight_for_action_plan.repo_toplevel must be a non-empty string"
+        )
 
     # -----------------------------------------------------------------------
     # Precondition 4: validate output paths.
@@ -306,6 +311,17 @@ def run_git_pull_ff_only(
     # Precondition 5: resolve git toplevel.
     # -----------------------------------------------------------------------
     toplevel = _resolve_git_toplevel(repo_path)
+
+    # -----------------------------------------------------------------------
+    # Precondition 5b: verify repo_toplevel binding.
+    # -----------------------------------------------------------------------
+    toplevel_str = str(toplevel)
+    if toplevel_str != approved_repo_toplevel:
+        raise ValueError(
+            f"repo_toplevel_mismatch: approved repo_toplevel "
+            f"{approved_repo_toplevel!r} does not match resolved "
+            f"repo_toplevel {toplevel_str!r}"
+        )
 
     # -----------------------------------------------------------------------
     # Precondition 6: output files must not be inside the repository.

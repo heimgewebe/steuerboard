@@ -450,15 +450,18 @@ def validate_run_evidence_chain(
         plan_ref_value = preflight_for.get("plan_ref")
         plan_action_value = preflight_for.get("plan_action")
         plan_sha_value = preflight_for.get("plan_content_sha256")
+        repo_toplevel_value = preflight_for.get("repo_toplevel")
         if (
             isinstance(plan_ref_value, str)
             and isinstance(plan_action_value, str)
             and isinstance(plan_sha_value, str)
+            and isinstance(repo_toplevel_value, str)
         ):
             chain["preflight_for_action_plan"] = {
                 "plan_ref": plan_ref_value,
                 "plan_action": plan_action_value,
                 "plan_content_sha256": plan_sha_value,
+                "repo_toplevel": repo_toplevel_value,
             }
     if status in {"invalid", "inconclusive"}:
         chain["failure_reasons"] = unique_failure_reasons

@@ -1,6 +1,6 @@
 {
   "schema_version": "action-preflight-binding.v1",
-  "binding_id": "preflight-binding-fc7b5015b7e105c8c03e657f237a536373763afe450027d1e574f1edd9939a59",
+  "binding_id": "preflight-binding-1238b4ec8dec15775d032982002a29314cc893bcc5867653b11a6bbe147e4a77",
   "checked_at": "2026-05-28T10:30:00Z",
   "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
   "plan_action": "git-pull-ff-only",
@@ -56,12 +56,19 @@
       "passed": true,
       "expected": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
       "actual": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770"
+    },
+    {
+      "check": "preflight_for_action_plan_repo_toplevel_present",
+      "passed": true,
+      "expected": "repo_toplevel",
+      "actual": "present"
     }
   ],
   "preflight_for_action_plan": {
     "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
     "plan_action": "git-pull-ff-only",
-    "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770"
+    "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
+    "repo_toplevel": "/home/user/steuerboard"
   },
   "source_refs": [
     "git.current_branch",

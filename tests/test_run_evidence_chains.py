@@ -463,6 +463,7 @@ def test_chain_preserves_preflight_for_action_plan_when_present(tmp_path: Path):
         "plan_ref": "plan-git-pull-ff-only-test-001",
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": "a" * 64,
+        "repo_toplevel": "/home/user/steuerboard",
     }
 
     def mutate(_plan, _trace, run_result, _postcheck, _paths):

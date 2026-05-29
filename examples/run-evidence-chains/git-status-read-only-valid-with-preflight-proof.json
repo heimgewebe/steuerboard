@@ -33,7 +33,8 @@
   "preflight_for_action_plan": {
     "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
     "plan_action": "git-pull-ff-only",
-    "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770"
+    "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
+    "repo_toplevel": "/home/user/steuerboard"
   },
   "redaction_verified": true,
   "run_id": "run-read-only-example-pilot-proof-001",

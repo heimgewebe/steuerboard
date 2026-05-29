@@ -112,15 +112,22 @@ def _get_head(repo: Path) -> str:
 # the canonical _PLAN content sha256
 # ---------------------------------------------------------------------------
 
-def _chain_with_preflight(base_chain: dict | None = None) -> dict:
+def _chain_with_preflight(base_chain: dict | None = None, repo_toplevel: str | None = None) -> dict:
     chain = copy.deepcopy(base_chain or _CHAIN_VALID)
     plan_sha = canonical_json_sha256(_PLAN)
     chain["preflight_for_action_plan"] = {
         "plan_ref": _PLAN["plan_id"],
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": plan_sha,
+        "repo_toplevel": repo_toplevel or "/home/user/steuerboard",
     }
     return chain
+
+
+def _binding_with_repo_toplevel(repo_toplevel: str) -> dict:
+    binding = copy.deepcopy(_BINDING_VALID)
+    binding["preflight_for_action_plan"]["repo_toplevel"] = repo_toplevel
+    return binding
 
 
 # ---------------------------------------------------------------------------
@@ -140,12 +147,14 @@ def _call_run(
     if repo is None:
         repo = tmp_path / "repo"
         _init_repo(repo)
-    chain = run_evidence_chain if run_evidence_chain is not None else _chain_with_preflight()
+    repo_path_str = str(repo.resolve())
+    chain = run_evidence_chain if run_evidence_chain is not None else _chain_with_preflight(repo_toplevel=repo_path_str)
+    binding = preflight_binding if preflight_binding is not None else _binding_with_repo_toplevel(repo_path_str)
     return run_git_pull_ff_only(
         action_plan=action_plan or _PLAN,
         approval_validation=approval_validation or _APPROVAL_VALIDATION,
         run_evidence_chain=chain,
-        preflight_binding=preflight_binding or _BINDING_VALID,
+        preflight_binding=binding,
         repo_path=str(repo),
         command_trace_out=str(tmp_path / "trace.json"),
         run_result_out=str(tmp_path / "result.json"),
@@ -672,11 +681,12 @@ def _call_run_with_paths(
 ) -> dict:
     repo = tmp_path / "repo"
     _init_repo(repo)
+    repo_path_str = str(repo.resolve())
     return run_git_pull_ff_only(
         action_plan=_PLAN,
         approval_validation=_APPROVAL_VALIDATION,
-        run_evidence_chain=_chain_with_preflight(),
-        preflight_binding=_BINDING_VALID,
+        run_evidence_chain=_chain_with_preflight(repo_toplevel=repo_path_str),
+        preflight_binding=_binding_with_repo_toplevel(repo_path_str),
         repo_path=str(repo),
         command_trace_out=trace_path,
         run_result_out=result_path,
@@ -718,3 +728,26 @@ def test_rejects_duplicate_output_path_result_equals_postcheck(tmp_path):
             result_path=shared,
             postcheck_path=shared,
         )
+
+
+def test_rejects_repo_toplevel_mismatch(tmp_path):
+    """Must reject when approved repo_toplevel does not match resolved repo_toplevel."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    trace_path = str(tmp_path / "trace.json")
+    result_path = str(tmp_path / "result.json")
+    postcheck_path = str(tmp_path / "postcheck.json")
+    with pytest.raises(ValueError, match="repo_toplevel_mismatch"):
+        run_git_pull_ff_only(
+            action_plan=_PLAN,
+            approval_validation=_APPROVAL_VALIDATION,
+            run_evidence_chain=_chain_with_preflight(repo_toplevel="/wrong/path"),
+            preflight_binding=_BINDING_VALID,
+            repo_path=str(repo),
+            command_trace_out=trace_path,
+            run_result_out=result_path,
+            postcheck_out=postcheck_path,
+        )
+    assert not Path(trace_path).exists()
+    assert not Path(result_path).exists()
+    assert not Path(postcheck_path).exists()
