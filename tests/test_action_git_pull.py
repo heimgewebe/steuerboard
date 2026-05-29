@@ -730,6 +730,51 @@ def test_rejects_duplicate_output_path_result_equals_postcheck(tmp_path):
         )
 
 
+def test_rejects_chain_binding_repo_toplevel_split_brain_before_pull(tmp_path):
+    """Chain and binding repo_toplevel must agree before any mutating pull."""
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    repo_path_str = str(repo.resolve())
+
+    trace_path = str(tmp_path / "trace.json")
+    result_path = str(tmp_path / "result.json")
+    postcheck_path = str(tmp_path / "postcheck.json")
+
+    split_brain_chain = _chain_with_preflight(repo_toplevel="/wrong/path")
+    matching_binding = _binding_with_repo_toplevel(repo_path_str)
+
+    pull_calls: list[list[str]] = []
+    real_run = subprocess.run
+
+    def spy_run(args, **kwargs):
+        if (
+            isinstance(args, (list, tuple))
+            and args
+            and args[0] == "git"
+            and "pull" in args
+        ):
+            pull_calls.append(list(args))
+        return real_run(args, **kwargs)
+
+    with patch("steuerboard.action_git_pull.subprocess.run", side_effect=spy_run):
+        with pytest.raises(ValueError, match="repo_toplevel_mismatch"):
+            run_git_pull_ff_only(
+                action_plan=_PLAN,
+                approval_validation=_APPROVAL_VALIDATION,
+                run_evidence_chain=split_brain_chain,
+                preflight_binding=matching_binding,
+                repo_path=str(repo),
+                command_trace_out=trace_path,
+                run_result_out=result_path,
+                postcheck_out=postcheck_path,
+            )
+
+    assert pull_calls == []
+    assert not Path(trace_path).exists()
+    assert not Path(result_path).exists()
+    assert not Path(postcheck_path).exists()
+
+
 def test_rejects_repo_toplevel_mismatch(tmp_path):
     """Must reject when approved repo_toplevel does not match resolved repo_toplevel."""
     repo = tmp_path / "repo"

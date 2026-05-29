@@ -136,6 +136,8 @@ steuerboard action run-git-pull-ff-only \
   directly — not delegated to `validate_execution_readiness()`.
 - Only `preflight_binding.binding_state == "binding_valid"` AND a proof block
   with matching `plan_ref`, `plan_action`, and `plan_content_sha256` allows execution.
+- The run evidence chain and preflight binding proof must carry the same
+  `repo_toplevel`; the resolved `--repo-path` must match it before any pull.
 - No `shell=True`. No merge, rebase, reset, or clean.
 - Output paths must not exist before the command runs.
 - No output path may reside inside the git worktree.

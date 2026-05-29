@@ -286,6 +286,23 @@ def run_git_pull_ff_only(
             "preflight_binding.preflight_for_action_plan.repo_toplevel must be a non-empty string"
         )
 
+    _chain_proof = run_evidence_chain.get("preflight_for_action_plan")
+    if not isinstance(_chain_proof, dict):
+        raise ValueError(
+            "run_evidence_chain.preflight_for_action_plan must be present for git-pull-ff-only"
+        )
+    chain_repo_toplevel = _chain_proof.get("repo_toplevel", "")
+    if not isinstance(chain_repo_toplevel, str) or not chain_repo_toplevel:
+        raise ValueError(
+            "run_evidence_chain.preflight_for_action_plan.repo_toplevel must be a non-empty string"
+        )
+    if chain_repo_toplevel != approved_repo_toplevel:
+        raise ValueError(
+            f"repo_toplevel_mismatch: run_evidence_chain repo_toplevel "
+            f"{chain_repo_toplevel!r} does not match preflight_binding "
+            f"repo_toplevel {approved_repo_toplevel!r}"
+        )
+
     # -----------------------------------------------------------------------
     # Precondition 4: validate output paths.
     # -----------------------------------------------------------------------

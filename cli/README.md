@@ -618,6 +618,9 @@ Preconditions enforced before any mutation:
   the supplied plan
 - Readiness gate reproduced internally: all four artifacts must yield
   `status == "ready"` from `validate_execution_readiness()`
+- `repo_toplevel` must be present and identical in the run evidence chain and
+  the preflight binding proof, and `--repo-path` must resolve to that same git
+  toplevel
 - All three output paths must not exist; their parent directories must exist
 - No output path may be inside the git worktree
 - Worktree must be clean before pull

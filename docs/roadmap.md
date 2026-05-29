@@ -879,10 +879,13 @@ Given four input artifacts — `action-plan.v1`, `action-approval-validation.v1`
    never trusts a pre-computed `action-execution-readiness.v1` artifact — only
    if the four underlying artifacts together prove `status == "ready"` will
    the pull proceed.
-7. Checks that the worktree is clean (`git status --porcelain=v1` empty) before
+7. Requires the run evidence chain and preflight binding proof to carry the
+   same `repo_toplevel`, then verifies that `--repo-path` resolves to that git
+   toplevel. This binds the approved evidence to the repository being mutated.
+8. Checks that the worktree is clean (`git status --porcelain=v1` empty) before
    any mutation.
-8. Records `HEAD` before the pull.
-9. Executes exactly one mutating Git subprocess call:
+9. Records `HEAD` before the pull.
+10. Executes exactly one mutating Git subprocess call:
    `["git", "--no-optional-locks", "-C", <toplevel>, "pull", "--ff-only"]`.
    Read-only pre/post checks are separate non-mutating subprocess calls.
    No `shell=True`.  No merge, rebase, reset, or clean.
