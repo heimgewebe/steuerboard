@@ -706,6 +706,7 @@ def _hand_crafted_binding_with_proof(
             "plan_ref": plan_ref,
             "plan_action": plan_action,
             "plan_content_sha256": canonical_json_sha256(_PLAN),
+            "repo_toplevel": "/home/user/steuerboard",
         }
     return {
         "schema_version": "action-preflight-binding.v1",
@@ -773,6 +774,7 @@ def test_readiness_inconclusive_when_proof_plan_ref_mismatches(tmp_path):
         "plan_ref": "plan-git-pull-ff-only-DIFFERENT-001",
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": canonical_json_sha256(_PLAN),
+        "repo_toplevel": "/home/user/steuerboard",
     }
     binding = _hand_crafted_binding_with_proof(proof=bad_proof)
     out = str(tmp_path / "readiness.json")
@@ -793,6 +795,7 @@ def test_readiness_inconclusive_when_proof_plan_content_sha_mismatches(tmp_path)
         "plan_ref": _PLAN["plan_id"],
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": "0" * 64,
+        "repo_toplevel": "/home/user/steuerboard",
     }
     binding = _hand_crafted_binding_with_proof(proof=bad_proof)
     out = str(tmp_path / "readiness.json")
@@ -814,6 +817,7 @@ def test_readiness_inconclusive_when_proof_plan_action_mismatches(tmp_path):
         "plan_ref": _PLAN["plan_id"],
         "plan_action": "git-status-read-only",
         "plan_content_sha256": canonical_json_sha256(_PLAN),
+        "repo_toplevel": "/home/user/steuerboard",
     }
     binding = _hand_crafted_binding_with_proof(proof=bad_proof)
     out = str(tmp_path / "readiness.json")

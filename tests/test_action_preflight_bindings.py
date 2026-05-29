@@ -462,6 +462,7 @@ def _pull_plan_proof_material(pull_plan: dict) -> dict:
         "plan_ref": pull_plan["plan_id"],
         "plan_action": "git-pull-ff-only",
         "plan_content_sha256": canonical_json_sha256(pull_plan),
+        "repo_toplevel": "/home/user/steuerboard",
     }
 
 
@@ -551,6 +552,22 @@ def test_binding_invalid_when_proof_plan_action_is_not_git_pull_ff_only(tmp_path
     assert result["binding_state"] == "binding_invalid"
     assert "binding_mismatch" in result["blocked_because"]
     assert "binding_mismatch" in result["failure_reasons"]
+
+
+def test_binding_rejects_schema_invalid_proof_repo_toplevel_missing(tmp_path):
+    """Phase 8D.2/8E: proof without repo_toplevel is rejected at schema gate."""
+    chain = _chain_with_proof(_PULL_PLAN)
+    chain["preflight_for_action_plan"].pop("repo_toplevel")
+
+    out = str(tmp_path / "binding.json")
+    with pytest.raises(ValueError, match="repo_toplevel"):
+        bind_preflight_to_action(
+            action_plan=_PULL_PLAN,
+            run_evidence_chain=chain,
+            binding_out=out,
+        )
+
+    assert not Path(out).exists()
 
 
 def test_binding_valid_artifact_records_proof_material(tmp_path):

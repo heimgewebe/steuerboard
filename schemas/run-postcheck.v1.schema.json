@@ -74,7 +74,10 @@
   ],
   "properties": {
     "action": {
-      "const": "git-status-read-only"
+      "enum": [
+        "git-status-read-only",
+        "git-pull-ff-only"
+      ]
     },
     "checked_at": {
       "format": "date-time",

@@ -1,0 +1,68 @@
+{
+  "action": "git-pull-ff-only",
+  "approval_validation_ref": "validation-d57efbd94539cd086dfe836cd54c089c74debd43d1d00fbfb8a4cd12d31d53c3",
+  "blocked_because": [],
+  "chain_ref": "chain-run-read-only-example-pilot-proof-001",
+  "checked_at": "2026-05-28T12:00:00Z",
+  "checks": [
+    {
+      "actual": "git-pull-ff-only",
+      "check": "plan_action_supported",
+      "expected": "git-pull-ff-only",
+      "passed": true
+    },
+    {
+      "actual": "binding_valid",
+      "check": "approval_validation_binding_valid",
+      "expected": "binding_valid",
+      "passed": true
+    },
+    {
+      "actual": "plan-git-pull-ff-only-2026-05-23-001",
+      "check": "approval_validation_plan_ref_matches_plan",
+      "expected": "plan-git-pull-ff-only-2026-05-23-001",
+      "passed": true
+    },
+    {
+      "actual": "git-pull-ff-only",
+      "check": "approval_validation_action_matches_plan",
+      "expected": "git-pull-ff-only",
+      "passed": true
+    },
+    {
+      "actual": "valid",
+      "check": "run_evidence_chain_status_valid",
+      "expected": "valid",
+      "passed": true
+    },
+    {
+      "actual": "true",
+      "check": "run_evidence_chain_redaction_verified",
+      "expected": "true",
+      "passed": true
+    },
+    {
+      "actual": "binding_state=='binding_valid', preflight_for_action_plan=present+content_verified",
+      "check": "preflight_chain_plan_binding_proven",
+      "expected": "binding_state==binding_valid with preflight_for_action_plan proof matching plan_ref, plan_action, plan_content_sha256",
+      "passed": true
+    }
+  ],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "preflight_binding_ref": "preflight-binding-fc7b5015b7e105c8c03e657f237a536373763afe450027d1e574f1edd9939a59",
+  "readiness_id": "readiness-7339561da2f234b17e2b7733cec44629bf9be1b063d3b2afef90f52543759196",
+  "schema_version": "action-execution-readiness.v1",
+  "source_refs": [
+    "git.current_branch",
+    "action-plan.v1",
+    "action-approval-validation.v1",
+    "run-evidence-chain.v1",
+    "action-preflight-binding.v1"
+  ],
+  "status": "ready"
+}

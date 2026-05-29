@@ -135,7 +135,9 @@ def _validate_action_plan_schema(action_plan: Any) -> str:
     return action
 
 
-def _validate_preflight_for_action_plan(preflight_for_action_plan: Any) -> dict[str, str]:
+def _validate_preflight_for_action_plan(
+    preflight_for_action_plan: Any, repo_toplevel: str
+) -> dict[str, str]:
     """Validate a Phase 8D.2 preflight target action plan and return proof material.
 
     The preflight target plan must be a schema-valid action-plan.v1 whose
@@ -165,6 +167,7 @@ def _validate_preflight_for_action_plan(preflight_for_action_plan: Any) -> dict[
         "plan_ref": preflight_for_action_plan["plan_id"],
         "plan_action": target_action,
         "plan_content_sha256": canonical_json_sha256(preflight_for_action_plan),
+        "repo_toplevel": repo_toplevel,
     }
 
 
@@ -278,8 +281,8 @@ def run_read_only_action(
 
     # --- Precondition: optional preflight-target plan validation ---
     proof_material: dict[str, str] | None = None
-    if preflight_for_action_plan is not None:
-        proof_material = _validate_preflight_for_action_plan(preflight_for_action_plan)
+    # Note: repo_toplevel will be resolved later, so we defer this validation
+    _preflight_for_action_plan = preflight_for_action_plan
 
     # --- Precondition: validate output paths before touching the filesystem ---
     trace_target = _require_output_path(command_trace_out, "command_trace_out")
@@ -318,6 +321,12 @@ def run_read_only_action(
     if toplevel_result.returncode != 0 or not toplevel_result.stdout.strip():
         raise ValueError("cannot resolve git toplevel for repo_path")
     repo_toplevel = Path(toplevel_result.stdout.strip()).resolve()
+
+    # Now that we have repo_toplevel, validate the preflight-target plan if supplied
+    if _preflight_for_action_plan is not None:
+        proof_material = _validate_preflight_for_action_plan(
+            _preflight_for_action_plan, str(repo_toplevel)
+        )
 
     # Evidence artifacts must stay outside the inspected repository worktree so
     # the read-only status signal is not invalidated by runner output writes.

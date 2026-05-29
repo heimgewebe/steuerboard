@@ -54,13 +54,21 @@
         "type": "string"
       }
     },
+    "action": {
+      "type": "string",
+      "enum": [
+        "git-status-read-only",
+        "git-pull-ff-only"
+      ]
+    },
     "preflight_for_action_plan": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "plan_ref",
         "plan_action",
-        "plan_content_sha256"
+        "plan_content_sha256",
+        "repo_toplevel"
       ],
       "properties": {
         "plan_ref": {
@@ -76,6 +84,11 @@
         "plan_content_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "repo_toplevel": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         }
       }
     }
