@@ -892,7 +892,9 @@ Given four input artifacts — `action-plan.v1`, `action-approval-validation.v1`
 
 ### Output artifacts
 
-On any precondition failure no output is written and no Git mutation occurs.
+On any precondition failure no output artifacts are written and no Git
+mutation occurs.  The CLI may still emit a redacted blocked `run-result.v1`
+sentinel to stdout.
 On execution the runner writes three artifacts atomically (with a rollback
 chain on partial failure):
 
