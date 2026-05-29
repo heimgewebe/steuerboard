@@ -241,10 +241,12 @@ def bind_preflight_to_action(
     # The chain may now carry a contract-defined proof object
     # `preflight_for_action_plan` that states "this read-only status run was
     # produced as preflight for this exact git-pull-ff-only action plan".
-    # When that object is present we verify plan_ref, plan_action, and
-    # plan_content_sha256 against the supplied pull plan:
-    #   - all three match  -> binding_valid
-    #   - any field mismatches -> binding_invalid (binding_mismatch)
+    # When that object is present we verify plan_ref, plan_action,
+    # plan_content_sha256, and repo_toplevel against the supplied pull plan /
+    # repository proof material:
+    #   - all four match / are present -> binding_valid
+    #   - any field mismatches or repo_toplevel is missing -> binding_invalid
+    #     (binding_mismatch)
     # When the object is absent we stay binding_inconclusive with
     # binding_cannot_be_proven_from_supplied_artifacts — this preserves the
     # honest pre-8D.2 behaviour for artifacts that do not carry proof.
@@ -269,6 +271,21 @@ def bind_preflight_to_action(
     proof_plan_ref_match = proof_present and proof_plan_ref == plan_id
     proof_plan_action_match = proof_present and proof_plan_action == "git-pull-ff-only"
     proof_plan_sha_match = proof_present and proof_plan_sha == expected_plan_sha
+    proof_repo_toplevel_present = (
+        proof_present
+        and isinstance(proof_repo_toplevel, str)
+        and _SCHEMA_SAFE_LINE_RE.fullmatch(proof_repo_toplevel) is not None
+    )
+    proof_required_fields_present = (
+        proof_present
+        and isinstance(proof_plan_ref, str)
+        and _SCHEMA_SAFE_LINE_RE.fullmatch(proof_plan_ref) is not None
+        and isinstance(proof_plan_action, str)
+        and _SCHEMA_SAFE_LINE_RE.fullmatch(proof_plan_action) is not None
+        and isinstance(proof_plan_sha, str)
+        and _SCHEMA_SAFE_LINE_RE.fullmatch(proof_plan_sha) is not None
+        and proof_repo_toplevel_present
+    )
 
     _record_check(
         checks,
@@ -300,12 +317,20 @@ def bind_preflight_to_action(
             expected=expected_plan_sha,
             actual=str(proof_plan_sha),
         )
+        _record_check(
+            checks,
+            check="preflight_for_action_plan_repo_toplevel_present",
+            passed=proof_repo_toplevel_present,
+            expected="non-empty repo_toplevel",
+            actual="present" if proof_repo_toplevel_present else "missing",
+        )
 
     proof_fully_matches = (
         proof_present
         and proof_plan_ref_match
         and proof_plan_action_match
         and proof_plan_sha_match
+        and proof_repo_toplevel_present
     )
 
     if proof_present and not proof_fully_matches:
@@ -350,7 +375,7 @@ def bind_preflight_to_action(
     )
 
     recorded_proof: dict[str, str] | None = None
-    if proof_present:
+    if proof_required_fields_present:
         recorded_proof = {
             "plan_ref": str(proof_plan_ref) if proof_plan_ref is not None else "",
             "plan_action": str(proof_plan_action) if proof_plan_action is not None else "",
