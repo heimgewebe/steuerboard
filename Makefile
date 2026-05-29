@@ -2,10 +2,16 @@ PYTHON ?= python3
 CLI ?= steuerboard
 EXAMPLE_CONFIG = examples/local-configs/heim-pc.json
 
-.PHONY: validate test smoke deploy-check
+.PHONY: validate test smoke deploy-check docs docs-check
 
 validate:
 	$(PYTHON) scripts/validate_examples.py
+
+docs:
+	$(PYTHON) scripts/docmeta/generate_cli_surface.py --write
+
+docs-check:
+	$(PYTHON) scripts/docmeta/generate_cli_surface.py --check
 
 test:
 	$(PYTHON) -m pytest
@@ -58,4 +64,5 @@ deploy-check:
 	@$(MAKE) validate
 	@$(MAKE) test
 	@$(MAKE) smoke
+	@$(MAKE) docs-check
 	@echo "deploy-check: passed"

@@ -1,0 +1,29 @@
+{
+  "_comment": "Explicit, deterministic capability classification for the steuerboard CLI surface. Every invocable command produced by steuerboard.cli.build_parser() must appear here exactly once. Classification is declared here on purpose and is never guessed from help text. When a CLI command is added, removed, or renamed, update this file and run `make docs`; tests/test_cli_surface_docs.py and `generate_cli_surface.py --check` fail until parser and classification agree.",
+  "categories": {
+    "read_only": "Reads, observes, or runs a bounded read-only command; no repository mutation and no network access.",
+    "derivation_only": "Pure transformation or artifact validation producing preview/derived artifacts; no repository mutation, no network access, no execution.",
+    "fetch_only": "Performs exactly one bounded network fetch and writes evidence; no working-tree mutation.",
+    "mutating_stage_d": "Bounded Stage-D executor that mutates the working tree (exactly one fast-forward pull) behind a reproduced readiness gate."
+  },
+  "commands": {
+    "observe repo": "read_only",
+    "inventory": "read_only",
+    "inventory duplicates": "read_only",
+    "scope explain": "read_only",
+    "assess repo": "read_only",
+    "assess explain": "read_only",
+    "omnipull-report show": "read_only",
+    "omnipull-report latest": "read_only",
+    "action run-read-only": "read_only",
+    "action postcheck-read-only": "read_only",
+    "plan switch-main": "derivation_only",
+    "plan git-pull-ff-only": "derivation_only",
+    "approval validate": "derivation_only",
+    "action validate-run-chain": "derivation_only",
+    "action validate-execution-readiness": "derivation_only",
+    "action bind-preflight-to-action": "derivation_only",
+    "remote-refresh fetch-origin-prune": "fetch_only",
+    "action run-git-pull-ff-only": "mutating_stage_d"
+  }
+}
