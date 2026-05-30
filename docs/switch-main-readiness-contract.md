@@ -73,6 +73,13 @@ Optional repository-state claims (absence is meaningful — it means *unknown*):
   `current_branch` is not `main`. `true` = the current branch is contained in
   `origin/main` or is merged via a pull request; `false` = explicitly not
   contained/merged (blocking); absent = unknown
+  
+  **Semantic note:** Despite its name, this field answers the Phase 9A readiness
+  question: "Is it safe to leave the current non-main branch?" A `true` value
+  means the current branch's work is proven contained in `origin/main` or merged
+  via PR, so switching to main will not lose or hide work. A `false` value means
+  the branch is unmerged and uncontained — switching would abandon uncommitted or
+  unmerged work.
 - `worktree_clean` — boolean; `true` = clean
 - `remote_main_fresh` — boolean; `true` = `origin/main` is fresh enough
 - `ownership_ok` — boolean; `true` = single coherent owner/path (no

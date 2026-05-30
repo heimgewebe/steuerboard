@@ -104,11 +104,18 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "switch-main-preflight-proofs/blocked-dirty-worktree.json",
     "switch-main-preflight-proofs/blocked-plan-content-mismatch.json",
     "switch-main-preflight-proofs/blocked-plan-action-mismatch.json",
+    "switch-main-preflight-proofs/blocked-branch-unmerged.json",
     "switch-main-preflight-proofs/inconclusive-default-branch-unknown.json",
     "switch-main-preflight-proofs/inconclusive-missing-repo-toplevel.json",
+    "switch-main-preflight-proofs/inconclusive-branch-lifecycle-unknown.json",
     "switch-main-readiness/ready.json",
     "switch-main-readiness/blocked-dirty-worktree.json",
+    "switch-main-readiness/blocked-plan-action-mismatch.json",
+    "switch-main-readiness/blocked-plan-content-mismatch.json",
+    "switch-main-readiness/blocked-branch-unmerged.json",
     "switch-main-readiness/inconclusive-default-branch-unknown.json",
+    "switch-main-readiness/inconclusive-missing-repo-toplevel.json",
+    "switch-main-readiness/inconclusive-branch-lifecycle-unknown.json",
 }
 
 FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {

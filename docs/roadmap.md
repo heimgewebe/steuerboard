@@ -940,7 +940,8 @@ schema-validated artifacts:
 - `switch-main-preflight-proof.v1` — input proof material carrying the plan
   binding (`plan_ref`, `plan_action`, `plan_content_sha256`) plus observed
   repository-state claims (`repo_toplevel`, `current_branch`, `default_branch`,
-  `worktree_clean`, `remote_main_fresh`, `ownership_ok`).
+  `branch_contains_origin_main_or_pr_merged`, `worktree_clean`, `remote_main_fresh`,
+  `ownership_ok`).
 - `switch-main-readiness.v1` — output verdict: `ready` / `blocked` /
   `inconclusive`.
 
