@@ -22,6 +22,7 @@
     "approval validate": "derivation_only",
     "action validate-run-chain": "derivation_only",
     "action validate-execution-readiness": "derivation_only",
+    "action validate-switch-main-readiness": "derivation_only",
     "action bind-preflight-to-action": "derivation_only",
     "remote-refresh fetch-origin-prune": "fetch_only",
     "action run-git-pull-ff-only": "mutating_stage_d"

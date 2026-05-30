@@ -1,0 +1,99 @@
+{
+  "action": "switch-main",
+  "blocked_because": [],
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "checked_at": "2026-05-30T12:33:01Z",
+  "checks": [
+    {
+      "actual": "switch-main",
+      "check": "plan_action_supported",
+      "expected": "switch-main",
+      "passed": true
+    },
+    {
+      "actual": "plan-example-switch-main-blocked",
+      "check": "proof_plan_ref_matches_plan",
+      "expected": "plan-example-switch-main-blocked",
+      "passed": true
+    },
+    {
+      "actual": "switch-main",
+      "check": "proof_plan_action_matches_plan",
+      "expected": "switch-main",
+      "passed": true
+    },
+    {
+      "actual": "d09c6c97848bdb04adbe8183c77e36ac1cd43172fb1faff16d62f96bf24b01e8",
+      "check": "proof_plan_content_sha256_matches_plan",
+      "expected": "d09c6c97848bdb04adbe8183c77e36ac1cd43172fb1faff16d62f96bf24b01e8",
+      "passed": true
+    },
+    {
+      "actual": "present",
+      "check": "repo_toplevel_known",
+      "expected": "non-empty repo_toplevel",
+      "passed": true
+    },
+    {
+      "actual": "present",
+      "check": "current_branch_known",
+      "expected": "non-empty current_branch",
+      "passed": true
+    },
+    {
+      "actual": "absent",
+      "check": "default_branch_known",
+      "expected": "non-empty default_branch (main)",
+      "passed": false
+    },
+    {
+      "actual": "unknown",
+      "check": "branch_lifecycle_proof",
+      "expected": "true or false (proof of branch lifecycle status)",
+      "passed": false
+    },
+    {
+      "actual": "true",
+      "check": "worktree_clean",
+      "expected": "true",
+      "passed": true
+    },
+    {
+      "actual": "true",
+      "check": "remote_main_fresh",
+      "expected": "true",
+      "passed": true
+    },
+    {
+      "actual": "true",
+      "check": "ownership_ok",
+      "expected": "true",
+      "passed": true
+    }
+  ],
+  "failure_reasons": [
+    "default_branch_unknown",
+    "branch_lifecycle_unknown"
+  ],
+  "plan_ref": "plan-example-switch-main-blocked",
+  "proof_ref": "switch-main-proof-example-inconclusive-defbranch-001",
+  "readiness_id": "switch-main-readiness-685146ac748c66ac9a2e32fe0a2ed5c385ccfe8c5486211f8ba9cd92dc634a28",
+  "repo_toplevel": "/home/alex/code/heimgewebe/infra",
+  "schema_version": "switch-main-readiness.v1",
+  "source_refs": [
+    "git.rev_parse.toplevel",
+    "git.current_branch",
+    "git.default_branch_candidate",
+    "git.status.porcelain",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "local_config.canonical_repo_roots",
+    "action-plan.v1",
+    "switch-main-preflight-proof.v1"
+  ],
+  "status": "inconclusive"
+}

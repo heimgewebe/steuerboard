@@ -1,6 +1,9 @@
 # Action Model
 
-Mutating actions remain future-gated capabilities in the current implemented slices.
+Stage D is now active for **exactly one** bounded mutating action,
+`git-pull-ff-only` (Phase 8E). Every other mutating capability — including
+`switch-main` execution — remains future-gated. `switch-main` has a
+non-mutating readiness/proof layer (Phase 9A) but **no executor**.
 
 Plan preview output is not an action executor and not an action authorisation.
 It is a contract artifact derived from prior assessment.
@@ -33,7 +36,9 @@ Stage D: approved execution runner
 
 - executes only approved bounded commands
 - requires plan, approval, trace, run-result, and postcheck
-- future only
+- active for exactly one action: `git-pull-ff-only` (Phase 8E)
+- all other mutating actions, including `switch-main` execution, remain future only
+- `switch-main` has a non-mutating readiness/proof layer only (Phase 9A); see below
 
 Stage E: UI-triggered approved actions
 
@@ -502,6 +507,69 @@ decision field.
 - does NOT execute git pull, does NOT authorise actions, does NOT create a runner
 - output artifact always includes `boundary.does_not_execute=true`,
   `boundary.does_not_mutate=true`, `boundary.does_not_authorise_actions=true`
+
+## Phase 9A — Switch-main Execution Readiness (non-mutating proof)
+
+Phase 9A introduces the non-mutating readiness/proof layer for a future
+`switch-main` action. It is the switch-main analogue of the Phase 8D.0
+`action-execution-readiness.v1` pull gate.
+
+Phase 9A is not execution.
+Phase 9A is not authorisation.
+Phase 9A is not a switch.
+There is no `switch-main` runner in this slice, and none is introduced.
+
+Stage D already exists for `git-pull-ff-only` (Phase 8E). `switch-main` stays
+**readiness/proof only** in Phase 9A; its execution remains future-gated
+(Phase 9B, out of scope here).
+
+### Artifacts
+
+- `switch-main-preflight-proof.v1` — input proof material: the plan binding
+  (`plan_ref`, `plan_action`, `plan_content_sha256`) plus the observed
+  repository-state claims (`repo_toplevel`, `current_branch`, `default_branch`,
+  `branch_contains_origin_main_or_pr_merged`, `worktree_clean`, `remote_main_fresh`,
+  `ownership_ok`). Absence of an optional state claim means *unknown*.
+- `switch-main-readiness.v1` — output verdict: `ready` / `blocked` /
+  `inconclusive` with `checks`, `blocked_because`, and `failure_reasons`.
+
+### Status semantics
+
+- `ready` — all hard gates pass and all proof material is present and
+  consistent. Proof that a later switch could be evaluated, never permission to
+  switch.
+- `blocked` — a hard contradiction (plan-binding mismatch, unsupported action,
+  dirty worktree, default branch not `main`, unproven branch lifecycle for
+  non-main current branch, stale `origin/main`, ownership/path split-brain).
+- `inconclusive` — no contradiction, but proof material is unknown.
+
+### CLI
+
+```bash
+python -m steuerboard action validate-switch-main-readiness <action-plan-json> \
+  --preflight-proof <switch-main-preflight-proof-json> \
+  --readiness-out <switch-main-readiness-json> \
+  --json
+```
+
+Classified `derivation_only`.
+
+### Boundary
+
+- pure artifact validation: no subprocesses, no Git, no network, no mutation
+- the module runs no subprocess and therefore cannot switch, checkout, merge,
+  rebase, reset, clean, or pull
+- reads only the two explicitly passed artifacts; validates both against their
+  JSON Schemas before processing
+- output path must not pre-exist; parent must exist; on any precondition failure
+  no output file is written
+- every produced artifact carries `boundary.does_not_execute = true`,
+  `boundary.does_not_mutate = true`, `boundary.does_not_authorise_actions = true`
+- `plan switch-main` is unchanged and stays `derivation_only`;
+  `action run-git-pull-ff-only` stays the only `mutating_stage_d` action
+
+The full contract lives in
+[docs/switch-main-readiness-contract.md](switch-main-readiness-contract.md).
 
 ## Contract Note: Redefinition of action-plan.v1
 

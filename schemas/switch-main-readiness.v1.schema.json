@@ -1,0 +1,209 @@
+{
+  "$id": "https://example.invalid/steuerboard/schemas/switch-main-readiness.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Switch-main Readiness v1",
+  "description": "Phase 9A non-mutating readiness assessment for a future switch-main action. Evaluates whether a switch-main-preflight-proof.v1 is complete, internally consistent, and content-bound to a specific switch-main action-plan.v1. This is a pure validation artifact — it does not execute, does not switch branches, does not mutate, and does not authorise any action. A 'ready' verdict is proof that a later switch could be evaluated, not permission to switch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "readiness_id",
+    "checked_at",
+    "action",
+    "plan_ref",
+    "proof_ref",
+    "status",
+    "blocked_because",
+    "checks",
+    "source_refs",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "switch-main-readiness.v1"
+    },
+    "readiness_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "proof_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "repo_toplevel": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "blocked",
+        "inconclusive"
+      ]
+    },
+    "blocked_because": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "unsupported_action",
+          "plan_ref_mismatch",
+          "plan_action_mismatch",
+          "plan_content_sha256_mismatch",
+          "worktree_not_clean",
+          "default_branch_not_main",
+          "remote_main_stale",
+          "ownership_conflict",
+          "branch_lifecycle_unproven"
+        ]
+      }
+    },
+    "failure_reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check",
+          "passed"
+        ],
+        "properties": {
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "actual": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ready"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blocked_because": {
+            "maxItems": 0
+          }
+        },
+        "not": {
+          "required": [
+            "failure_reasons"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "blocked"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "failure_reasons"
+        ],
+        "properties": {
+          "blocked_because": {
+            "minItems": 1
+          },
+          "failure_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "inconclusive"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "failure_reasons"
+        ],
+        "properties": {
+          "blocked_because": {
+            "maxItems": 0
+          },
+          "failure_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

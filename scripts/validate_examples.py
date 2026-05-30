@@ -44,6 +44,8 @@ SCHEMA_MAP = {
     "run-results": SCHEMAS_DIR / "run-result.v1.schema.json",
     "scope-explanations": SCHEMAS_DIR / "scope-explanation.v1.schema.json",
     "source-refs": SCHEMAS_DIR / "source-ref.v1.schema.json",
+    "switch-main-preflight-proofs": SCHEMAS_DIR / "switch-main-preflight-proof.v1.schema.json",
+    "switch-main-readiness": SCHEMAS_DIR / "switch-main-readiness.v1.schema.json",
 }
 
 RFC3339_DATE_TIME_RE = re.compile(

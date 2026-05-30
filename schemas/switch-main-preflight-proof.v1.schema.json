@@ -1,0 +1,103 @@
+{
+  "$id": "https://example.invalid/steuerboard/schemas/switch-main-preflight-proof.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Switch-main Preflight Proof v1",
+  "description": "Phase 9A non-mutating proof material for a future switch-main action. Carries the plan binding (plan_ref, plan_action, plan_content_sha256, repo_toplevel) plus the observed repository-state claims that a future switch-main gate would require. This artifact is pure evidence: it does not execute, does not switch branches, does not mutate, and does not authorise any action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof_id",
+    "checked_at",
+    "plan_ref",
+    "plan_action",
+    "plan_content_sha256",
+    "source_refs",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "switch-main-preflight-proof.v1"
+    },
+    "proof_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_action": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repo_toplevel": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "current_branch": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "default_branch": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "worktree_clean": {
+      "type": "boolean"
+    },
+    "remote_main_fresh": {
+      "type": "boolean"
+    },
+    "ownership_ok": {
+      "type": "boolean"
+    },
+    "branch_contains_origin_main_or_pr_merged": {
+      "type": "boolean"
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
+      }
+    }
+  }
+}
