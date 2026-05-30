@@ -24,26 +24,36 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 
 This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces.
 
-It intentionally does **not** contain a productive fleet scanner, backend, UI, planner, evidence archival system, or mutating action executor.
+It intentionally does **not** contain a productive fleet scanner, backend, UI, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capability is one bounded Stage-D `action run-git-pull-ff-only` executor, which performs exactly one fast-forward pull behind a reproduced readiness gate.
 
 Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
-Executable code currently covers schema/example validation, read-only observation/scope surfaces, a minimal read-only assessment/planning engine, one bounded Stage B fetch-only producer, and pure artifact approval binding validation:
+The executable CLI surface is enumerated below, generated from `steuerboard.cli.build_parser()` and an explicit capability classification (`scripts/docmeta/cli_surface.json`). Do not edit the table by hand — run `make docs` to regenerate it; the full generated reference lives in [docs/_generated/cli-surface.md](docs/_generated/cli-surface.md). Capability classes are `read_only`, `derivation_only` (preview/validation), `fetch_only` (one bounded fetch), and `mutating_stage_d` (the single bounded Stage-D executor).
 
-- `python -m steuerboard observe repo <path> --json`
-- `python -m steuerboard inventory --json`
-- `python -m steuerboard inventory duplicates --json`
-- `python -m steuerboard scope explain <path> --json`
-- `python -m steuerboard assess repo <path> --json`
-- `python -m steuerboard assess explain <assessment-json> --json`
-- `python -m steuerboard plan switch-main <assessment-json> --json`
-- `python -m steuerboard plan git-pull-ff-only <assessment-json> [--remote-refresh-result <remote-refresh-json>] --json`
-- `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <local-config-json> --assessment-id <assessment-id> --command-trace-out <trace-json> --json`
-- `python -m steuerboard omnipull-report show <report-json> --json`
-- `python -m steuerboard omnipull-report latest <run-index-json> --json`
-- `python -m steuerboard approval validate <approval-json> --plan <action-plan-json> --checked-at <YYYY-MM-DDTHH:MM:SSZ> --json`
+<!-- BEGIN GENERATED: cli-surface -->
+| Command | Capability class | Invocation |
+| --- | --- | --- |
+| `action postcheck-read-only` | `read_only` | `python -m steuerboard action postcheck-read-only <run-result-json> --command-trace <command-trace> --repo-path <repo-path> --postcheck-out <postcheck-out> --json` |
+| `action run-read-only` | `read_only` | `python -m steuerboard action run-read-only <action-plan-json> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> [--preflight-for-action-plan <preflight-for-action-plan>] --json` |
+| `assess explain` | `read_only` | `python -m steuerboard assess explain <assessment-json> --json` |
+| `assess repo` | `read_only` | `python -m steuerboard assess repo <path> [--config <config>] --json` |
+| `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] --json` |
+| `inventory duplicates` | `read_only` | `python -m steuerboard inventory duplicates [--config <config>] --json` |
+| `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |
+| `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |
+| `omnipull-report show` | `read_only` | `python -m steuerboard omnipull-report show <report-json> --json` |
+| `scope explain` | `read_only` | `python -m steuerboard scope explain <path> [--config <config>] --json` |
+| `action bind-preflight-to-action` | `derivation_only` | `python -m steuerboard action bind-preflight-to-action <action-plan-json> --run-evidence-chain <run-evidence-chain> --binding-out <binding-out> --json` |
+| `action validate-execution-readiness` | `derivation_only` | `python -m steuerboard action validate-execution-readiness <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --readiness-out <readiness-out> [--preflight-binding <preflight-binding>] --json` |
+| `action validate-run-chain` | `derivation_only` | `python -m steuerboard action validate-run-chain <action-plan-json> --command-trace <command-trace> --run-result <run-result> --run-postcheck <run-postcheck> --chain-out <chain-out> --json` |
+| `approval validate` | `derivation_only` | `python -m steuerboard approval validate <approval-json> --plan <plan> --checked-at <checked-at> --json` |
+| `plan git-pull-ff-only` | `derivation_only` | `python -m steuerboard plan git-pull-ff-only <assessment-json> [--remote-refresh-result <remote-refresh-result>] --json` |
+| `plan switch-main` | `derivation_only` | `python -m steuerboard plan switch-main <assessment-json> --json` |
+| `remote-refresh fetch-origin-prune` | `fetch_only` | `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <config> --assessment-id <assessment-id> --command-trace-out <command-trace-out> --json` |
+| `action run-git-pull-ff-only` | `mutating_stage_d` | `python -m steuerboard action run-git-pull-ff-only <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --preflight-binding <preflight-binding> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
+<!-- END GENERATED: cli-surface -->
 
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.
 
