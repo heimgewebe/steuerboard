@@ -316,7 +316,7 @@ def validate_switch_main_readiness(
         if not default_branch_is_main:
             hard_failure_reasons.append("default_branch_not_main")
 
-    # -- Gate 7.5: branch lifecycle proof for non-default branches. ------
+    # -- Gate 8: branch lifecycle proof for non-default branches. ------
     # Only required when current_branch != "main"; absent on main branch.
     branch_lifecycle_proof = preflight_proof.get("branch_contains_origin_main_or_pr_merged")
     if current_branch_known:
