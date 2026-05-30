@@ -69,6 +69,10 @@ Optional repository-state claims (absence is meaningful — it means *unknown*):
 - `current_branch` — the currently checked-out branch
 - `default_branch` — the repository default branch (contractually expected
   `main`; see masterplan Phase 9 switch-main gate)
+- `branch_contains_origin_main_or_pr_merged` — boolean; used only when
+  `current_branch` is not `main`. `true` = the current branch is contained in
+  `origin/main` or is merged via a pull request; `false` = explicitly not
+  contained/merged (blocking); absent = unknown
 - `worktree_clean` — boolean; `true` = clean
 - `remote_main_fresh` — boolean; `true` = `origin/main` is fresh enough
 - `ownership_ok` — boolean; `true` = single coherent owner/path (no
@@ -95,6 +99,7 @@ the plan by content hash:
 | current branch known | `current_branch_known` | `inconclusive` (`current_branch_unknown`) |
 | default branch known | `default_branch_known` | `inconclusive` (`default_branch_unknown`) |
 | default branch `== main` | `default_branch_is_main` | `blocked` (`default_branch_not_main`) |
+| branch lifecycle (when `current_branch != main`) | `branch_lifecycle_proof` | `blocked` (`branch_lifecycle_unproven`) / `inconclusive` (`branch_lifecycle_unknown`) |
 | worktree clean | `worktree_clean` | `blocked` (`worktree_not_clean`) / `inconclusive` (`worktree_state_unknown`) |
 | `origin/main` fresh | `remote_main_fresh` | `blocked` (`remote_main_stale`) / `inconclusive` (`remote_freshness_unknown`) |
 | ownership/path coherent | `ownership_ok` | `blocked` (`ownership_conflict`) / `inconclusive` (`ownership_unknown`) |
@@ -103,9 +108,9 @@ the plan by content hash:
 
 - `ready` — every hard gate passes **and** all proof material is present and
   consistent (plan binding proven; worktree clean; default branch known and
-  `main`; current branch known; `origin/main` fresh; ownership coherent;
-  `repo_toplevel` known). A `ready` verdict is **proof that a later switch could
-  be evaluated** — it is never permission to switch.
+  `main`; current branch known; branch lifecycle proven or on main; `origin/main`
+  fresh; ownership coherent; `repo_toplevel` known). A `ready` verdict is **proof
+  that a later switch could be evaluated** — it is never permission to switch.
 - `blocked` — at least one hard contradiction. Hard failures dominate any
   unknown material.
 - `inconclusive` — no hard contradiction, but at least one piece of proof
