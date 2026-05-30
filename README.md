@@ -24,7 +24,7 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 
 This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces.
 
-It intentionally does **not** contain a productive fleet scanner, backend, UI, planner, evidence archival system, or general mutating action executor. The only mutating capability is one bounded Stage-D `action run-git-pull-ff-only` executor, which performs exactly one fast-forward pull behind a reproduced readiness gate.
+It intentionally does **not** contain a productive fleet scanner, backend, UI, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capability is one bounded Stage-D `action run-git-pull-ff-only` executor, which performs exactly one fast-forward pull behind a reproduced readiness gate.
 
 Architecture rule:
 
@@ -39,7 +39,7 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `action run-read-only` | `read_only` | `python -m steuerboard action run-read-only <action-plan-json> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> [--preflight-for-action-plan <preflight-for-action-plan>] --json` |
 | `assess explain` | `read_only` | `python -m steuerboard assess explain <assessment-json> --json` |
 | `assess repo` | `read_only` | `python -m steuerboard assess repo <path> [--config <config>] --json` |
-| `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] [--json]` |
+| `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] --json` |
 | `inventory duplicates` | `read_only` | `python -m steuerboard inventory duplicates [--config <config>] --json` |
 | `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |

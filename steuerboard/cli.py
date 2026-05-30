@@ -279,11 +279,12 @@ def build_parser() -> argparse.ArgumentParser:
             "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
         ),
     )
-    inventory_parser.add_argument(
+    inventory_json_action = inventory_parser.add_argument(
         "--json",
         action="store_true",
         help="Emit repo-inventory.v1 JSON.",
     )
+    inventory_json_action.surface_required = True
 
     duplicates_parser = inventory_subparsers.add_parser(
         "duplicates",

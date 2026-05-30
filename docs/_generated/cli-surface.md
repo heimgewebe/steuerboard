@@ -20,7 +20,7 @@ Capability counts: read_only=10, derivation_only=6, fetch_only=1, mutating_stage
 | `action run-read-only` | `read_only` | `python -m steuerboard action run-read-only <action-plan-json> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> [--preflight-for-action-plan <preflight-for-action-plan>] --json` |
 | `assess explain` | `read_only` | `python -m steuerboard assess explain <assessment-json> --json` |
 | `assess repo` | `read_only` | `python -m steuerboard assess repo <path> [--config <config>] --json` |
-| `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] [--json]` |
+| `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] --json` |
 | `inventory duplicates` | `read_only` | `python -m steuerboard inventory duplicates [--config <config>] --json` |
 | `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |

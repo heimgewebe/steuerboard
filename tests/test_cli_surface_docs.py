@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
-
 from scripts.docmeta import generate_cli_surface as surface
 from steuerboard.cli import build_parser
 
@@ -108,3 +106,11 @@ def test_readme_states_bounded_stage_d_executor() -> None:
     assert "general mutating action executor" in readme
     assert "action run-git-pull-ff-only" in readme
     assert "or mutating action executor." not in readme
+
+
+def test_inventory_invocation_requires_json() -> None:
+    invocations = {command: invocation for command, _, invocation in surface.collect_surface()[1]}
+    assert (
+        invocations["inventory"]
+        == "python -m steuerboard inventory [--config <config>] --json"
+    )

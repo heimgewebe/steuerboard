@@ -77,6 +77,10 @@ def _metavar(action) -> str:
     return raw.lower().replace("_", "-")
 
 
+def _surface_required(action) -> bool:
+    return action.required or getattr(action, "surface_required", False)
+
+
 def _invocation(command_path, leaf_parser) -> str:
     """Reconstruct a deterministic example invocation for one leaf command."""
     parts = [PROG, *command_path]
@@ -91,7 +95,7 @@ def _invocation(command_path, leaf_parser) -> str:
             token = flag
         else:
             token = f"{flag} <{_metavar(action)}>"
-        if not action.required:
+        if not _surface_required(action):
             token = f"[{token}]"
         parts.append(token)
     return " ".join(parts)
