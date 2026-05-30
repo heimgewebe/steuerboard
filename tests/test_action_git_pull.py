@@ -220,6 +220,33 @@ def test_rejects_wrong_plan_action(tmp_path):
         _call_run(tmp_path, action_plan=bad_plan)
 
 
+def test_rejects_approval_validation_wrong_action(tmp_path):
+    """approval_validation.action != git-pull-ff-only must raise ValueError."""
+    bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
+    bad_approval["action"] = "switch-main"
+    with pytest.raises(ValueError, match="approval_validation.action"):
+        _call_run(tmp_path, approval_validation=bad_approval)
+
+
+def test_rejects_approval_validation_plan_content_sha256_mismatch(tmp_path):
+    """approval_validation.plan_content_sha256 != action_plan content must raise ValueError."""
+    bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
+    bad_approval["plan_content_sha256"] = "a" * 64
+    with pytest.raises(ValueError, match="approval_validation_plan_content_sha256_mismatch"):
+        _call_run(tmp_path, approval_validation=bad_approval)
+
+
+def test_no_output_on_approval_validation_plan_content_sha256_mismatch(tmp_path):
+    """No output files must be written when approval_validation.plan_content_sha256 mismatches."""
+    bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
+    bad_approval["plan_content_sha256"] = "b" * 64
+    with pytest.raises(ValueError):
+        _call_run(tmp_path, approval_validation=bad_approval)
+    assert not (tmp_path / "trace.json").exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "postcheck.json").exists()
+
+
 def test_rejects_binding_state_not_binding_valid(tmp_path):
     """preflight_binding.binding_state != binding_valid must raise ValueError."""
     bad_binding = copy.deepcopy(_BINDING_VALID)

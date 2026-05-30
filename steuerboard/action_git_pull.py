@@ -246,6 +246,22 @@ def run_git_pull_ff_only(
         )
 
     # -----------------------------------------------------------------------
+    # Precondition 2b: approval_validation must bind to this exact plan.
+    # -----------------------------------------------------------------------
+    plan_content_sha256 = canonical_json_sha256(action_plan)
+    approval_action = approval_validation.get("action", "")
+    if approval_action != "git-pull-ff-only":
+        raise ValueError(
+            f"approval_validation.action must be 'git-pull-ff-only'; "
+            f"got {approval_action!r}"
+        )
+    if approval_validation.get("plan_content_sha256") != plan_content_sha256:
+        raise ValueError(
+            "approval_validation_plan_content_sha256_mismatch: "
+            "approval_validation was not computed for the supplied action_plan content"
+        )
+
+    # -----------------------------------------------------------------------
     # Precondition 3: preflight_binding must be binding_valid with proof.
     # -----------------------------------------------------------------------
     binding_state = preflight_binding.get("binding_state", "")
@@ -408,7 +424,6 @@ def run_git_pull_ff_only(
     trace_id = f"trace-git-pull-ff-only-{uuid.uuid4()}"
     run_id = f"run-git-pull-ff-only-{uuid.uuid4()}"
     plan_id = action_plan.get("plan_id", "unknown")
-    plan_content_sha256 = canonical_json_sha256(action_plan)
 
     # -----------------------------------------------------------------------
     # Execute the pull — exactly one command, no shell.  The argv is derived
