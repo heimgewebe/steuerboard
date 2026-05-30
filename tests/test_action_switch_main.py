@@ -749,3 +749,94 @@ def test_cli_run_switch_main_blocked_sentinel_writes_no_files(tmp_path):
     assert not result_out.exists()
     assert not postcheck_out.exists()
     assert _live_branch(repo) == "feature/x"  # no mutation occurred
+
+
+def test_cli_run_switch_main_via_real_approval_validate_path(tmp_path):
+    """run-switch-main succeeds when the approval_validation comes from the real 'approval validate' CLI.
+
+    This test exercises the full approval chain:
+      action-approval.v1 → approval validate → action-approval-validation.v1 → run-switch-main
+    ensuring the official approval producer path works end-to-end for switch-main.
+    """
+    repo = _repo_on_feature(tmp_path / "repo")
+    plan = _switch_main_plan()
+
+    # Build an action-approval.v1 for switch-main against the example plan.
+    approval = {
+        "schema_version": "action-approval.v1",
+        "approval_id": "approval-test-switch-main-real-path-001",
+        "plan_ref": plan["plan_id"],
+        "plan_content_sha256": canonical_json_sha256(plan),
+        "action": "switch-main",
+        "decision": "approved",
+        "decided_at": "2026-05-30T10:00:00Z",
+        "approver_ref": "user:test",
+        "source_refs": [],
+        "approval_scope": {
+            "single_plan_only": True,
+            "no_plan_substitution": True,
+            "no_command_substitution": True,
+        },
+        "expires_at": "2026-05-30T23:59:59Z",
+        "constraints": {
+            "requires_same_plan_id": True,
+            "requires_same_action": True,
+            "requires_revalidation_before_execution": True,
+            "requires_runner_contract": True,
+            "requires_postcheck": True,
+        },
+        "boundary": {
+            "does_not_execute": True,
+            "does_not_mutate": True,
+            "does_not_authorise_unplanned_action": True,
+            "does_not_create_runner": True,
+        },
+    }
+
+    approval_file = tmp_path / "approval.json"
+    approval_file.write_text(json.dumps(approval), encoding="utf-8")
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(json.dumps(plan), encoding="utf-8")
+
+    # Run the real approval validate CLI to produce action-approval-validation.v1.
+    approval_validation_file = tmp_path / "approval-validation.json"
+    validate_proc = _cli([
+        "approval", "validate",
+        str(approval_file),
+        "--plan", str(plan_file),
+        "--checked-at", "2026-05-30T12:00:00Z",
+        "--json",
+    ])
+    assert validate_proc.returncode == 0, validate_proc.stderr
+    approval_validation = json.loads(validate_proc.stdout)
+    assert approval_validation["binding_state"] == "binding_valid", (
+        f"Expected binding_valid but got: {approval_validation}"
+    )
+    approval_validation_file.write_text(json.dumps(approval_validation), encoding="utf-8")
+
+    # Build readiness and run run-switch-main with the real approval validation.
+    readiness = _make_readiness(
+        tmp_path, plan, _ready_proof(plan, repo_toplevel=_toplevel(repo))
+    )
+    readiness_path = tmp_path / "readiness.json"
+    readiness_path.write_text(json.dumps(readiness), encoding="utf-8")
+
+    trace_out = tmp_path / "trace.json"
+    result_out = tmp_path / "result.json"
+    postcheck_out = tmp_path / "postcheck.json"
+
+    proc = _cli([
+        "action", "run-switch-main", str(_SWITCH_MAIN_PLAN_PATH),
+        "--approval-validation", str(approval_validation_file),
+        "--switch-main-readiness", str(readiness_path),
+        "--repo-path", str(repo),
+        "--command-trace-out", str(trace_out),
+        "--run-result-out", str(result_out),
+        "--postcheck-out", str(postcheck_out),
+        "--json",
+    ])
+    assert proc.returncode == 0, proc.stderr
+    result = json.loads(proc.stdout)
+    assert result["status"] == "success"
+    assert result["action"] == "switch-main"
+    assert _live_branch(repo) == "main"

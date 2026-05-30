@@ -1,6 +1,6 @@
 {
   "schema_version": "action-approval-validation.v1",
-  "validation_id": "validation-switch-main-example-001",
+  "validation_id": "validation-89d7c5358fdc52ed101f43991f6e4f79abfab0bc126b378a13f4001f1cb2e9ce",
   "plan_ref": "plan-example-switch-main-blocked",
   "approval_ref": "approval-2026-05-30-switch-main-approved-001",
   "action": "switch-main",
