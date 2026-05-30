@@ -34,6 +34,7 @@ _APPROVAL_VALIDATION = {
     "schema_version": "action-approval-validation.v1",
     "validation_id": "validation-d57efbd94539cd086dfe836cd54c089c74debd43d1d00fbfb8a4cd12d31d53c3",
     "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+    "plan_content_sha256": canonical_json_sha256(_PLAN),
     "approval_ref": "approval-2026-05-23-git-pull-ff-only-approved-001",
     "action": "git-pull-ff-only",
     "checked_at": "2026-05-27T09:00:00Z",

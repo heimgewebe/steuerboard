@@ -6,6 +6,7 @@
     "schema_version",
     "validation_id",
     "plan_ref",
+    "plan_content_sha256",
     "approval_ref",
     "action",
     "checked_at",
@@ -32,6 +33,10 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "plan_content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     },
     "action": {
       "enum": [

@@ -325,6 +325,7 @@ def validate_action_approval_binding(
         "schema_version": "action-approval-validation.v1",
         "validation_id": validation_id,
         "plan_ref": plan["plan_id"],
+        "plan_content_sha256": plan_content_sha256,
         "approval_ref": approval["approval_id"],
         "action": approval["action"],
         "checked_at": checked_at,

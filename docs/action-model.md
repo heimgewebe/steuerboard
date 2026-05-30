@@ -1,10 +1,11 @@
 # Action Model
 
 Stage D is now active for **exactly two** bounded mutating actions:
-`git-pull-ff-only` (Phase 8E) and `switch-main` (Phase 9B). Each is a narrow,
-single-operation executor gated behind a reproduced readiness gate; every other
-mutating capability remains future-gated. `switch-main` keeps its non-mutating
-readiness/proof layer (Phase 9A) and now has a bounded executor (Phase 9B).
+`git-pull-ff-only` (Phase 8E) and `switch-main` (Phase 9B). `git-pull-ff-only`
+is gated behind a reproduced readiness gate; `switch-main` consumes a `ready`
+switch-main-readiness verdict and re-derives mutation-critical live state before
+its single bounded switch operation. Every other mutating capability remains
+future-gated.
 
 Plan preview output is not an action executor and not an action authorisation.
 It is a contract artifact derived from prior assessment.

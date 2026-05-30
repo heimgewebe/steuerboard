@@ -151,6 +151,7 @@ def _approval_validation(plan: dict, **overrides) -> dict:
         "schema_version": "action-approval-validation.v1",
         "validation_id": "validation-switch-main-test-001",
         "plan_ref": plan["plan_id"],
+        "plan_content_sha256": canonical_json_sha256(plan),
         "approval_ref": "approval-switch-main-test-001",
         "action": "switch-main",
         "checked_at": "2026-05-30T12:00:00Z",
@@ -275,6 +276,13 @@ def test_rejects_approval_action_mismatch(tmp_path):
     repo = _repo_on_feature(tmp_path / "repo")
     bad_approval = _approval_validation(_switch_main_plan(), action="git-pull-ff-only")
     with pytest.raises(ValueError, match="approval_validation.action"):
+        _call_run(tmp_path, repo=repo, approval=bad_approval)
+
+
+def test_rejects_approval_plan_content_sha256_mismatch(tmp_path):
+    repo = _repo_on_feature(tmp_path / "repo")
+    bad_approval = _approval_validation(_switch_main_plan(), plan_content_sha256="0" * 64)
+    with pytest.raises(ValueError, match="approval_validation_plan_content_sha256_mismatch"):
         _call_run(tmp_path, repo=repo, approval=bad_approval)
 
 
@@ -812,6 +820,7 @@ def test_cli_run_switch_main_via_real_approval_validate_path(tmp_path):
     assert approval_validation["binding_state"] == "binding_valid", (
         f"Expected binding_valid but got: {approval_validation}"
     )
+    assert approval_validation["plan_content_sha256"] == canonical_json_sha256(plan)
     approval_validation_file.write_text(json.dumps(approval_validation), encoding="utf-8")
 
     # Build readiness and run run-switch-main with the real approval validation.

@@ -87,6 +87,7 @@ def test_binding_valid_approved_unexpired():
     result = validate_action_approval_binding(_PLAN, _APPROVAL_APPROVED, _CHECKED_AT_VALID)
     assert result["binding_state"] == "binding_valid"
     assert result["blocked_because"] == []
+    assert result["plan_content_sha256"] == _PLAN_SHA256
 
 
 def test_binding_invalid_rejected():
@@ -585,6 +586,7 @@ def test_switch_main_approval_binding_valid():
     assert result["action"] == "switch-main"
     assert result["plan_ref"] == "plan-example-switch-main-blocked"
     assert result["approval_ref"] == "approval-2026-05-30-switch-main-approved-001"
+    assert result["plan_content_sha256"] == _SWITCH_MAIN_PLAN_SHA256
 
 
 def test_switch_main_approval_binding_invalid_action_mismatch():
@@ -644,6 +646,7 @@ def test_cli_approval_validate_switch_main_binding_valid(tmp_path: Path):
     assert result["schema_version"] == "action-approval-validation.v1"
     assert result["binding_state"] == "binding_valid"
     assert result["action"] == "switch-main"
+    assert result["plan_content_sha256"] == _SWITCH_MAIN_PLAN_SHA256
 
     schema = load_json(SCHEMAS_DIR / "action-approval-validation.v1.schema.json")
     validate_instance(result, schema, Path("cli-switch-main-output"))

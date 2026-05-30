@@ -304,6 +304,11 @@ def run_switch_main(
             f"approval_validation.action must be {_SUPPORTED_ACTION!r}; "
             f"got {approval_validation.get('action')!r}"
         )
+    if approval_validation.get("plan_content_sha256") != plan_content_sha256:
+        raise ValueError(
+            "approval_validation_plan_content_sha256_mismatch: "
+            "approval_validation was not computed for the supplied action_plan content"
+        )
 
     # -----------------------------------------------------------------------
     # Precondition 4: readiness must be ready and bound to this exact plan.

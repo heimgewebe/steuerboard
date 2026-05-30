@@ -984,7 +984,7 @@ executor is a separate slice (Phase 9B, below). The full contract is in
 
 ## Phase 9B — Switch-main Executor
 
-Status: started.
+Status: implemented.
 
 Phase 9B activates Stage D for the second bounded mutating action, `switch-main`.
 It introduces `steuerboard/action_switch_main.py` and the CLI subcommand
