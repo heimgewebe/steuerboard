@@ -237,7 +237,8 @@ def run_git_pull_ff_only(
     )
 
     # -----------------------------------------------------------------------
-    # Precondition 2: action must be git-pull-ff-only.
+    # Precondition 2: action and approval_validation must both be git-pull-ff-only,
+    # and approval_validation must bind to this exact plan content.
     # -----------------------------------------------------------------------
     plan_action = action_plan.get("action", "")
     if plan_action != "git-pull-ff-only":
@@ -245,9 +246,6 @@ def run_git_pull_ff_only(
             f"action_plan.action must be 'git-pull-ff-only'; got {plan_action!r}"
         )
 
-    # -----------------------------------------------------------------------
-    # Precondition 2b: approval_validation must bind to this exact plan.
-    # -----------------------------------------------------------------------
     plan_content_sha256 = canonical_json_sha256(action_plan)
     approval_action = approval_validation.get("action", "")
     if approval_action != "git-pull-ff-only":

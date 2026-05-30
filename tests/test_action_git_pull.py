@@ -236,7 +236,7 @@ def test_rejects_approval_validation_plan_content_sha256_mismatch(tmp_path):
         _call_run(tmp_path, approval_validation=bad_approval)
 
 
-def test_no_output_on_approval_validation_plan_content_sha256_mismatch(tmp_path):
+def test_no_output_on_approval_sha256_mismatch(tmp_path):
     """No output files must be written when approval_validation.plan_content_sha256 mismatches."""
     bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
     bad_approval["plan_content_sha256"] = "b" * 64
