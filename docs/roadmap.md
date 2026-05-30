@@ -955,8 +955,8 @@ the validator:
 3. Verifies the proof binds to the plan: `plan_ref`, `plan_action`, and
    `plan_content_sha256 == canonical_json_sha256(action_plan)`.
 4. Evaluates the observed state gates: `repo_toplevel`/`current_branch`/
-   `default_branch` known, `default_branch == main`, `worktree_clean`,
-   `remote_main_fresh`, `ownership_ok`.
+   `default_branch` known, `default_branch == main`, branch lifecycle proof when
+   `current_branch != main`, `worktree_clean`, `remote_main_fresh`, `ownership_ok`.
 5. Emits `switch-main-readiness.v1` with `ready` only when every hard gate
    passes and all proof material is present and consistent; `blocked` on any
    hard contradiction (hard failures dominate unknowns); `inconclusive` when

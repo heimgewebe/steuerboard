@@ -78,8 +78,8 @@ Optional repository-state claims (absence is meaningful — it means *unknown*):
   question: "Is it safe to leave the current non-main branch?" A `true` value
   means the current branch's work is proven contained in `origin/main` or merged
   via PR, so switching to main will not lose or hide work. A `false` value means
-  the branch is unmerged and uncontained — switching would abandon uncommitted or
-  unmerged work.
+  the branch is unmerged and uncontained — switching could hide or bypass unmerged
+  branch work; uncommitted work is covered separately by `worktree_clean`.
 - `worktree_clean` — boolean; `true` = clean
 - `remote_main_fresh` — boolean; `true` = `origin/main` is fresh enough
 - `ownership_ok` — boolean; `true` = single coherent owner/path (no

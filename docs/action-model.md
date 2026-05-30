@@ -539,8 +539,8 @@ Stage D already exists for `git-pull-ff-only` (Phase 8E). `switch-main` stays
   consistent. Proof that a later switch could be evaluated, never permission to
   switch.
 - `blocked` — a hard contradiction (plan-binding mismatch, unsupported action,
-  dirty worktree, default branch not `main`, stale `origin/main`, ownership/path
-  split-brain).
+  dirty worktree, default branch not `main`, unproven branch lifecycle for
+  non-main current branch, stale `origin/main`, ownership/path split-brain).
 - `inconclusive` — no contradiction, but proof material is unknown.
 
 ### CLI
