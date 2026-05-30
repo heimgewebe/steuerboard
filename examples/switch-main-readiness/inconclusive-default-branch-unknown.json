@@ -74,7 +74,7 @@
   ],
   "plan_ref": "plan-example-switch-main-blocked",
   "proof_ref": "switch-main-proof-example-inconclusive-defbranch-001",
-  "readiness_id": "switch-main-readiness-45f66cc61515efc4d03c4c6463d7171f438a1b4c38245f000fb9cefb0abe6abd",
+  "readiness_id": "switch-main-readiness-295249ecbac9948f2937efd11354e9cc7bddfbabddee9e22f90d46d55fc8a2db",
   "repo_toplevel": "/home/alex/code/heimgewebe/infra",
   "schema_version": "switch-main-readiness.v1",
   "source_refs": [

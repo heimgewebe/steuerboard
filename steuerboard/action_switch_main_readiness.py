@@ -407,10 +407,17 @@ def validate_switch_main_readiness(
     proof_ref = str(preflight_proof.get("proof_id") or "unknown")
 
     readiness_material = {
-        "plan_ref": plan_id,
+        "action": str(plan_action) if plan_action else "unknown",
+        "plan_ref": plan_id or "unknown",
+        "plan_content_sha256": canonical_json_sha256(action_plan),
         "proof_ref": proof_ref,
+        "proof_content_sha256": canonical_json_sha256(preflight_proof),
+        "repo_toplevel": str(repo_toplevel) if repo_toplevel_known else None,
         "status": status,
+        "blocked_because": blocked_because,
         "failure_reasons": failure_reasons,
+        "checks": checks,
+        "source_refs": source_refs,
     }
     readiness_id = f"switch-main-readiness-{canonical_json_sha256(readiness_material)}"
 

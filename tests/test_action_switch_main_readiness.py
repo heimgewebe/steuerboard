@@ -312,6 +312,39 @@ def test_readiness_id_is_deterministic_and_excludes_checked_at(tmp_path):
     assert first["readiness_id"] == second["readiness_id"]
 
 
+def test_different_repo_toplevel_yields_different_readiness_id(tmp_path):
+    plan = _switch_main_plan()
+    proof_a = _ready_proof(plan)
+    proof_a["repo_toplevel"] = "/repo/path/alpha"
+    proof_b = _ready_proof(plan)
+    proof_b["repo_toplevel"] = "/repo/path/beta"
+    result_a = validate_switch_main_readiness(
+        action_plan=plan, preflight_proof=proof_a, readiness_out=str(tmp_path / "a.json")
+    )
+    result_b = validate_switch_main_readiness(
+        action_plan=plan, preflight_proof=proof_b, readiness_out=str(tmp_path / "b.json")
+    )
+    assert result_a["readiness_id"] != result_b["readiness_id"]
+
+
+def test_different_proof_content_yields_different_readiness_id(tmp_path):
+    # Two proofs with the same proof_id but different content must produce
+    # different readiness_ids — the ID must bind to proof content, not just ref.
+    plan = _switch_main_plan()
+    proof_clean = _ready_proof(plan)
+    proof_clean["proof_id"] = "same-proof-id"
+    proof_dirty = _ready_proof(plan)
+    proof_dirty["proof_id"] = "same-proof-id"
+    proof_dirty["worktree_clean"] = False
+    result_clean = validate_switch_main_readiness(
+        action_plan=plan, preflight_proof=proof_clean, readiness_out=str(tmp_path / "clean.json")
+    )
+    result_dirty = validate_switch_main_readiness(
+        action_plan=plan, preflight_proof=proof_dirty, readiness_out=str(tmp_path / "dirty.json")
+    )
+    assert result_clean["readiness_id"] != result_dirty["readiness_id"]
+
+
 # ---------------------------------------------------------------------------
 # boundary guard — the module is pure (no subprocess / no git invocation)
 # ---------------------------------------------------------------------------
