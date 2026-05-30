@@ -61,6 +61,7 @@ def _ready_proof(plan: dict | None = None) -> dict:
         "repo_toplevel": "/home/alex/code/heimgewebe/infra",
         "current_branch": "docs/runtime-refresh",
         "default_branch": "main",
+        "branch_contains_origin_main_or_pr_merged": True,
         "worktree_clean": True,
         "remote_main_fresh": True,
         "ownership_ok": True,
@@ -170,6 +171,53 @@ def test_ownership_split_brain_blocks(tmp_path):
     result = _run(_switch_main_plan(), proof, tmp_path)
     assert result["status"] == "blocked"
     assert "ownership_conflict" in result["blocked_because"]
+
+
+def test_non_default_branch_with_lifecycle_false_blocks(tmp_path):
+    proof = _ready_proof()
+    proof["current_branch"] = "feature/experimental"
+    proof["branch_contains_origin_main_or_pr_merged"] = False
+    result = _run(_switch_main_plan(), proof, tmp_path)
+    assert result["status"] == "blocked"
+    assert "branch_lifecycle_unproven" in result["blocked_because"]
+
+
+def test_non_default_branch_without_lifecycle_proof_is_inconclusive(tmp_path):
+    proof = _ready_proof()
+    proof["current_branch"] = "feature/experimental"
+    # branch_contains_origin_main_or_pr_merged is absent
+    proof.pop("branch_contains_origin_main_or_pr_merged")
+    result = _run(_switch_main_plan(), proof, tmp_path)
+    assert result["status"] == "inconclusive"
+    assert result["blocked_because"] == []
+    assert "branch_lifecycle_unknown" in result["failure_reasons"]
+
+
+def test_non_default_branch_with_lifecycle_true_can_be_ready(tmp_path):
+    proof = _ready_proof()
+    proof["current_branch"] = "feature/experimental"
+    proof["branch_contains_origin_main_or_pr_merged"] = True
+    result = _run(_switch_main_plan(), proof, tmp_path)
+    assert result["status"] == "ready"
+    assert result["blocked_because"] == []
+    assert "failure_reasons" not in result
+
+
+def test_current_main_does_not_require_branch_lifecycle_proof(tmp_path):
+    proof = _ready_proof()
+    proof["current_branch"] = "main"
+    # branch_contains_origin_main_or_pr_merged is not provided (and not needed)
+    proof.pop("branch_contains_origin_main_or_pr_merged")
+    result = _run(_switch_main_plan(), proof, tmp_path)
+    assert result["status"] == "ready"
+    assert result["blocked_because"] == []
+    # Check that we have a "branch_lifecycle_not_required" check that passed
+    lifecycle_checks = [
+        c for c in result["checks"] if "branch_lifecycle" in c["check"]
+    ]
+    assert len(lifecycle_checks) == 1
+    assert lifecycle_checks[0]["check"] == "branch_lifecycle_not_required"
+    assert lifecycle_checks[0]["passed"] is True
 
 
 def test_non_switch_main_plan_is_unsupported_action(tmp_path):
