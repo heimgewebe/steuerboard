@@ -21,14 +21,17 @@ Boundary contract:
 Status semantics:
 - ready        : all hard gates pass AND all proof material is present and
                  consistent (plan binding proven, worktree clean, default
-                 branch known == main, current branch known, remote/main fresh,
-                 ownership coherent)
+                 branch known == main, current branch known, branch lifecycle
+                 proven or on main, remote/main fresh, ownership coherent)
 - blocked      : at least one hard contradiction (plan binding mismatch,
                  unsupported plan action, dirty worktree, default branch not
-                 main, stale remote main, ownership/path split-brain)
+                 main, branch not in origin/main or merged via PR (when on
+                 non-default branch), stale remote main, ownership/path
+                 split-brain)
 - inconclusive : no hard contradiction but at least one piece of proof material
                  is unknown (e.g. repo_toplevel/current_branch/default_branch
-                 absent, worktree state / remote freshness / ownership unknown)
+                 absent, branch lifecycle unknown on non-default branch,
+                 worktree state / remote freshness / ownership unknown)
 
 A ``ready`` verdict is proof that a later switch *could* be evaluated; it is
 never permission to switch.
@@ -74,6 +77,7 @@ _BLOCKED_ENUM = frozenset(
         "default_branch_not_main",
         "remote_main_stale",
         "ownership_conflict",
+        "branch_lifecycle_unproven",
     }
 )
 
@@ -312,7 +316,43 @@ def validate_switch_main_readiness(
         if not default_branch_is_main:
             hard_failure_reasons.append("default_branch_not_main")
 
-    # -- Gate 8: worktree must be proven clean. -------------------------------
+    # -- Gate 7.5: branch lifecycle proof for non-default branches. ------
+    # Only required when current_branch != "main"; absent on main branch.
+    branch_lifecycle_proof = preflight_proof.get("branch_contains_origin_main_or_pr_merged")
+    if current_branch_known:
+        if current_branch == _EXPECTED_DEFAULT_BRANCH:
+            # On main branch, no lifecycle proof needed
+            _record_check(
+                checks,
+                check="branch_lifecycle_not_required",
+                passed=True,
+                expected="current_branch == main",
+                actual=str(current_branch),
+            )
+        else:
+            # On non-default branch, lifecycle proof is required
+            if branch_lifecycle_proof is None:
+                _record_check(
+                    checks,
+                    check="branch_lifecycle_proof",
+                    passed=False,
+                    expected="true or false (proof of branch lifecycle status)",
+                    actual="unknown",
+                )
+                inconclusive_reasons.append("branch_lifecycle_unknown")
+            else:
+                lifecycle_proven = branch_lifecycle_proof is True
+                _record_check(
+                    checks,
+                    check="branch_lifecycle_proof",
+                    passed=lifecycle_proven,
+                    expected="true (branch in origin/main or merged via PR)",
+                    actual=json.dumps(branch_lifecycle_proof),
+                )
+                if not lifecycle_proven:
+                    hard_failure_reasons.append("branch_lifecycle_unproven")
+
+    # -- Gate 9: worktree must be proven clean. -------------------------------
     worktree_clean = preflight_proof.get("worktree_clean")
     if worktree_clean is None:
         _record_check(
@@ -335,7 +375,7 @@ def validate_switch_main_readiness(
         if not worktree_is_clean:
             hard_failure_reasons.append("worktree_not_clean")
 
-    # -- Gate 9: origin/main must be proven fresh. ----------------------------
+    # -- Gate 10: origin/main must be proven fresh. ----------------------------
     remote_main_fresh = preflight_proof.get("remote_main_fresh")
     if remote_main_fresh is None:
         _record_check(
@@ -358,7 +398,7 @@ def validate_switch_main_readiness(
         if not remote_is_fresh:
             hard_failure_reasons.append("remote_main_stale")
 
-    # -- Gate 10: ownership / path must be coherent (no split-brain). ---------
+    # -- Gate 11: ownership / path must be coherent (no split-brain). ---------
     ownership_ok = preflight_proof.get("ownership_ok")
     if ownership_ok is None:
         _record_check(

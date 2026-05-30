@@ -70,7 +70,8 @@
           "worktree_not_clean",
           "default_branch_not_main",
           "remote_main_stale",
-          "ownership_conflict"
+          "ownership_conflict",
+          "branch_lifecycle_unproven"
         ]
       }
     },

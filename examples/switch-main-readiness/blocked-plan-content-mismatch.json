@@ -1,12 +1,14 @@
 {
   "action": "switch-main",
-  "blocked_because": [],
+  "blocked_because": [
+    "plan_content_sha256_mismatch"
+  ],
   "boundary": {
     "does_not_authorise_actions": true,
     "does_not_execute": true,
     "does_not_mutate": true
   },
-  "checked_at": "2026-05-30T12:33:02Z",
+  "checked_at": "2026-05-30T12:33:01Z",
   "checks": [
     {
       "actual": "switch-main",
@@ -27,10 +29,10 @@
       "passed": true
     },
     {
-      "actual": "d09c6c97848bdb04adbe8183c77e36ac1cd43172fb1faff16d62f96bf24b01e8",
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000",
       "check": "proof_plan_content_sha256_matches_plan",
       "expected": "d09c6c97848bdb04adbe8183c77e36ac1cd43172fb1faff16d62f96bf24b01e8",
-      "passed": true
+      "passed": false
     },
     {
       "actual": "present",
@@ -51,10 +53,10 @@
       "passed": true
     },
     {
-      "actual": "true",
+      "actual": "unknown",
       "check": "branch_lifecycle_proof",
-      "expected": "true (branch in origin/main or merged via PR)",
-      "passed": true
+      "expected": "true or false (proof of branch lifecycle status)",
+      "passed": false
     },
     {
       "actual": "true",
@@ -75,9 +77,13 @@
       "passed": true
     }
   ],
+  "failure_reasons": [
+    "plan_content_sha256_mismatch",
+    "branch_lifecycle_unknown"
+  ],
   "plan_ref": "plan-example-switch-main-blocked",
-  "proof_ref": "switch-main-proof-example-ready-001",
-  "readiness_id": "switch-main-readiness-28fff86ce6cb088104c0730c800e5a32a8346223c756cce75b262a65f8f5f2b4",
+  "proof_ref": "switch-main-proof-example-blocked-content-001",
+  "readiness_id": "switch-main-readiness-5e4d524f2c6dadcce05a8108f18ee3a9b18ae6780560a05338de557c8731b8eb",
   "repo_toplevel": "/home/alex/code/heimgewebe/infra",
   "schema_version": "switch-main-readiness.v1",
   "source_refs": [
@@ -91,5 +97,5 @@
     "action-plan.v1",
     "switch-main-preflight-proof.v1"
   ],
-  "status": "ready"
+  "status": "blocked"
 }

@@ -6,7 +6,7 @@
     "does_not_execute": true,
     "does_not_mutate": true
   },
-  "checked_at": "2026-05-30T12:33:02Z",
+  "checked_at": "2026-05-30T12:33:01Z",
   "checks": [
     {
       "actual": "switch-main",
@@ -51,10 +51,10 @@
       "passed": true
     },
     {
-      "actual": "true",
+      "actual": "unknown",
       "check": "branch_lifecycle_proof",
-      "expected": "true (branch in origin/main or merged via PR)",
-      "passed": true
+      "expected": "true or false (proof of branch lifecycle status)",
+      "passed": false
     },
     {
       "actual": "true",
@@ -75,9 +75,12 @@
       "passed": true
     }
   ],
+  "failure_reasons": [
+    "branch_lifecycle_unknown"
+  ],
   "plan_ref": "plan-example-switch-main-blocked",
-  "proof_ref": "switch-main-proof-example-ready-001",
-  "readiness_id": "switch-main-readiness-28fff86ce6cb088104c0730c800e5a32a8346223c756cce75b262a65f8f5f2b4",
+  "proof_ref": "switch-main-proof-example-inconclusive-branch-unknown",
+  "readiness_id": "switch-main-readiness-ae47061883a61ba028da6f1da48c61b77077f12f99c4fd5b812e8e5f22e0bef1",
   "repo_toplevel": "/home/alex/code/heimgewebe/infra",
   "schema_version": "switch-main-readiness.v1",
   "source_refs": [
@@ -91,5 +94,5 @@
     "action-plan.v1",
     "switch-main-preflight-proof.v1"
   ],
-  "status": "ready"
+  "status": "inconclusive"
 }
