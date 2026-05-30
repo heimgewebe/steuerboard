@@ -409,7 +409,11 @@ def test_rejects_detached_head_before_switch(tmp_path):
 
 
 def test_rejects_non_main_branch_without_lifecycle_proof(tmp_path):
-    """Readiness computed while on main cannot authorise leaving a live non-main branch."""
+    """Readiness computed while on main cannot authorise leaving a live non-main branch.
+
+    After current_branch binding: readiness.current_branch == 'main' != live 'feature/x',
+    so branch_current_mismatch fires before the lifecycle proof check.
+    """
     repo = _repo_on_feature(tmp_path / "repo")  # live HEAD = feature/x
     plan = _switch_main_plan()
     # Readiness proof claims current_branch == main → no branch_lifecycle_proof check.
@@ -417,10 +421,29 @@ def test_rejects_non_main_branch_without_lifecycle_proof(tmp_path):
         tmp_path, plan, _ready_proof(plan, repo_toplevel=_toplevel(repo), current_branch="main")
     )
     assert readiness["status"] == "ready"
+    assert readiness.get("current_branch") == "main"
     assert not any(c["check"] == "branch_lifecycle_proof" for c in readiness["checks"])
-    with pytest.raises(ValueError, match="branch_lifecycle_unproven"):
+    with pytest.raises(ValueError, match="branch_current_mismatch"):
         _call_run(tmp_path, repo=repo, readiness=readiness)
     assert not (tmp_path / "trace.json").exists()
+
+
+def test_rejects_readiness_for_different_branch(tmp_path):
+    """Readiness attested for feature/a but live repo is on feature/b → blocked, no mutation."""
+    repo = _repo_on_feature(tmp_path / "repo", branch="feature/b")
+    plan = _switch_main_plan()
+    # Proof (and therefore readiness) claims current_branch == "feature/a";
+    # the live repository is on "feature/b".
+    proof = _ready_proof(plan, repo_toplevel=_toplevel(repo), current_branch="feature/a")
+    readiness = _make_readiness(tmp_path, plan, proof)
+    assert readiness["status"] == "ready"
+    assert readiness.get("current_branch") == "feature/a"
+    with pytest.raises(ValueError, match="branch_current_mismatch"):
+        _call_run(tmp_path, repo=repo, readiness=readiness)
+    assert not (tmp_path / "trace.json").exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "postcheck.json").exists()
+    assert _live_branch(repo) == "feature/b"  # no mutation occurred
 
 
 def test_no_output_on_precondition_failure(tmp_path):

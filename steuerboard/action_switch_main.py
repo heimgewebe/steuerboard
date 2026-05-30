@@ -417,12 +417,29 @@ def run_switch_main(
         )
 
     # -----------------------------------------------------------------------
-    # Precondition 10: when leaving a non-main branch, the readiness must prove
-    # the branch lifecycle gate (it is safe to leave the current branch).  A
-    # readiness computed while on ``main`` carries no such proof and therefore
-    # cannot authorise switching away from a live non-main branch.
+    # Precondition 10: when leaving a non-main branch, verify two things:
+    # (a) the readiness was computed for the exact branch we are about to leave
+    #     (current_branch binding — prevents readiness for branch A from being
+    #     used to authorise switching from a live branch B);
+    # (b) the readiness proves the branch lifecycle gate (safe to leave).
+    # A readiness computed while on ``main`` carries neither current_branch for
+    # a non-main branch nor a lifecycle proof, so it cannot authorise switching
+    # away from a live non-main branch.
     # -----------------------------------------------------------------------
     if branch_before != _TARGET_BRANCH:
+        readiness_current_branch = switch_main_readiness.get("current_branch")
+        if not isinstance(readiness_current_branch, str) or not readiness_current_branch.strip():
+            raise ValueError(
+                "branch_current_mismatch: live current branch is "
+                f"{branch_before!r} but switch_main_readiness does not carry "
+                "a current_branch field; recompute readiness for the current branch"
+            )
+        if readiness_current_branch != branch_before:
+            raise ValueError(
+                "branch_current_mismatch: live current branch is "
+                f"{branch_before!r} but switch_main_readiness.current_branch is "
+                f"{readiness_current_branch!r}; recompute readiness for the current branch"
+            )
         lifecycle_check = _readiness_check(switch_main_readiness, _BRANCH_LIFECYCLE_CHECK)
         if lifecycle_check is None or lifecycle_check.get("passed") is not True:
             raise ValueError(

@@ -93,6 +93,17 @@ The readiness verdict over one proof and one plan: `status` in
 `ready` / `blocked` / `inconclusive`, with `checks`, `blocked_because`,
 `failure_reasons`, `source_refs`, and a const-true `boundary`.
 
+Optional top-level repository-state claims (absent means *unknown* — emitted
+only when the corresponding proof field was present and non-empty):
+
+- `repo_toplevel` — the git toplevel attested by the proof; the Phase 9B
+  executor requires this and binds the live resolved toplevel against it.
+- `current_branch` — the branch attested by the proof at readiness time; the
+  Phase 9B executor requires this when `branch_before != "main"` and verifies
+  that the live branch exactly matches this value before proceeding. This
+  prevents a readiness computed for branch `A` from authorising a switch away
+  from a live branch `B`.
+
 ## Proof Content Required for `switch-main`
 
 Derived from the masterplan Phase 9 switch-main **gate preflight** and bound to
@@ -227,20 +238,16 @@ switch it re-derives, read-only:
 - the current branch (`git rev-parse --abbrev-ref HEAD`), which must be known
   and not a detached `HEAD`;
 - worktree cleanliness (`git status --porcelain=v1` must be empty);
-- when the live branch is **not** `main`, the readiness must carry a passed
-  `branch_lifecycle_proof` check (a readiness computed while on `main` cannot
-  authorise leaving a live non-main branch).
+- when the live branch is **not** `main`:
+  - `readiness.current_branch` must be present and exactly equal to
+    `branch_before` — a readiness attested for branch `A` is rejected if the
+    live repo is on branch `B` (`branch_current_mismatch`);
+  - the readiness must carry a passed `branch_lifecycle_proof` check — a
+    readiness computed while on `main` (which carries no lifecycle proof and
+    `current_branch == "main"`) cannot authorise leaving a live non-main branch.
 
 It deliberately **does not fetch**: `origin/main` freshness and ownership/path
 coherence are proven by the Phase 9A readiness artifact, never re-fetched here.
-
-Residual boundary: `switch-main-readiness.v1` does not expose the attested
-`current_branch` at top level, so the executor proves the lifecycle gate was
-attested for *a* non-main branch but does not bind the attested branch *name* to
-the live one. The live worktree-clean re-check protects uncommitted work, and
-`git switch` never deletes a branch, so committed work on the departed branch is
-preserved regardless. A future hardening could bind `current_branch` into the
-readiness artifact.
 
 ### Security contract
 

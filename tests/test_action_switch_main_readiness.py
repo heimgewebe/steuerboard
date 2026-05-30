@@ -95,7 +95,25 @@ def test_ready_only_when_proof_complete_and_consistent(tmp_path):
     assert result["plan_ref"] == plan["plan_id"]
     assert result["proof_ref"] == "switch-main-proof-test-ready"
     assert result["repo_toplevel"] == "/home/alex/code/heimgewebe/infra"
+    assert result["current_branch"] == "docs/runtime-refresh"
     assert all(check["passed"] for check in result["checks"])
+
+
+def test_ready_artifact_includes_current_branch_from_proof(tmp_path):
+    proof = _ready_proof()
+    proof["current_branch"] = "feature/topic"
+    proof["branch_contains_origin_main_or_pr_merged"] = True
+    result = _run(_switch_main_plan(), proof, tmp_path)
+    assert result["status"] == "ready"
+    assert result["current_branch"] == "feature/topic"
+
+
+def test_current_branch_absent_in_artifact_when_not_known(tmp_path):
+    proof = _ready_proof()
+    proof.pop("current_branch")
+    result = _run(_switch_main_plan(), proof, tmp_path)
+    assert result["status"] == "inconclusive"
+    assert "current_branch" not in result
 
 
 def test_ready_artifact_has_const_true_boundary(tmp_path):

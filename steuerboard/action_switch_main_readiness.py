@@ -454,6 +454,7 @@ def validate_switch_main_readiness(
         "proof_ref": proof_ref,
         "proof_content_sha256": canonical_json_sha256(preflight_proof),
         "repo_toplevel": str(repo_toplevel) if repo_toplevel_known else None,
+        "current_branch": str(current_branch) if current_branch_known else None,
         "status": status,
         "blocked_because": blocked_because,
         "failure_reasons": failure_reasons,
@@ -481,6 +482,8 @@ def validate_switch_main_readiness(
     }
     if repo_toplevel_known:
         artifact["repo_toplevel"] = str(repo_toplevel)
+    if current_branch_known:
+        artifact["current_branch"] = str(current_branch)
     if failure_reasons:
         artifact["failure_reasons"] = failure_reasons
 
