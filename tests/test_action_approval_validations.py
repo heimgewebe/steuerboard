@@ -87,6 +87,7 @@ def test_binding_valid_approved_unexpired():
     result = validate_action_approval_binding(_PLAN, _APPROVAL_APPROVED, _CHECKED_AT_VALID)
     assert result["binding_state"] == "binding_valid"
     assert result["blocked_because"] == []
+    assert result["plan_content_sha256"] == _PLAN_SHA256
 
 
 def test_binding_invalid_rejected():
@@ -509,3 +510,143 @@ def test_validation_examples_match_runtime_outputs():
         expected = load_json(_EXAMPLES_DIR / "action-approval-validations" / fixture_name)
         actual = validate_action_approval_binding(plan, approval, checked_at)
         assert actual == expected
+
+
+# ---------------------------------------------------------------------------
+# switch-main approval tests
+# ---------------------------------------------------------------------------
+
+_SWITCH_MAIN_PLAN = {
+    "schema_version": "action-plan.v1",
+    "plan_id": "plan-example-switch-main-blocked",
+    "action": "switch-main",
+    "assessment_ref": "assess-example-non-default-branch-evidence-missing",
+    "decision": "blocked",
+    "blocked_because": ["non_default_branch"],
+    "source_refs": ["git.current_branch"],
+    "rule_refs": [],
+    "freshness_refs": [],
+    "falsification_refs": [],
+    "missing_evidence": [],
+    "boundary": {
+        "does_not_execute": True,
+        "does_not_mutate": True,
+        "does_not_authorise_actions": True,
+    },
+}
+_SWITCH_MAIN_PLAN_SHA256 = canonical_json_sha256(_SWITCH_MAIN_PLAN)
+
+_SWITCH_MAIN_APPROVAL_APPROVED = {
+    "schema_version": "action-approval.v1",
+    "approval_id": "approval-2026-05-30-switch-main-approved-001",
+    "plan_ref": "plan-example-switch-main-blocked",
+    "plan_content_sha256": _SWITCH_MAIN_PLAN_SHA256,
+    "action": "switch-main",
+    "decision": "approved",
+    "decided_at": "2026-05-30T10:00:00Z",
+    "approver_ref": "user:alex",
+    "source_refs": [],
+    "approval_scope": {
+        "single_plan_only": True,
+        "no_plan_substitution": True,
+        "no_command_substitution": True,
+    },
+    "expires_at": "2026-05-30T18:00:00Z",
+    "constraints": {
+        "requires_same_plan_id": True,
+        "requires_same_action": True,
+        "requires_revalidation_before_execution": True,
+        "requires_runner_contract": True,
+        "requires_postcheck": True,
+    },
+    "boundary": {
+        "does_not_execute": True,
+        "does_not_mutate": True,
+        "does_not_authorise_unplanned_action": True,
+        "does_not_create_runner": True,
+    },
+}
+
+
+def test_switch_main_approval_schema_valid():
+    """_schema_valid_approval accepts action == 'switch-main'."""
+    from steuerboard.action_approval_validations import _schema_valid_approval
+
+    err = _schema_valid_approval(_SWITCH_MAIN_APPROVAL_APPROVED)
+    assert err is None, f"Expected no error, got: {err}"
+
+
+def test_switch_main_approval_binding_valid():
+    """validate_action_approval_binding returns binding_valid for a matched switch-main pair."""
+    result = validate_action_approval_binding(
+        _SWITCH_MAIN_PLAN, _SWITCH_MAIN_APPROVAL_APPROVED, "2026-05-30T12:00:00Z"
+    )
+    assert result["binding_state"] == "binding_valid"
+    assert result["blocked_because"] == []
+    assert result["action"] == "switch-main"
+    assert result["plan_ref"] == "plan-example-switch-main-blocked"
+    assert result["approval_ref"] == "approval-2026-05-30-switch-main-approved-001"
+    assert result["plan_content_sha256"] == _SWITCH_MAIN_PLAN_SHA256
+
+
+def test_switch_main_approval_binding_invalid_action_mismatch():
+    """binding_invalid when approval action is git-pull-ff-only but plan action is switch-main."""
+    mismatched_approval = {**_SWITCH_MAIN_APPROVAL_APPROVED, "action": "git-pull-ff-only"}
+    # Recompute plan_content_sha256 so the only mismatch is action
+    mismatched_approval["plan_content_sha256"] = _SWITCH_MAIN_PLAN_SHA256
+    result = validate_action_approval_binding(
+        _SWITCH_MAIN_PLAN, mismatched_approval, "2026-05-30T12:00:00Z"
+    )
+    assert result["binding_state"] == "binding_invalid"
+    assert "action_mismatch" in result["blocked_because"]
+
+
+def test_switch_main_approval_schema_example_validates():
+    """examples/action-approvals/switch-main-approved.json validates against action-approval.v1 schema."""
+    schema = load_json(SCHEMAS_DIR / "action-approval.v1.schema.json")
+    example = load_json(_EXAMPLES_DIR / "action-approvals" / "switch-main-approved.json")
+    validate_instance(example, schema, Path("switch-main-approved"))
+
+
+def test_switch_main_approval_validation_example_matches_runtime():
+    """examples/action-approval-validations/switch-main-binding-valid.json matches runtime output."""
+    plan = load_json(_EXAMPLES_DIR / "action-plans" / "switch-main-blocked.json")
+    approval = load_json(_EXAMPLES_DIR / "action-approvals" / "switch-main-approved.json")
+    expected = load_json(
+        _EXAMPLES_DIR / "action-approval-validations" / "switch-main-binding-valid.json"
+    )
+    actual = validate_action_approval_binding(plan, approval, "2026-05-30T12:00:00Z")
+    assert actual == expected
+
+
+def test_cli_approval_validate_switch_main_binding_valid(tmp_path: Path):
+    """CLI 'approval validate' produces binding_valid for a switch-main approval."""
+    plan_path = tmp_path / "plan.json"
+    approval_path = tmp_path / "approval.json"
+    plan_path.write_text(json.dumps(_SWITCH_MAIN_PLAN), encoding="utf-8")
+    approval_path.write_text(json.dumps(_SWITCH_MAIN_APPROVAL_APPROVED), encoding="utf-8")
+
+    proc = _cli(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "approval",
+            "validate",
+            str(approval_path),
+            "--plan",
+            str(plan_path),
+            "--checked-at",
+            "2026-05-30T12:00:00Z",
+            "--json",
+        ]
+    )
+    assert proc.returncode == 0, proc.stderr
+    result = json.loads(proc.stdout)
+    assert result["schema_version"] == "action-approval-validation.v1"
+    assert result["binding_state"] == "binding_valid"
+    assert result["action"] == "switch-main"
+    assert result["plan_content_sha256"] == _SWITCH_MAIN_PLAN_SHA256
+
+    schema = load_json(SCHEMAS_DIR / "action-approval-validation.v1.schema.json")
+    validate_instance(result, schema, Path("cli-switch-main-output"))

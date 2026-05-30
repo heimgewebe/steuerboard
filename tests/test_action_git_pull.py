@@ -34,6 +34,7 @@ _APPROVAL_VALIDATION = {
     "schema_version": "action-approval-validation.v1",
     "validation_id": "validation-d57efbd94539cd086dfe836cd54c089c74debd43d1d00fbfb8a4cd12d31d53c3",
     "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+    "plan_content_sha256": canonical_json_sha256(_PLAN),
     "approval_ref": "approval-2026-05-23-git-pull-ff-only-approved-001",
     "action": "git-pull-ff-only",
     "checked_at": "2026-05-27T09:00:00Z",
@@ -217,6 +218,33 @@ def test_rejects_wrong_plan_action(tmp_path):
     bad_plan["action"] = "git-status-read-only"
     with pytest.raises(ValueError, match="action_plan.action"):
         _call_run(tmp_path, action_plan=bad_plan)
+
+
+def test_rejects_approval_validation_wrong_action(tmp_path):
+    """approval_validation.action != git-pull-ff-only must raise ValueError."""
+    bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
+    bad_approval["action"] = "switch-main"
+    with pytest.raises(ValueError, match="approval_validation.action"):
+        _call_run(tmp_path, approval_validation=bad_approval)
+
+
+def test_rejects_approval_validation_plan_content_sha256_mismatch(tmp_path):
+    """approval_validation.plan_content_sha256 != action_plan content must raise ValueError."""
+    bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
+    bad_approval["plan_content_sha256"] = "a" * 64
+    with pytest.raises(ValueError, match="approval_validation_plan_content_sha256_mismatch"):
+        _call_run(tmp_path, approval_validation=bad_approval)
+
+
+def test_no_output_on_approval_sha256_mismatch(tmp_path):
+    """No output files must be written when approval_validation.plan_content_sha256 mismatches."""
+    bad_approval = copy.deepcopy(_APPROVAL_VALIDATION)
+    bad_approval["plan_content_sha256"] = "b" * 64
+    with pytest.raises(ValueError):
+        _call_run(tmp_path, approval_validation=bad_approval)
+    assert not (tmp_path / "trace.json").exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "postcheck.json").exists()
 
 
 def test_rejects_binding_state_not_binding_valid(tmp_path):

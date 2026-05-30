@@ -6,7 +6,7 @@
     "does_not_execute": true,
     "does_not_mutate": true
   },
-  "checked_at": "2026-05-30T12:33:02Z",
+  "checked_at": "2026-05-30T17:42:28Z",
   "checks": [
     {
       "actual": "switch-main",
@@ -75,9 +75,10 @@
       "passed": true
     }
   ],
+  "current_branch": "docs/runtime-refresh",
   "plan_ref": "plan-example-switch-main-blocked",
   "proof_ref": "switch-main-proof-example-ready-001",
-  "readiness_id": "switch-main-readiness-28fff86ce6cb088104c0730c800e5a32a8346223c756cce75b262a65f8f5f2b4",
+  "readiness_id": "switch-main-readiness-ff06cea57439bab1372201169d87e762f30f0e1ac1399ab101414a11d9344994",
   "repo_toplevel": "/home/alex/code/heimgewebe/infra",
   "schema_version": "switch-main-readiness.v1",
   "source_refs": [

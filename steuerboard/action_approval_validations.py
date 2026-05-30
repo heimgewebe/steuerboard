@@ -174,9 +174,8 @@ def _schema_valid_approval(approval: Any) -> str | None:
         approval["plan_content_sha256"]
     ) is None:
         return "approval.plan_content_sha256 must be a lowercase sha256 hex string"
-    # action-approval.v1 is intentionally narrower in this phase than action-plan.v1.
-    if approval.get("action") != "git-pull-ff-only":
-        return "approval.action must be 'git-pull-ff-only' (only approved action in action-approval.v1)"
+    if approval.get("action") not in {"git-pull-ff-only", "switch-main"}:
+        return "approval.action must be one of: git-pull-ff-only, switch-main"
     if approval.get("decision") not in {"approved", "rejected"}:
         return "approval.decision must be one of: approved, rejected"
     if _validate_nonempty_string(approval.get("approver_ref"), "approval.approver_ref") is not None:
@@ -326,6 +325,7 @@ def validate_action_approval_binding(
         "schema_version": "action-approval-validation.v1",
         "validation_id": validation_id,
         "plan_ref": plan["plan_id"],
+        "plan_content_sha256": plan_content_sha256,
         "approval_ref": approval["approval_id"],
         "action": approval["action"],
         "checked_at": checked_at,

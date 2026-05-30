@@ -977,8 +977,67 @@ or pull. It does not execute, does not switch a branch, does not mutate, and
 does not authorise actions. Every produced artifact carries const-true boundary
 flags.
 
-Phase 9A does **not** introduce a `switch-main` runner. `plan switch-main` stays
-`derivation_only`; `action run-git-pull-ff-only` stays the only
-`mutating_stage_d` action. The switch-main executor (Phase 9B) remains
-future-only and out of scope. The full contract is in
+Phase 9A does **not** introduce a `switch-main` runner; it is the readiness/proof
+layer only. `plan switch-main` stays `derivation_only`. The bounded `switch-main`
+executor is a separate slice (Phase 9B, below). The full contract is in
 `docs/switch-main-readiness-contract.md`.
+
+## Phase 9B — Switch-main Executor
+
+Status: implemented.
+
+Phase 9B activates Stage D for the second bounded mutating action, `switch-main`.
+It introduces `steuerboard/action_switch_main.py` and the CLI subcommand
+`action run-switch-main` (classified `mutating_stage_d`), the switch-main
+analogue of the Phase 8E pull executor narrowed to exactly one safe branch
+switch to `main`.
+
+The layered boundary is explicit:
+
+> `ready` readiness is not approval. Approval is not execution. Execution is
+> exactly one bounded branch switch to `main`. Postcheck is required after
+> execution.
+
+Command:
+
+```bash
+python -m steuerboard action run-switch-main <action-plan-json> \
+  --approval-validation <action-approval-validation-json> \
+  --switch-main-readiness <switch-main-readiness-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --postcheck-out <postcheck-json> \
+  --json
+```
+
+Scope in this slice:
+
+- consume a `ready` `switch-main-readiness.v1` (Phase 9A) and a `binding_valid`
+  `action-approval-validation.v1`, both pinned to the same `switch-main` plan
+  (plan ref, action, and the readiness-recorded plan content hash)
+- re-derive the mutation-critical live state immediately before mutation
+  (resolved toplevel matches readiness `repo_toplevel`; current branch known and
+  not detached; worktree clean; readiness `branch_lifecycle_proof` required when
+  the live branch is not `main`); **no fetch** — freshness/ownership trusted from
+  the readiness artifact
+- exact execution surface: `git --no-optional-locks -C <repo-toplevel> switch main`
+- write `command-trace.v1`, `run-result.v1` (`action: switch-main`), and
+  `run-postcheck.v1` (`action: switch-main`) atomically; precondition failures
+  write nothing and perform no mutation
+- additive schema extensions only: `switch-main` added to the `action` enum of
+  `run-result.v1`, `run-postcheck.v1`, and `action-approval-validation.v1`
+
+Boundary for this slice:
+
+- no generic Git executor, no free shell, no `shell=True`
+- no `git checkout` fallback, merge, rebase, reset, clean, pull, fetch, push,
+  branch deletion, or conflict resolution
+- no UI trigger, no fleet/multi-repo switching
+- does not loosen the Phase 9A readiness gate; `plan switch-main` stays
+  `derivation_only`
+- Stage D now contains exactly two bounded executors: `run-git-pull-ff-only` and
+  `run-switch-main`
+
+The full contract is in `docs/switch-main-readiness-contract.md`
+(Phase 9B Execution Implementation).

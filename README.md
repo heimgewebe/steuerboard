@@ -24,13 +24,13 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 
 This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces.
 
-It intentionally does **not** contain a productive fleet scanner, backend, UI, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capability is one bounded Stage-D `action run-git-pull-ff-only` executor, which performs exactly one fast-forward pull behind a reproduced readiness gate.
+It intentionally does **not** contain a productive fleet scanner, backend, UI, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capabilities are exactly two bounded Stage-D executors — `action run-git-pull-ff-only` (exactly one fast-forward pull, behind a reproduced readiness gate) and `action run-switch-main` (exactly one switch to `main`, gated by a `ready` switch-main-readiness verdict plus live-state rechecks).
 
 Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
 
-The executable CLI surface is enumerated below, generated from `steuerboard.cli.build_parser()` and an explicit capability classification (`scripts/docmeta/cli_surface.json`). Do not edit the table by hand — run `make docs` to regenerate it; the full generated reference lives in [docs/_generated/cli-surface.md](docs/_generated/cli-surface.md). Capability classes are `read_only`, `derivation_only` (preview/validation), `fetch_only` (one bounded fetch), and `mutating_stage_d` (the single bounded Stage-D executor).
+The executable CLI surface is enumerated below, generated from `steuerboard.cli.build_parser()` and an explicit capability classification (`scripts/docmeta/cli_surface.json`). Do not edit the table by hand — run `make docs` to regenerate it; the full generated reference lives in [docs/_generated/cli-surface.md](docs/_generated/cli-surface.md). Capability classes are `read_only`, `derivation_only` (preview/validation), `fetch_only` (one bounded fetch), and `mutating_stage_d` (the two bounded Stage-D executors).
 
 <!-- BEGIN GENERATED: cli-surface -->
 | Command | Capability class | Invocation |
@@ -54,6 +54,7 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `plan switch-main` | `derivation_only` | `python -m steuerboard plan switch-main <assessment-json> --json` |
 | `remote-refresh fetch-origin-prune` | `fetch_only` | `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <config> --assessment-id <assessment-id> --command-trace-out <command-trace-out> --json` |
 | `action run-git-pull-ff-only` | `mutating_stage_d` | `python -m steuerboard action run-git-pull-ff-only <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --preflight-binding <preflight-binding> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
+| `action run-switch-main` | `mutating_stage_d` | `python -m steuerboard action run-switch-main <action-plan-json> --approval-validation <approval-validation> --switch-main-readiness <switch-main-readiness> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
 <!-- END GENERATED: cli-surface -->
 
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.

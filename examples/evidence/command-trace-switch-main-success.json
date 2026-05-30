@@ -1,0 +1,16 @@
+{
+  "command": [
+    "git",
+    "--no-optional-locks",
+    "-C",
+    "/home/alex/code/heimgewebe/infra",
+    "switch",
+    "main"
+  ],
+  "exit_code": 0,
+  "redacted": true,
+  "schema_version": "command-trace.v1",
+  "stderr_excerpt": "",
+  "stdout_excerpt": "",
+  "trace_id": "trace-switch-main-example-001"
+}

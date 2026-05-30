@@ -2,6 +2,7 @@
   "schema_version": "action-approval-validation.v1",
   "validation_id": "validation-61cad68673993bbfba044294b099ed34a0efc5839d9e5822c6b4a1e2f5b1dc96",
   "plan_ref": "plan-git-pull-ff-only-2026-05-23-001",
+  "plan_content_sha256": "afbc52e107b593900e96b91c9b67d5bbaadba468ec0e1e93bea6999a10e26770",
   "approval_ref": "approval-2026-05-23-git-pull-ff-only-rejected-001",
   "action": "git-pull-ff-only",
   "checked_at": "2026-05-23T12:00:00Z",

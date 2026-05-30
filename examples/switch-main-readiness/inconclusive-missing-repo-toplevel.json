@@ -6,7 +6,7 @@
     "does_not_execute": true,
     "does_not_mutate": true
   },
-  "checked_at": "2026-05-30T12:33:01Z",
+  "checked_at": "2026-05-30T17:42:44Z",
   "checks": [
     {
       "actual": "switch-main",
@@ -75,13 +75,14 @@
       "passed": true
     }
   ],
+  "current_branch": "docs/runtime-refresh",
   "failure_reasons": [
     "repo_toplevel_unknown",
     "branch_lifecycle_unknown"
   ],
   "plan_ref": "plan-example-switch-main-blocked",
   "proof_ref": "switch-main-proof-example-inconclusive-toplevel-001",
-  "readiness_id": "switch-main-readiness-7d3f5f382d6c2569d153bd8be6457dcf0662e68c3ce4cb532d4cb23275f5ac86",
+  "readiness_id": "switch-main-readiness-4b35df3ca530a83d8c7b66239b6524ac5df41655de27d1e25d7664a347e99a3c",
   "schema_version": "switch-main-readiness.v1",
   "source_refs": [
     "git.rev_parse.toplevel",

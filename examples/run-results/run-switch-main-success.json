@@ -1,0 +1,14 @@
+{
+  "action": "switch-main",
+  "evidence_paths": [
+    "examples/evidence/command-trace-switch-main-success.json"
+  ],
+  "finished_at": "2026-05-30T12:00:02Z",
+  "plan_content_sha256": "d09c6c97848bdb04adbe8183c77e36ac1cd43172fb1faff16d62f96bf24b01e8",
+  "plan_ref": "plan-example-switch-main-blocked",
+  "redaction_verified": true,
+  "run_id": "run-switch-main-example-001",
+  "schema_version": "run-result.v1",
+  "started_at": "2026-05-30T12:00:01Z",
+  "status": "success"
+}
