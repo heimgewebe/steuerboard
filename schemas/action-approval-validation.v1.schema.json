@@ -35,7 +35,8 @@
     },
     "action": {
       "enum": [
-        "git-pull-ff-only"
+        "git-pull-ff-only",
+        "switch-main"
       ]
     },
     "checked_at": {

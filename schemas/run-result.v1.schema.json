@@ -58,7 +58,8 @@
       "type": "string",
       "enum": [
         "git-status-read-only",
-        "git-pull-ff-only"
+        "git-pull-ff-only",
+        "switch-main"
       ]
     },
     "preflight_for_action_plan": {

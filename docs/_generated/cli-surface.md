@@ -11,7 +11,7 @@ marked block in `README.md`. Classification lives in
 `scripts/docmeta/cli_surface.json` and is declared explicitly, never inferred
 from help text.
 
-Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage_d=1.
+Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage_d=2.
 
 <!-- BEGIN GENERATED: cli-surface -->
 | Command | Capability class | Invocation |
@@ -35,6 +35,7 @@ Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage
 | `plan switch-main` | `derivation_only` | `python -m steuerboard plan switch-main <assessment-json> --json` |
 | `remote-refresh fetch-origin-prune` | `fetch_only` | `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <config> --assessment-id <assessment-id> --command-trace-out <command-trace-out> --json` |
 | `action run-git-pull-ff-only` | `mutating_stage_d` | `python -m steuerboard action run-git-pull-ff-only <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --preflight-binding <preflight-binding> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
+| `action run-switch-main` | `mutating_stage_d` | `python -m steuerboard action run-switch-main <action-plan-json> --approval-validation <approval-validation> --switch-main-readiness <switch-main-readiness> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
 <!-- END GENERATED: cli-surface -->
 
 ## Capability classes
@@ -42,4 +43,4 @@ Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage
 - `read_only` — Reads, observes, or runs a bounded read-only command; no repository mutation and no network access.
 - `derivation_only` — Pure transformation or artifact validation producing preview/derived artifacts; no repository mutation, no network access, no execution.
 - `fetch_only` — Performs exactly one bounded network fetch and writes evidence; no working-tree mutation.
-- `mutating_stage_d` — Bounded Stage-D executor that mutates the working tree (exactly one fast-forward pull) behind a reproduced readiness gate.
+- `mutating_stage_d` — Bounded Stage-D executor that performs exactly one mutating Git operation (a fast-forward pull, or a switch to main) behind a reproduced readiness gate.

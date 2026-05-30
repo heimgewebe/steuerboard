@@ -12,6 +12,7 @@ from .action_git_pull import run_git_pull_ff_only
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .action_preflight_bindings import bind_preflight_to_action
 from .action_runs import run_read_only_action
+from .action_switch_main import run_switch_main
 from .action_switch_main_readiness import validate_switch_main_readiness
 from .assessment import assess_repo
 from .run_evidence_chains import validate_run_evidence_chain
@@ -254,6 +255,31 @@ def _emit_pull_blocked(reason: str) -> int:
                 "schema_version": "run-result.v1",
                 "run_id": "run-git-pull-ff-only-blocked-precondition",
                 "action": "git-pull-ff-only",
+                "status": "blocked",
+                "redaction_verified": True,
+                "blocked_reasons": [sanitized_reason],
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
+
+
+def _emit_switch_main_blocked(reason: str) -> int:
+    """Emit a run-result.v1 'blocked' sentinel for a switch-main precondition failure.
+
+    No output files are written and no Git mutation occurs; the sentinel is
+    emitted to stdout only.
+    """
+    sanitized_reason = _sanitize_sentinel_reason(reason)
+    print(
+        json.dumps(
+            {
+                "schema_version": "run-result.v1",
+                "run_id": "run-switch-main-blocked-precondition",
+                "action": "switch-main",
                 "status": "blocked",
                 "redaction_verified": True,
                 "blocked_reasons": [sanitized_reason],
@@ -827,6 +853,59 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit run-result.v1 JSON.",
     )
 
+    action_run_switch_main_parser = action_subparsers.add_parser(
+        "run-switch-main",
+        help=(
+            "Execute a Stage-D approved switch-main action. "
+            "Requires a ready switch-main-readiness.v1 verdict and a binding-valid "
+            "action-approval-validation.v1, both pinned to the supplied "
+            "action-plan.v1. Re-derives the mutation-critical live state and then "
+            "performs exactly one bounded branch switch to main. "
+            "Writes command-trace.v1, run-result.v1, and run-postcheck.v1. "
+            "No free shell. No fetch, pull, merge, rebase, reset, clean, or checkout."
+        ),
+    )
+    action_run_switch_main_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file (action must be switch-main).",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--approval-validation",
+        required=True,
+        help="Path to an action-approval-validation.v1 JSON file (binding_valid, switch-main).",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--switch-main-readiness",
+        required=True,
+        help="Path to a ready switch-main-readiness.v1 JSON file for the same plan.",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--repo-path",
+        required=True,
+        help="Explicit path to the local git repository to switch in.",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--command-trace-out",
+        required=True,
+        help="Output path for command-trace.v1 JSON. Must not already exist.",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--run-result-out",
+        required=True,
+        help="Output path for run-result.v1 JSON. Must not already exist.",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--postcheck-out",
+        required=True,
+        help="Output path for run-postcheck.v1 JSON. Must not already exist.",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit run-result.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -1298,6 +1377,40 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except ValueError as exc:
             return _emit_pull_blocked(str(exc))
+        print(json.dumps(run_result, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "run-switch-main":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_switch_main_blocked(f"invalid_action_plan_json: {exc}")
+
+        try:
+            with Path(args.approval_validation).open("r", encoding="utf-8") as handle:
+                approval_validation_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_switch_main_blocked(f"invalid_approval_validation_json: {exc}")
+
+        try:
+            with Path(args.switch_main_readiness).open("r", encoding="utf-8") as handle:
+                switch_main_readiness_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_switch_main_blocked(f"invalid_switch_main_readiness_json: {exc}")
+
+        try:
+            run_result = run_switch_main(
+                action_plan=action_plan_data,
+                approval_validation=approval_validation_data,
+                switch_main_readiness=switch_main_readiness_data,
+                repo_path=args.repo_path,
+                command_trace_out=args.command_trace_out,
+                run_result_out=args.run_result_out,
+                postcheck_out=args.postcheck_out,
+            )
+        except ValueError as exc:
+            return _emit_switch_main_blocked(str(exc))
         print(json.dumps(run_result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 

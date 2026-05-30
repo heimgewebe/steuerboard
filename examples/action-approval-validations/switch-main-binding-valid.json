@@ -1,0 +1,17 @@
+{
+  "schema_version": "action-approval-validation.v1",
+  "validation_id": "validation-switch-main-example-001",
+  "plan_ref": "plan-example-switch-main-blocked",
+  "approval_ref": "approval-2026-05-30-switch-main-approved-001",
+  "action": "switch-main",
+  "checked_at": "2026-05-30T12:00:00Z",
+  "binding_state": "binding_valid",
+  "blocked_because": [],
+  "source_refs": [],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_execution": true,
+    "does_not_create_runner": true
+  }
+}

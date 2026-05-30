@@ -1,0 +1,26 @@
+{
+  "action": "switch-main",
+  "checked_at": "2026-05-30T12:00:03Z",
+  "evidence_paths": [
+    "examples/evidence/command-trace-switch-main-success.json",
+    "examples/run-results/run-switch-main-success.json"
+  ],
+  "observations": [
+    "branch_before='docs/runtime-refresh'",
+    "branch_after='main'"
+  ],
+  "postcheck_id": "postcheck-switch-main-example-001",
+  "redaction_verified": true,
+  "repo_toplevel": "/home/alex/code/heimgewebe/infra",
+  "run_id": "run-switch-main-example-001",
+  "run_result_ref": "run-switch-main-example-001",
+  "schema_version": "run-postcheck.v1",
+  "source_refs": [
+    "git.rev_parse_abbrev_ref_head",
+    "git.status_porcelain",
+    "run-result.v1",
+    "command-trace.v1"
+  ],
+  "status": "passed",
+  "trace_ref": "trace-switch-main-example-001"
+}

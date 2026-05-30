@@ -71,11 +71,14 @@ def test_check_reports_no_drift() -> None:
 
 
 def test_run_git_pull_ff_only_is_mutating_stage_d() -> None:
-    # (c) the bounded Stage-D executor is the documented mutating command.
+    # (c) the bounded Stage-D executors are the documented mutating commands.
     by_command = _class_by_command()
     assert by_command["action run-git-pull-ff-only"] == "mutating_stage_d"
-    mutating = [command for command, klass in by_command.items() if klass == "mutating_stage_d"]
-    assert mutating == ["action run-git-pull-ff-only"], "expected exactly one mutating executor"
+    assert by_command["action run-switch-main"] == "mutating_stage_d"
+    mutating = sorted(command for command, klass in by_command.items() if klass == "mutating_stage_d")
+    assert mutating == ["action run-git-pull-ff-only", "action run-switch-main"], (
+        "expected exactly two bounded Stage-D executors"
+    )
 
 
 def test_plan_switch_main_is_derivation_only() -> None:

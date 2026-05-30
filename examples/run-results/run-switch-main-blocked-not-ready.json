@@ -1,0 +1,10 @@
+{
+  "action": "switch-main",
+  "blocked_reasons": [
+    "readiness gate not satisfied: switch_main_readiness.status is 'blocked' (expected 'ready')"
+  ],
+  "redaction_verified": true,
+  "run_id": "run-switch-main-blocked-precondition",
+  "schema_version": "run-result.v1",
+  "status": "blocked"
+}

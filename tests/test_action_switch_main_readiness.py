@@ -8,9 +8,10 @@ These tests prove that switch-main readiness is a pure artifact/proof layer:
   unsupported action);
 - it is ``inconclusive`` when proof material is merely unknown;
 - it never executes, never switches a branch, never mutates, never authorises;
-- ``plan switch-main`` stays ``derivation_only`` and ``action
-  run-git-pull-ff-only`` stays the single ``mutating_stage_d`` action, with no
-  ``run-switch-main`` runner anywhere.
+- ``plan switch-main`` stays ``derivation_only``; the Phase 9A readiness layer
+  itself introduces no runner. The bounded ``run-switch-main`` executor is the
+  separate Phase 9B slice (tested in ``tests/test_action_switch_main.py``), and
+  Stage D now holds exactly two ``mutating_stage_d`` commands.
 """
 from __future__ import annotations
 
@@ -553,18 +554,21 @@ def test_validate_switch_main_readiness_is_derivation_only():
     assert by_command["action validate-switch-main-readiness"] == "derivation_only"
 
 
-def test_run_git_pull_ff_only_remains_the_only_mutating_action():
+def test_stage_d_has_exactly_two_mutating_executors():
+    # Phase 9B added the switch-main executor; Stage D now holds exactly two
+    # bounded mutating commands and no more.
     by_command = {command: klass for command, klass, _ in surface.collect_surface()[1]}
     mutating = sorted(c for c, k in by_command.items() if k == "mutating_stage_d")
-    assert mutating == ["action run-git-pull-ff-only"]
+    assert mutating == ["action run-git-pull-ff-only", "action run-switch-main"]
 
 
-def test_no_switch_main_runner_command_exists():
+def test_switch_main_runner_command_exists_and_is_mutating():
     parser_commands = {
         " ".join(path) for path, _ in surface._iter_leaf_commands(build_parser())
     }
-    assert "action run-switch-main" not in parser_commands
-    assert not any("run-switch-main" in command for command in parser_commands)
+    assert "action run-switch-main" in parser_commands
+    by_command = {command: klass for command, klass, _ in surface.collect_surface()[1]}
+    assert by_command["action run-switch-main"] == "mutating_stage_d"
 
 
 def test_plan_switch_main_stays_derivation_only():

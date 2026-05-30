@@ -1,9 +1,10 @@
 # Action Model
 
-Stage D is now active for **exactly one** bounded mutating action,
-`git-pull-ff-only` (Phase 8E). Every other mutating capability — including
-`switch-main` execution — remains future-gated. `switch-main` has a
-non-mutating readiness/proof layer (Phase 9A) but **no executor**.
+Stage D is now active for **exactly two** bounded mutating actions:
+`git-pull-ff-only` (Phase 8E) and `switch-main` (Phase 9B). Each is a narrow,
+single-operation executor gated behind a reproduced readiness gate; every other
+mutating capability remains future-gated. `switch-main` keeps its non-mutating
+readiness/proof layer (Phase 9A) and now has a bounded executor (Phase 9B).
 
 Plan preview output is not an action executor and not an action authorisation.
 It is a contract artifact derived from prior assessment.
@@ -36,9 +37,11 @@ Stage D: approved execution runner
 
 - executes only approved bounded commands
 - requires plan, approval, trace, run-result, and postcheck
-- active for exactly one action: `git-pull-ff-only` (Phase 8E)
-- all other mutating actions, including `switch-main` execution, remain future only
-- `switch-main` has a non-mutating readiness/proof layer only (Phase 9A); see below
+- active for exactly two actions: `git-pull-ff-only` (Phase 8E) and
+  `switch-main` (Phase 9B)
+- all other mutating actions remain future only
+- `switch-main` also keeps its non-mutating readiness/proof layer (Phase 9A),
+  which the Phase 9B executor consumes; see below
 
 Stage E: UI-triggered approved actions
 
@@ -565,10 +568,94 @@ Classified `derivation_only`.
   no output file is written
 - every produced artifact carries `boundary.does_not_execute = true`,
   `boundary.does_not_mutate = true`, `boundary.does_not_authorise_actions = true`
-- `plan switch-main` is unchanged and stays `derivation_only`;
-  `action run-git-pull-ff-only` stays the only `mutating_stage_d` action
+- the Phase 9A *readiness* layer is non-mutating and introduces no runner; the
+  bounded `switch-main` executor is a separate slice (Phase 9B, below).
+  `plan switch-main` stays `derivation_only`
 
 The full contract lives in
+[docs/switch-main-readiness-contract.md](switch-main-readiness-contract.md).
+
+## Phase 9B — Switch-main Executor
+
+Phase 9B activates Stage D for the second bounded mutating action,
+`switch-main`. It introduces `steuerboard/action_switch_main.py` and the CLI
+subcommand `action run-switch-main` (classified `mutating_stage_d`). It is the
+switch-main analogue of the Phase 8E pull executor, narrowed to exactly one safe
+branch switch to `main`.
+
+The boundary is explicit and layered:
+
+> `ready` readiness is not approval. Approval is not execution. Execution is
+> exactly one bounded branch switch to `main`. Postcheck is required after
+> execution.
+
+### CLI
+
+```bash
+python -m steuerboard action run-switch-main <action-plan-json> \
+  --approval-validation <action-approval-validation-json> \
+  --switch-main-readiness <switch-main-readiness-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --postcheck-out <postcheck-json> \
+  --json
+```
+
+### What the runner does
+
+Given a `switch-main` `action-plan.v1`, an `action-approval-validation.v1`, and a
+Phase 9A `switch-main-readiness.v1`, the runner:
+
+1. Schema-validates all three input artifacts.
+2. Asserts `action_plan.action == "switch-main"`.
+3. Requires `approval_validation.binding_state == "binding_valid"` and that its
+   `plan_ref` and `action` bind to this exact plan.
+4. Requires `switch_main_readiness.status == "ready"`, that its `plan_ref` and
+   `action` bind to this plan, and that its recorded
+   `proof_plan_content_sha256_matches_plan` check equals
+   `canonical_json_sha256(action_plan)` — so a readiness computed for different
+   plan content cannot be substituted.
+5. Validates all three output paths: must not exist, parents must exist, all
+   distinct, none inside the repository worktree.
+6. Resolves the git toplevel via `git rev-parse --show-toplevel` and requires it
+   to equal the readiness `repo_toplevel`.
+7. **Re-derives the mutation-critical live state immediately before the switch**
+   rather than trusting stale artifacts: current branch is known and not
+   detached; worktree is clean (`git status --porcelain=v1` empty); and when the
+   live branch is not `main`, the readiness must carry a passed
+   `branch_lifecycle_proof` check. It does **not** fetch — `origin/main`
+   freshness and ownership coherence are trusted from the readiness verdict, as
+   the Phase 9A contract specifies.
+8. Executes exactly one mutating Git subprocess call:
+   `["git", "--no-optional-locks", "-C", <toplevel>, "switch", "main"]`.
+   No `shell=True`. No checkout fallback, merge, rebase, reset, clean, pull,
+   fetch, push, or branch deletion.
+9. Runs a bounded read-only postcheck (current branch is `main`, worktree still
+   clean) and writes `command-trace.v1`, `run-result.v1`, and `run-postcheck.v1`
+   atomically with rollback on partial failure.
+
+### Postcheck status semantics
+
+| Condition | `run_result.status` | `postcheck.status` | Reason code |
+|---|---|---|---|
+| `git switch` exit code ≠ 0 | `failure` | `failed` | `switch_exit_code_nonzero` |
+| Branch ≠ `main` after switch | `failure` | `failed` | `not_on_main_after_switch` |
+| Worktree dirty after switch | `failure` | `failed` | `worktree_not_clean_after_switch` |
+| Branch unreadable after switch | `success` | `inconclusive` | `branch_unreadable_after_switch` |
+| Post-switch status check error | `success` | `inconclusive` | `post_switch_status_check_failed` |
+| Branch `main` and worktree clean | `success` | `passed` | — |
+
+### Boundary
+
+Phase 9B makes exactly one **mutating** Git subprocess call under a single,
+statically-known argv vector (`switch main`). Read-only pre/post checks
+(`rev-parse --abbrev-ref HEAD`, `status --porcelain=v1`) are separate
+non-mutating subprocess calls. On any precondition failure no output artifacts
+are written and no Git mutation occurs (the CLI may still emit a redacted
+blocked `run-result.v1` sentinel to stdout). Phase 9B does not introduce a
+generic Git executor, a UI trigger, or any fleet/multi-repo switching, and does
+not loosen the Phase 9A readiness gate. The full contract is in
 [docs/switch-main-readiness-contract.md](switch-main-readiness-contract.md).
 
 ## Contract Note: Redefinition of action-plan.v1

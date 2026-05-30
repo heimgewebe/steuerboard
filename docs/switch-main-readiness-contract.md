@@ -18,21 +18,23 @@ Scope of this contract:
 - no Git execution, no branch switch, no mutation, no authorisation
 
 This mirrors the relationship between the Phase 8D.0
-`action-execution-readiness.v1` pull gate and the Phase 8E pull executor — but
-for switch-main the executor half (Phase 9B) does **not** exist yet and is out
-of scope here.
+`action-execution-readiness.v1` pull gate and the Phase 8E pull executor. The
+switch-main executor half (Phase 9B) is now implemented and **consumes** this
+readiness verdict; see [Phase 9B Execution Implementation](#phase-9b-execution-implementation)
+below. This document remains the readiness contract — Phase 9B does not change
+the readiness layer.
 
-## Non-goals
+## Non-goals (Phase 9A readiness layer)
 
-The following are explicitly out of scope for this contract slice:
+The readiness layer itself stays pure and non-mutating. Within Phase 9A the
+following remain explicitly out of scope (the bounded executor is a separate
+slice, Phase 9B, below):
 
-- no `steuerboard action run-switch-main` command
-- no mutating runner
-- no `git switch`, `git checkout`, `merge`, `rebase`, `reset`, or `clean`
-- no Git subprocess of any kind (the readiness layer runs no commands)
+- the readiness module emits no command and runs no Git subprocess of any kind
+- no `git switch`, `git checkout`, `merge`, `rebase`, `reset`, or `clean` in the
+  readiness layer
 - no reclassification of `plan switch-main` (it stays `derivation_only`)
-- no expansion of the single `mutating_stage_d` CLI surface
-  (`action run-git-pull-ff-only` stays the only mutating action)
+- a `ready` verdict never authorises or executes a switch by itself
 
 ## Canonical Chain
 
@@ -155,17 +157,117 @@ python -m steuerboard action validate-switch-main-readiness <action-plan-json> \
 ## Security Boundary
 
 A `switch-main-readiness.v1` artifact is not permission to switch. Execution
-would require a separate approval and a runner contract that **do not exist** in
-this slice. Every artifact carries `boundary.does_not_execute = true`,
-`boundary.does_not_mutate = true`, and
+requires a separate approval (`action-approval-validation.v1`) **and** the
+bounded Phase 9B runner (see
+[Phase 9B Execution Implementation](#phase-9b-execution-implementation)); a
+`ready` verdict alone never switches. Every readiness artifact carries
+`boundary.does_not_execute = true`, `boundary.does_not_mutate = true`, and
 `boundary.does_not_authorise_actions = true`. The readiness module runs no
 subprocess and therefore cannot `switch`, `checkout`, `merge`, `rebase`,
 `reset`, `clean`, or `pull`.
 
 ## Phase 9A vs Phase 9B
 
-- **Phase 9A (this contract):** readiness/proof only. Non-mutating.
-- **Phase 9B (future, out of scope):** a gated switch-main executor, analogous
-  to the Phase 8E pull executor, that would reproduce this readiness gate before
-  performing exactly one bounded branch switch. No such runner exists yet, and
-  none is introduced here.
+- **Phase 9A (readiness, this contract's core):** readiness/proof only.
+  Non-mutating. Emits `switch-main-readiness.v1`.
+- **Phase 9B (executor, implemented):** the gated `switch-main` executor,
+  analogous to the Phase 8E pull executor. It consumes a `ready`
+  `switch-main-readiness.v1`, re-derives the mutation-critical live state, and
+  performs exactly one bounded branch switch to `main`. See
+  [Phase 9B Execution Implementation](#phase-9b-execution-implementation).
+
+## Phase 9B Execution Implementation
+
+Phase 9B implements the bounded `switch-main` executor — the second
+`mutating_stage_d` action alongside `action run-git-pull-ff-only`. It is
+deliberately narrow: it performs exactly one safe branch switch to `main` and
+nothing else.
+
+The boundary is layered and explicit:
+
+> `ready` readiness is not approval. Approval is not execution. Execution is
+> exactly one bounded branch switch to `main`. Postcheck is required after
+> execution.
+
+### CLI command
+
+```bash
+python -m steuerboard action run-switch-main <action-plan-json> \
+  --approval-validation <action-approval-validation-json> \
+  --switch-main-readiness <switch-main-readiness-json> \
+  --repo-path <repo-path> \
+  --command-trace-out <trace-json> \
+  --run-result-out <run-result-json> \
+  --postcheck-out <postcheck-json> \
+  --json
+```
+
+Classified `mutating_stage_d`.
+
+### Inputs and gates
+
+The runner consumes three artifacts, all pinned to the same plan:
+
+- `action-plan.v1` — `action` must be `switch-main`.
+- `action-approval-validation.v1` — `binding_state == "binding_valid"`,
+  `plan_ref == plan.plan_id`, `action == "switch-main"`. This is the separate
+  approval gate: a `ready` readiness verdict is **not** approval.
+- `switch-main-readiness.v1` — `status == "ready"`, `plan_ref` and `action`
+  bound to the plan, and the recorded `proof_plan_content_sha256_matches_plan`
+  check equal to `canonical_json_sha256(action_plan)`. The content-hash binding
+  prevents substituting a readiness computed for different plan content.
+
+### Live safety gates reproduced before mutation
+
+The runner does not merely trust the readiness artifact. Immediately before the
+switch it re-derives, read-only:
+
+- the git toplevel (`git rev-parse --show-toplevel`), which must equal the
+  readiness `repo_toplevel` (and `--repo-path` must resolve to it);
+- the current branch (`git rev-parse --abbrev-ref HEAD`), which must be known
+  and not a detached `HEAD`;
+- worktree cleanliness (`git status --porcelain=v1` must be empty);
+- when the live branch is **not** `main`, the readiness must carry a passed
+  `branch_lifecycle_proof` check (a readiness computed while on `main` cannot
+  authorise leaving a live non-main branch).
+
+It deliberately **does not fetch**: `origin/main` freshness and ownership/path
+coherence are proven by the Phase 9A readiness artifact, never re-fetched here.
+
+Residual boundary: `switch-main-readiness.v1` does not expose the attested
+`current_branch` at top level, so the executor proves the lifecycle gate was
+attested for *a* non-main branch but does not bind the attested branch *name* to
+the live one. The live worktree-clean re-check protects uncommitted work, and
+`git switch` never deletes a branch, so committed work on the departed branch is
+preserved regardless. A future hardening could bind `current_branch` into the
+readiness artifact.
+
+### Security contract
+
+- The only mutating Git subprocess call is the exact bounded switch:
+  `["git", "--no-optional-locks", "-C", <toplevel>, "switch", "main"]`.
+- No `shell=True`. No free shell. No `git checkout` fallback, merge, rebase,
+  reset, clean, pull, fetch, push, branch deletion, or conflict resolution.
+- Output paths must not exist before the run; parents must exist; all three are
+  distinct and none may reside inside the git worktree.
+- Precondition failures emit a stdout sentinel (`run-result.v1` with
+  `status: blocked`, `action: switch-main`) and exit nonzero, but write no
+  output files and perform no Git mutation.
+
+### Output artifacts
+
+All three output artifacts are written atomically with a rollback chain:
+
+1. `command-trace.v1` — exact command argv, exit code, redacted stdout/stderr.
+2. `run-result.v1` — `action: switch-main`, status, plan hash, timestamps.
+3. `run-postcheck.v1` — `action: switch-main`, postcheck status, and
+   `branch_before`/`branch_after` observations.
+
+| Condition | `run_result.status` | `postcheck.status` | Reason code |
+|---|---|---|---|
+| `git switch` exit code ≠ 0 | `failure` | `failed` | `switch_exit_code_nonzero` |
+| Branch ≠ `main` after switch | `failure` | `failed` | `not_on_main_after_switch` |
+| Worktree dirty after switch | `failure` | `failed` | `worktree_not_clean_after_switch` |
+| Branch unreadable after switch | `success` | `inconclusive` | `branch_unreadable_after_switch` |
+| Post-switch status check error | `success` | `inconclusive` | `post_switch_status_check_failed` |
+| Branch `main` and worktree clean | `success` | `passed` | — |

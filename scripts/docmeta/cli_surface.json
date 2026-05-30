@@ -4,7 +4,7 @@
     "read_only": "Reads, observes, or runs a bounded read-only command; no repository mutation and no network access.",
     "derivation_only": "Pure transformation or artifact validation producing preview/derived artifacts; no repository mutation, no network access, no execution.",
     "fetch_only": "Performs exactly one bounded network fetch and writes evidence; no working-tree mutation.",
-    "mutating_stage_d": "Bounded Stage-D executor that mutates the working tree (exactly one fast-forward pull) behind a reproduced readiness gate."
+    "mutating_stage_d": "Bounded Stage-D executor that performs exactly one mutating Git operation (a fast-forward pull, or a switch to main) behind a reproduced readiness gate."
   },
   "commands": {
     "observe repo": "read_only",
@@ -25,6 +25,7 @@
     "action validate-switch-main-readiness": "derivation_only",
     "action bind-preflight-to-action": "derivation_only",
     "remote-refresh fetch-origin-prune": "fetch_only",
-    "action run-git-pull-ff-only": "mutating_stage_d"
+    "action run-git-pull-ff-only": "mutating_stage_d",
+    "action run-switch-main": "mutating_stage_d"
   }
 }

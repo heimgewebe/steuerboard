@@ -797,9 +797,16 @@ Phase 9 ist in eine Beweis- und eine Ausführungshälfte geteilt:
   CLI `action validate-switch-main-readiness`, klassifiziert `derivation_only`),
   führt aber keinen Switch aus, mutiert nicht und autorisiert nicht. Details:
   `docs/switch-main-readiness-contract.md`.
-- **Phase 9B (zukünftig):** der gegatete `switch-main`-Executor. Existiert noch
-  nicht. `pull --ff-only auf main` ist als Stage-D-Pilot bereits in Phase 8E
-  umgesetzt (`action run-git-pull-ff-only`, die einzige mutierende Aktion).
+- **Phase 9B (umgesetzt, mutierend, eng gegatet):** der gegatete
+  `switch-main`-Executor (`action run-switch-main`, klassifiziert
+  `mutating_stage_d`). Er konsumiert eine `ready` `switch-main-readiness.v1` und
+  eine `binding_valid` `action-approval-validation.v1`, reproduziert die
+  mutationskritischen Live-Gates (Toplevel, aktueller Branch, sauberer
+  Worktree, Branch-Lifecycle bei Nicht-main-Branch), fetcht **nicht** und führt
+  genau einen Branchwechsel auf `main` aus, gefolgt von einem Postcheck.
+  `pull --ff-only auf main` ist der erste Stage-D-Pilot (Phase 8E,
+  `action run-git-pull-ff-only`). Stage D enthält damit genau **zwei** gegatete
+  Executor.
 
 `plan switch-main` bleibt Preview/`derivation_only`.
 
