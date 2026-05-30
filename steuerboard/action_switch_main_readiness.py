@@ -341,6 +341,7 @@ def validate_switch_main_readiness(
                 )
                 inconclusive_reasons.append("branch_lifecycle_unknown")
             else:
+                # Strict True check ensures only boolean true is accepted as proven
                 lifecycle_proven = branch_lifecycle_proof is True
                 _record_check(
                     checks,
