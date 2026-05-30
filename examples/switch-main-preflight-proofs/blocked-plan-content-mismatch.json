@@ -1,0 +1,28 @@
+{
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "checked_at": "2026-05-30T12:00:00Z",
+  "current_branch": "docs/runtime-refresh",
+  "default_branch": "main",
+  "ownership_ok": true,
+  "plan_action": "switch-main",
+  "plan_content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "plan_ref": "plan-example-switch-main-blocked",
+  "proof_id": "switch-main-proof-example-blocked-content-001",
+  "remote_main_fresh": true,
+  "repo_toplevel": "/home/alex/code/heimgewebe/infra",
+  "schema_version": "switch-main-preflight-proof.v1",
+  "source_refs": [
+    "git.rev_parse.toplevel",
+    "git.current_branch",
+    "git.default_branch_candidate",
+    "git.status.porcelain",
+    "git.ahead_behind",
+    "git.remote.origin.url",
+    "local_config.canonical_repo_roots"
+  ],
+  "worktree_clean": true
+}

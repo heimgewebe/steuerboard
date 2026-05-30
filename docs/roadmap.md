@@ -925,3 +925,59 @@ statically-known argv vector (`--ff-only`).  Read-only pre/post checks
 Phase 8E does not expand the action allowlist further,
 does not introduce `switch-main` execution, and does not remove the Phase 8A
 read-only runner.
+
+## Phase 9A — Switch-main Execution Readiness (non-mutating)
+
+Phase 9A introduces the **non-mutating** readiness/proof layer for a future
+`switch-main` action. It is the switch-main analogue of the Phase 8D.0
+`action-execution-readiness.v1` pull gate, and the deliberate proof belt that
+must exist before any future switch-main executor (Phase 9B).
+
+It introduces `steuerboard/action_switch_main_readiness.py`, the CLI subcommand
+`action validate-switch-main-readiness` (classified `derivation_only`), and two
+schema-validated artifacts:
+
+- `switch-main-preflight-proof.v1` — input proof material carrying the plan
+  binding (`plan_ref`, `plan_action`, `plan_content_sha256`) plus observed
+  repository-state claims (`repo_toplevel`, `current_branch`, `default_branch`,
+  `worktree_clean`, `remote_main_fresh`, `ownership_ok`).
+- `switch-main-readiness.v1` — output verdict: `ready` / `blocked` /
+  `inconclusive`.
+
+### What the validator does
+
+Given a `switch-main` `action-plan.v1` and a `switch-main-preflight-proof.v1`,
+the validator:
+
+1. Schema-validates both inputs.
+2. Asserts `action_plan.action == "switch-main"` (else `unsupported_action`).
+3. Verifies the proof binds to the plan: `plan_ref`, `plan_action`, and
+   `plan_content_sha256 == canonical_json_sha256(action_plan)`.
+4. Evaluates the observed state gates: `repo_toplevel`/`current_branch`/
+   `default_branch` known, `default_branch == main`, `worktree_clean`,
+   `remote_main_fresh`, `ownership_ok`.
+5. Emits `switch-main-readiness.v1` with `ready` only when every hard gate
+   passes and all proof material is present and consistent; `blocked` on any
+   hard contradiction (hard failures dominate unknowns); `inconclusive` when
+   material is merely unknown.
+
+### Decision contract
+
+As in Phase 8D.0, the plan's own `decision` is not an independent readiness
+blocker. Readiness is a pure evidence gate over proof material and plan binding,
+orthogonal to whether a switch is needed. A `ready` verdict proves that a later
+switch could be evaluated; it is never permission to switch.
+
+### Boundary
+
+Phase 9A makes **no** Git subprocess calls of any kind — the module imports no
+subprocess surface, so it cannot switch, checkout, merge, rebase, reset, clean,
+or pull. It does not execute, does not switch a branch, does not mutate, and
+does not authorise actions. Every produced artifact carries const-true boundary
+flags.
+
+Phase 9A does **not** introduce a `switch-main` runner. `plan switch-main` stays
+`derivation_only`; `action run-git-pull-ff-only` stays the only
+`mutating_stage_d` action. The switch-main executor (Phase 9B) remains
+future-only and out of scope. The full contract is in
+`docs/switch-main-readiness-contract.md`.

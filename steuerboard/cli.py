@@ -12,6 +12,7 @@ from .action_git_pull import run_git_pull_ff_only
 from .action_plans import plan_git_pull_ff_only, plan_switch_main
 from .action_preflight_bindings import bind_preflight_to_action
 from .action_runs import run_read_only_action
+from .action_switch_main_readiness import validate_switch_main_readiness
 from .assessment import assess_repo
 from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
@@ -178,6 +179,53 @@ def _emit_preflight_binding_inconclusive(reason: str) -> int:
                 "source_refs": [
                     "action-plan.v1",
                     "run-evidence-chain.v1",
+                ],
+                "boundary": {
+                    "does_not_execute": True,
+                    "does_not_mutate": True,
+                    "does_not_authorise_actions": True,
+                },
+            },
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+    return 1
+
+
+def _emit_switch_main_readiness_inconclusive(reason: str) -> int:
+    """Emit a switch-main-readiness.v1 'inconclusive' sentinel for a precondition failure.
+
+    No output file is written; the sentinel is emitted to stdout only and the
+    process exits non-zero. Phase 9A is non-mutating: this never switches a
+    branch, never authorises, and never executes.
+    """
+    now = datetime.now(timezone.utc)
+    checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    sanitized_reason = _sanitize_sentinel_reason(reason)
+    print(
+        json.dumps(
+            {
+                "schema_version": "switch-main-readiness.v1",
+                "readiness_id": "switch-main-readiness-blocked-precondition",
+                "checked_at": checked_at,
+                "action": "switch-main",
+                "plan_ref": "unknown",
+                "proof_ref": "unknown",
+                "status": "inconclusive",
+                "blocked_because": [],
+                "failure_reasons": [sanitized_reason],
+                "checks": [
+                    {
+                        "check": "preconditions_satisfied",
+                        "passed": False,
+                        "actual": sanitized_reason,
+                    }
+                ],
+                "source_refs": [
+                    "action-plan.v1",
+                    "switch-main-preflight-proof.v1",
                 ],
                 "boundary": {
                     "does_not_execute": True,
@@ -691,6 +739,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit action-preflight-binding.v1 JSON.",
     )
 
+    action_validate_switch_main_readiness_parser = action_subparsers.add_parser(
+        "validate-switch-main-readiness",
+        help=(
+            "Validate Phase 9A switch-main readiness from a switch-main action-plan.v1 "
+            "and a switch-main-preflight-proof.v1. Writes switch-main-readiness.v1. "
+            "Pure artifact validation only — no execution, no branch switch, no "
+            "mutation, no authorisation. Proof that a later switch could be "
+            "evaluated, never permission to switch."
+        ),
+    )
+    action_validate_switch_main_readiness_parser.add_argument(
+        "action_plan_json",
+        help="Path to an action-plan.v1 JSON file (action must be switch-main).",
+    )
+    action_validate_switch_main_readiness_parser.add_argument(
+        "--preflight-proof",
+        required=True,
+        help="Path to a switch-main-preflight-proof.v1 JSON file.",
+    )
+    action_validate_switch_main_readiness_parser.add_argument(
+        "--readiness-out",
+        required=True,
+        help="Output path for switch-main-readiness.v1 JSON. Must not already exist.",
+    )
+    action_validate_switch_main_readiness_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit switch-main-readiness.v1 JSON.",
+    )
+
     action_run_git_pull_ff_only_parser = action_subparsers.add_parser(
         "run-git-pull-ff-only",
         help=(
@@ -1154,6 +1233,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 approval_validation_path=args.approval_validation,
                 run_evidence_chain_path=args.run_evidence_chain,
             )
+        print(json.dumps(readiness, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "action" and args.action_command == "validate-switch-main-readiness":
+        try:
+            with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
+                action_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_switch_main_readiness_inconclusive(f"invalid_action_plan_json: {exc}")
+
+        try:
+            with Path(args.preflight_proof).open("r", encoding="utf-8") as handle:
+                preflight_proof_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return _emit_switch_main_readiness_inconclusive(f"invalid_preflight_proof_json: {exc}")
+
+        try:
+            readiness = validate_switch_main_readiness(
+                action_plan=action_plan_data,
+                preflight_proof=preflight_proof_data,
+                readiness_out=args.readiness_out,
+            )
+        except ValueError as exc:
+            return _emit_switch_main_readiness_inconclusive(str(exc))
         print(json.dumps(readiness, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 

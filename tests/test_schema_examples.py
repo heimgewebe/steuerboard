@@ -100,6 +100,15 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "action-execution-readiness/git-pull-ff-only-blocked-expired-approval.json",
     "action-execution-readiness/git-pull-ff-only-inconclusive-chain.json",
     "action-execution-readiness/git-pull-ff-only-blocked-invalid-chain.json",
+    "switch-main-preflight-proofs/ready.json",
+    "switch-main-preflight-proofs/blocked-dirty-worktree.json",
+    "switch-main-preflight-proofs/blocked-plan-content-mismatch.json",
+    "switch-main-preflight-proofs/blocked-plan-action-mismatch.json",
+    "switch-main-preflight-proofs/inconclusive-default-branch-unknown.json",
+    "switch-main-preflight-proofs/inconclusive-missing-repo-toplevel.json",
+    "switch-main-readiness/ready.json",
+    "switch-main-readiness/blocked-dirty-worktree.json",
+    "switch-main-readiness/inconclusive-default-branch-unknown.json",
 }
 
 FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {

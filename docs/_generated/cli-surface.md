@@ -11,7 +11,7 @@ marked block in `README.md`. Classification lives in
 `scripts/docmeta/cli_surface.json` and is declared explicitly, never inferred
 from help text.
 
-Capability counts: read_only=10, derivation_only=6, fetch_only=1, mutating_stage_d=1.
+Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage_d=1.
 
 <!-- BEGIN GENERATED: cli-surface -->
 | Command | Capability class | Invocation |
@@ -29,6 +29,7 @@ Capability counts: read_only=10, derivation_only=6, fetch_only=1, mutating_stage
 | `action bind-preflight-to-action` | `derivation_only` | `python -m steuerboard action bind-preflight-to-action <action-plan-json> --run-evidence-chain <run-evidence-chain> --binding-out <binding-out> --json` |
 | `action validate-execution-readiness` | `derivation_only` | `python -m steuerboard action validate-execution-readiness <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --readiness-out <readiness-out> [--preflight-binding <preflight-binding>] --json` |
 | `action validate-run-chain` | `derivation_only` | `python -m steuerboard action validate-run-chain <action-plan-json> --command-trace <command-trace> --run-result <run-result> --run-postcheck <run-postcheck> --chain-out <chain-out> --json` |
+| `action validate-switch-main-readiness` | `derivation_only` | `python -m steuerboard action validate-switch-main-readiness <action-plan-json> --preflight-proof <preflight-proof> --readiness-out <readiness-out> --json` |
 | `approval validate` | `derivation_only` | `python -m steuerboard approval validate <approval-json> --plan <plan> --checked-at <checked-at> --json` |
 | `plan git-pull-ff-only` | `derivation_only` | `python -m steuerboard plan git-pull-ff-only <assessment-json> [--remote-refresh-result <remote-refresh-result>] --json` |
 | `plan switch-main` | `derivation_only` | `python -m steuerboard plan switch-main <assessment-json> --json` |

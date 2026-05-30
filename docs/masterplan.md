@@ -787,6 +787,22 @@ Mutierende Git-Aktionen gehören nicht in diese Phase und bleiben future-gated.
 
 ### Phase 9 — Gated Mutating Actions
 
+#### Status (Phase 9A vs 9B)
+
+Phase 9 ist in eine Beweis- und eine Ausführungshälfte geteilt:
+
+- **Phase 9A (umgesetzt, nicht-mutierend):** reine Readiness-/Proof-Schicht für
+  `switch-main`. Sie bildet das untenstehende Gate artefaktisch ab
+  (`switch-main-preflight-proof.v1` → `switch-main-readiness.v1`,
+  CLI `action validate-switch-main-readiness`, klassifiziert `derivation_only`),
+  führt aber keinen Switch aus, mutiert nicht und autorisiert nicht. Details:
+  `docs/switch-main-readiness-contract.md`.
+- **Phase 9B (zukünftig):** der gegatete `switch-main`-Executor. Existiert noch
+  nicht. `pull --ff-only auf main` ist als Stage-D-Pilot bereits in Phase 8E
+  umgesetzt (`action run-git-pull-ff-only`, die einzige mutierende Aktion).
+
+`plan switch-main` bleibt Preview/`derivation_only`.
+
 #### Erlaubt mit Gate
 
 - switch main
