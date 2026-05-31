@@ -34,7 +34,7 @@ from steuerboard.runbooks import (  # noqa: E402
     check_worktree_clean,
     run_runbook,
 )
-from steuerboard.cli import build_parser  # noqa: E402
+from steuerboard.cli import build_parser, main  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +310,70 @@ class TestCLIAndRunner:
         written = load_json(Path(result_out))
         assert written == result
 
+    def test_cli_error_sentinel_schema_valid_for_invalid_runbook_kind(self, tmp_path, capsys):
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        plan["runbook_kind"] = "dns-gate"
+        plan_path = tmp_path / "plan.json"
+        plan_path.write_text(json.dumps(plan), encoding="utf-8")
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        exit_code = main(
+            [
+                "runbook",
+                "run",
+                str(plan_path),
+                "--result-out",
+                str(result_out),
+                "--command-trace-out",
+                str(trace_out),
+                "--json",
+            ]
+        )
+
+        assert exit_code == 1
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+        payload = json.loads(capsys.readouterr().out)
+        validate_instance(payload, _runbook_result_schema(), Path("stdout"))
+        assert payload["status"] == "blocked"
+        assert payload["runbook_kind"] == "repo-sync-gate"
+        assert "dns-gate" in payload["short_assessment"]
+
+    def test_cli_error_sentinel_normalizes_non_string_refs(self, tmp_path, capsys):
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        plan["runbook_id"] = 123
+        plan["repo_path"] = 456
+        plan_path = tmp_path / "plan.json"
+        plan_path.write_text(json.dumps(plan), encoding="utf-8")
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        exit_code = main(
+            [
+                "runbook",
+                "run",
+                str(plan_path),
+                "--result-out",
+                str(result_out),
+                "--command-trace-out",
+                str(trace_out),
+                "--json",
+            ]
+        )
+
+        assert exit_code == 1
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+        payload = json.loads(capsys.readouterr().out)
+        validate_instance(payload, _runbook_result_schema(), Path("stdout"))
+        assert payload["status"] == "blocked"
+        assert payload["runbook_ref"] == "unknown"
+        assert payload["repo_path"] == "unknown"
+        assert isinstance(payload["short_assessment"], str)
+
 
 # ---------------------------------------------------------------------------
 # C. Output safety
@@ -388,6 +452,36 @@ class TestOutputSafety:
         assert not result_out.exists()
         assert not trace_out.exists()
 
+    def test_rejects_result_out_inside_repo_worktree(self, tmp_path):
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        result_out = ROOT / "result-inside-worktree.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError, match="outside repository worktree"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+    def test_rejects_command_trace_out_inside_repo_worktree(self, tmp_path):
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        result_out = tmp_path / "result.json"
+        trace_out = ROOT / "trace-inside-worktree.jsonl"
+
+        with pytest.raises(ValueError, match="outside repository worktree"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
     def test_no_partial_outputs_on_second_replace_failure(self, tmp_path, monkeypatch):
         """If os.replace succeeds for trace but fails for result, neither file exists.
 
@@ -395,16 +489,16 @@ class TestOutputSafety:
         os.replace commits the trace file, a failure on the second os.replace
         must clean up the already-committed trace file too.
         """
-        import os as _real_os
         import steuerboard.runbooks as _runbooks_mod
 
+        original_replace = _runbooks_mod.os.replace
         call_count = [0]
 
         def _failing_replace(src, dst):
             call_count[0] += 1
             if call_count[0] == 1:
                 # First call (trace): delegate to real os.replace
-                _real_os.replace(src, dst)
+                original_replace(src, dst)
             else:
                 # Second call (result): simulate failure
                 raise OSError("simulated failure on second replace")

@@ -1518,17 +1518,29 @@ def main(argv: Sequence[str] | None = None) -> int:
                 command_trace_out=args.command_trace_out,
             )
         except ValueError as exc:
+            runbook_id_raw = runbook_plan_data.get("runbook_id")
+            runbook_ref = (
+                runbook_id_raw.strip()
+                if isinstance(runbook_id_raw, str) and runbook_id_raw.strip()
+                else "unknown"
+            )
+            repo_path_raw = runbook_plan_data.get("repo_path")
+            repo_path = (
+                repo_path_raw.strip()
+                if isinstance(repo_path_raw, str) and repo_path_raw.strip()
+                else "unknown"
+            )
             print(
                 json.dumps(
                     {
                         "schema_version": "runbook-result.v1",
                         "result_id": "rbresult-blocked-precondition",
-                        "runbook_ref": runbook_plan_data.get("runbook_id", "unknown"),
-                        "runbook_kind": runbook_plan_data.get("runbook_kind", "repo-sync-gate"),
+                        "runbook_ref": runbook_ref,
+                        "runbook_kind": "repo-sync-gate",
                         "status": "blocked",
                         "started_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
                         "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-                        "repo_path": runbook_plan_data.get("repo_path", "unknown"),
+                        "repo_path": repo_path,
                         "short_assessment": str(exc),
                         "steps": [],
                         "evidence_paths": [],

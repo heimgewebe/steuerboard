@@ -57,6 +57,10 @@ It does not synchronize.
 It does not fetch freshness.
 It does not switch.
 It does not pull.
+It checks local diagnosis conditions only.
+`passed` means local diagnosis looked unblocked at check time.
+`passed` does not prove remote freshness.
+`passed` is not permission for pull, switch, or any Stage-D executor.
 
 ## Output contract
 
@@ -74,6 +78,7 @@ Use:
 - inconclusive
 
 Do not invent permissive statuses.
+Do not soften blocked or inconclusive into permissive language.
 
 ## Phase 11A vs future phases
 

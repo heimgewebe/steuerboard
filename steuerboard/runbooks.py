@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -104,6 +105,47 @@ def _require_output_path(raw: str, label: str) -> Path:
     if target.exists():
         raise ValueError(f"{label} must not already exist")
     return parent.resolve(strict=True) / target.name
+
+
+def _resolve_repo_worktree_root(repo_path_raw: str) -> Path:
+    repo_path = Path(repo_path_raw).expanduser().resolve()
+    env = os.environ.copy()
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "--show-toplevel"],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+    except OSError:
+        completed = None
+
+    if completed and completed.returncode == 0 and completed.stdout.strip():
+        return Path(completed.stdout.strip()).expanduser().resolve()
+
+    observation = observe_repo(repo_path)
+    repo_toplevel = observation.get("repo_toplevel")
+    if isinstance(repo_toplevel, str) and repo_toplevel.strip():
+        return Path(repo_toplevel).expanduser().resolve()
+    return repo_path
+
+
+def _ensure_outputs_outside_worktree(
+    repo_worktree_root: Path,
+    result_out: Path,
+    command_trace_out: Path,
+) -> None:
+    for label, output_path in (("result_out", result_out), ("command_trace_out", command_trace_out)):
+        try:
+            output_path.relative_to(repo_worktree_root)
+        except ValueError:
+            continue
+        raise ValueError(
+            f"{label} must be outside repository worktree for read_only runbook: {output_path}"
+        )
 
 
 def _validate_plan_preconditions(
@@ -323,6 +365,8 @@ def run_runbook(
 
     # --- Validate plan schema, kind, mode, path distinctness ---
     _validate_plan_preconditions(runbook_plan, result_path, trace_path)
+    repo_worktree_root = _resolve_repo_worktree_root(str(runbook_plan["repo_path"]))
+    _ensure_outputs_outside_worktree(repo_worktree_root, result_path, trace_path)
 
     # --- Execution begins here ---
     runbook_id = runbook_plan["runbook_id"]
