@@ -321,6 +321,67 @@ class TestCLIAndRunner:
         written = load_json(Path(result_out))
         assert written == result
 
+    def test_repo_sync_gate_observe_failure_stays_inconclusive(self, tmp_path, monkeypatch):
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        result_out = str(tmp_path / "result.json")
+        trace_out = str(tmp_path / "trace.jsonl")
+
+        def _boom(_path):
+            raise RuntimeError("observe exploded")
+
+        def _assessment(_path):
+            return {
+                "decision_state": "evidence_missing",
+                "source_refs": ["assessment.ref"],
+            }
+
+        monkeypatch.setattr("steuerboard.runbooks.observe_repo", _boom)
+        monkeypatch.setattr("steuerboard.runbooks.assess_repo", _assessment)
+
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=result_out,
+            command_trace_out=trace_out,
+        )
+
+        assert result["status"] == "inconclusive"
+        statuses = {s["step_id"]: s["status"] for s in result["steps"]}
+        assert statuses["step-check-is-git-repo"] == "inconclusive"
+        assert statuses["step-check-worktree-clean"] == "inconclusive"
+
+    def test_repo_sync_gate_merges_source_refs_from_plan_observation_assessment(
+        self, tmp_path, monkeypatch
+    ):
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        plan["source_refs"] = ["plan.ref"]
+        result_out = str(tmp_path / "result.json")
+        trace_out = str(tmp_path / "trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks.observe_repo",
+            lambda _path: {
+                "observed_state": {
+                    "is_git_repo": True,
+                    "dirty": False,
+                    "current_branch": "main",
+                    "default_branch_candidate": "main",
+                },
+                "source_refs": ["obs.ref", "plan.ref", "", 123],
+            },
+        )
+        monkeypatch.setattr(
+            "steuerboard.runbooks.assess_repo",
+            lambda _path: {"decision_state": "assessment_clear", "source_refs": ["assess.ref", "obs.ref"]},
+        )
+
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=result_out,
+            command_trace_out=trace_out,
+        )
+
+        assert result["source_refs"] == ["plan.ref", "obs.ref", "assess.ref"]
+
     def test_cli_error_sentinel_schema_valid_for_invalid_runbook_kind(self, tmp_path, capsys):
         plan = _valid_runbook_plan(repo_path=str(ROOT))
         plan["runbook_kind"] = "dns-gate"
@@ -351,6 +412,7 @@ class TestCLIAndRunner:
         assert payload["status"] == "blocked"
         assert payload["runbook_kind"] == "repo-sync-gate"
         assert "dns-gate" in payload["short_assessment"]
+        assert "schema-compatibility fallback" in payload["short_assessment"]
 
     def test_cli_error_sentinel_normalizes_non_string_refs(self, tmp_path, capsys):
         plan = _valid_runbook_plan(repo_path=str(ROOT))
@@ -384,6 +446,7 @@ class TestCLIAndRunner:
         assert payload["runbook_ref"] == "unknown"
         assert payload["repo_path"] == "unknown"
         assert isinstance(payload["short_assessment"], str)
+        assert "schema-compatibility fallback" in payload["short_assessment"]
 
     def test_cli_error_sentinel_normalizes_non_dict_json_array(self, tmp_path, capsys):
         plan_path = tmp_path / "plan.json"
@@ -415,6 +478,7 @@ class TestCLIAndRunner:
         assert payload["repo_path"] == "unknown"
         assert payload["runbook_kind"] == "repo-sync-gate"
         assert isinstance(payload["short_assessment"], str)
+        assert "schema-compatibility fallback" in payload["short_assessment"]
 
     def test_cli_error_sentinel_normalizes_non_dict_json_string(self, tmp_path, capsys):
         plan_path = tmp_path / "plan.json"
@@ -446,6 +510,7 @@ class TestCLIAndRunner:
         assert payload["repo_path"] == "unknown"
         assert payload["runbook_kind"] == "repo-sync-gate"
         assert isinstance(payload["short_assessment"], str)
+        assert "schema-compatibility fallback" in payload["short_assessment"]
 
 
 # ---------------------------------------------------------------------------
@@ -786,6 +851,18 @@ class TestNoMutationSurface:
 # ---------------------------------------------------------------------------
 
 class TestStepCheckFunctions:
+    def test_check_is_git_repo_inconclusive_when_missing(self):
+        status, _ = check_is_git_repo({"observed_state": {}})
+        assert status == "inconclusive"
+
+    def test_check_is_git_repo_inconclusive_when_none(self):
+        status, _ = check_is_git_repo({"observed_state": {"is_git_repo": None}})
+        assert status == "inconclusive"
+
+    def test_check_is_git_repo_inconclusive_when_non_bool(self):
+        status, _ = check_is_git_repo({"observed_state": {"is_git_repo": "yes"}})
+        assert status == "inconclusive"
+
     def test_check_is_git_repo_passes_for_git_repo(self):
         obs = {"observed_state": {"is_git_repo": True}}
         status, _ = check_is_git_repo(obs)
@@ -800,6 +877,18 @@ class TestStepCheckFunctions:
         obs = {"observed_state": {"is_git_repo": True, "dirty": False}}
         status, _ = check_worktree_clean(obs)
         assert status == "passed"
+
+    def test_check_worktree_clean_inconclusive_when_missing(self):
+        status, _ = check_worktree_clean({"observed_state": {"is_git_repo": True}})
+        assert status == "inconclusive"
+
+    def test_check_worktree_clean_inconclusive_when_none(self):
+        status, _ = check_worktree_clean({"observed_state": {"dirty": None}})
+        assert status == "inconclusive"
+
+    def test_check_worktree_clean_inconclusive_when_non_bool(self):
+        status, _ = check_worktree_clean({"observed_state": {"dirty": "false"}})
+        assert status == "inconclusive"
 
     def test_check_worktree_clean_blocks_for_dirty(self):
         obs = {"observed_state": {"is_git_repo": True, "dirty": True}}

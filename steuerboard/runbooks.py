@@ -95,6 +95,24 @@ def _trace_id(step_id: str) -> str:
     return f"rbtrace-{step_id}-{now}-{digest}"
 
 
+def _merge_source_refs(*groups: Any) -> list[str]:
+    """Merge source_refs preserving insertion order and uniqueness."""
+    refs: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        if not isinstance(group, list):
+            continue
+        for ref in group:
+            if not isinstance(ref, str):
+                continue
+            clean_ref = ref.strip()
+            if not clean_ref or clean_ref in seen:
+                continue
+            seen.add(clean_ref)
+            refs.append(clean_ref)
+    return refs
+
+
 def _require_output_path(raw: str, label: str) -> Path:
     """Return resolved Path; raise ValueError if parent missing or target exists."""
     candidate = Path(raw).expanduser()
@@ -192,47 +210,68 @@ def _validate_plan_preconditions(
 
 def check_is_git_repo(observation: dict[str, Any]) -> tuple[str, str]:
     """Return (step_status, label_note) for the is-git-repo check."""
-    obs_state = observation.get("observed_state", {})
-    is_git = obs_state.get("is_git_repo", False)
-    if is_git:
+    obs_state = observation.get("observed_state")
+    if not isinstance(obs_state, dict):
+        return "inconclusive", "Git repository status is unknown."
+    is_git = obs_state.get("is_git_repo")
+    if is_git is True:
         return "passed", "Path is a git repository."
-    return "blocked", "Path is not a git repository."
+    if is_git is False:
+        return "blocked", "Path is not a git repository."
+    return "inconclusive", "Git repository status is unknown."
 
 
 def check_worktree_clean(observation: dict[str, Any]) -> tuple[str, str]:
     """Return (step_status, label_note) for the worktree-clean check."""
-    obs_state = observation.get("observed_state", {})
-    dirty = obs_state.get("dirty", False)
-    if not dirty:
+    obs_state = observation.get("observed_state")
+    if not isinstance(obs_state, dict):
+        return "inconclusive", "Worktree cleanliness is unknown."
+    dirty = obs_state.get("dirty")
+    if dirty is False:
         return "passed", "Worktree is clean."
-    return "blocked", "Worktree is dirty (uncommitted changes present)."
+    if dirty is True:
+        return "blocked", "Worktree is dirty (uncommitted changes present)."
+    return "inconclusive", "Worktree cleanliness is unknown."
 
 
 def check_not_detached_head(observation: dict[str, Any]) -> tuple[str, str]:
     """Return (step_status, label_note) for the not-detached-head check."""
-    obs_state = observation.get("observed_state", {})
-    is_git = obs_state.get("is_git_repo", False)
-    if not is_git:
-        return "inconclusive", "Not a git repository; HEAD check skipped."
+    obs_state = observation.get("observed_state")
+    if not isinstance(obs_state, dict):
+        return "inconclusive", "Git repository status is unknown; HEAD check skipped."
+    is_git = obs_state.get("is_git_repo")
+    if is_git is not True:
+        if is_git is False:
+            return "inconclusive", "Not a git repository; HEAD check skipped."
+        return "inconclusive", "Git repository status is unknown; HEAD check skipped."
     current_branch = obs_state.get("current_branch")
-    if current_branch is not None:
+    if current_branch is None:
+        return "blocked", "HEAD is detached."
+    if isinstance(current_branch, str) and current_branch.strip():
         return "passed", f"HEAD is on branch {current_branch!r}."
-    # current_branch is None => detached HEAD
-    return "blocked", "HEAD is detached."
+    return "inconclusive", "Current branch is unknown; HEAD check inconclusive."
 
 
 def check_on_default_branch(observation: dict[str, Any]) -> tuple[str, str]:
     """Return (step_status, label_note) for the on-default-branch check."""
-    obs_state = observation.get("observed_state", {})
-    is_git = obs_state.get("is_git_repo", False)
-    if not is_git:
-        return "inconclusive", "Not a git repository; branch check skipped."
+    obs_state = observation.get("observed_state")
+    if not isinstance(obs_state, dict):
+        return "inconclusive", "Git repository status is unknown; branch check skipped."
+    is_git = obs_state.get("is_git_repo")
+    if is_git is not True:
+        if is_git is False:
+            return "inconclusive", "Not a git repository; branch check skipped."
+        return "inconclusive", "Git repository status is unknown; branch check skipped."
     current_branch = obs_state.get("current_branch")
     if current_branch is None:
         return "inconclusive", "HEAD is detached; default branch check skipped."
+    if not isinstance(current_branch, str) or not current_branch.strip():
+        return "inconclusive", "Current branch is unknown."
+    current_branch = current_branch.strip()
     default_candidate = obs_state.get("default_branch_candidate")
-    if default_candidate is None:
+    if not isinstance(default_candidate, str) or not default_candidate.strip():
         return "inconclusive", "Default branch candidate is unknown."
+    default_candidate = default_candidate.strip()
     if current_branch == default_candidate:
         return "passed", f"Current branch {current_branch!r} matches default branch candidate {default_candidate!r}."
     return "blocked", (
@@ -372,8 +411,6 @@ def run_runbook(
     runbook_id = runbook_plan["runbook_id"]
     repo_path_str = runbook_plan["repo_path"]
     runbook_kind = runbook_plan["runbook_kind"]
-    source_refs = list(runbook_plan.get("source_refs", []))
-
     started_at = _utc_now()
     steps: list[dict[str, Any]] = []
     step_traces: list[dict[str, Any]] = []
@@ -577,11 +614,12 @@ def run_runbook(
     # --- Build short assessment ---
     short_assessment = _build_short_assessment(overall_status, steps, runbook_kind, assessment)
 
-    # --- Merge source_refs from observation and assessment ---
-    all_source_refs = list(source_refs)
-    for ref in observation.get("source_refs", []):
-        if ref not in all_source_refs:
-            all_source_refs.append(ref)
+    # --- Merge source_refs from plan, observation, and assessment ---
+    all_source_refs = _merge_source_refs(
+        runbook_plan.get("source_refs", []),
+        observation.get("source_refs", []),
+        assessment.get("source_refs", []),
+    )
 
     # --- Build runbook-result.v1 ---
     result: dict[str, Any] = {

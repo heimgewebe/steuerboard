@@ -68,7 +68,11 @@ The runbook must write:
 - runbook-result.v1
 - runbook-step-trace.v1 JSONL
 
-Precondition failures write no output files unless the failure happens after execution has begun and the schema explicitly permits a blocked result.
+Precondition failures write no `--result-out` or `--command-trace-out` files.
+For CLI precondition failures, stdout may carry a schema-compatible blocked diagnostic sentinel with exit code 1.
+That stdout sentinel is diagnostic material for a failed CLI invocation, not a successfully generated runbook result artifact.
+If plan input is invalid, sentinel fields may use schema-compatibility fallbacks (for example `runbook_kind: "repo-sync-gate"`); those fallback values are not validated claims about the input plan.
+The sentinel never authorises Stage-D execution, action execution, sync, pull, or switch.
 
 ## Status semantics
 

@@ -1492,7 +1492,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "started_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
                         "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
                         "repo_path": "unknown",
-                        "short_assessment": f"invalid_runbook_plan_json: {exc}",
+                        "short_assessment": (
+                            f"diagnostic_sentinel_precondition: invalid_runbook_plan_json: {exc}; "
+                            "runbook_kind is a schema-compatibility fallback and not validated input"
+                        ),
                         "steps": [],
                         "evidence_paths": [],
                         "source_refs": [],
@@ -1545,7 +1548,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "started_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
                         "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
                         "repo_path": repo_path,
-                        "short_assessment": str(exc),
+                        "short_assessment": (
+                            f"diagnostic_sentinel_precondition: {exc}; "
+                            "runbook_kind is a schema-compatibility fallback and not validated input"
+                        ),
                         "steps": [],
                         "evidence_paths": [],
                         "source_refs": [],
