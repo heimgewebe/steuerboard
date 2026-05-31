@@ -908,6 +908,11 @@ class TestStepCheckFunctions:
         status, _ = check_not_detached_head(obs)
         assert status == "blocked"
 
+    def test_check_not_detached_head_inconclusive_when_branch_missing(self):
+        obs = {"observed_state": {"is_git_repo": True}}
+        status, _ = check_not_detached_head(obs)
+        assert status == "inconclusive"
+
     def test_check_on_default_branch_passes_when_on_default(self):
         obs = {
             "observed_state": {

@@ -250,6 +250,8 @@ def check_not_detached_head(observation: dict[str, Any]) -> tuple[str, str]:
         if is_git is False:
             return "inconclusive", "Not a git repository; HEAD check skipped."
         return "inconclusive", "Git repository status is unknown; HEAD check skipped."
+    if "current_branch" not in obs_state:
+        return "inconclusive", "Current branch is unknown; HEAD check inconclusive."
     current_branch_raw = obs_state.get("current_branch")
     if current_branch_raw is None:
         return "blocked", "HEAD is detached."
