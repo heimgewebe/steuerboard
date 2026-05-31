@@ -118,6 +118,10 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "switch-main-readiness/inconclusive-default-branch-unknown.json",
     "switch-main-readiness/inconclusive-missing-repo-toplevel.json",
     "switch-main-readiness/inconclusive-branch-lifecycle-unknown.json",
+    "ui-view-models/cli-surface-summary.json",
+    "ui-view-models/switch-main-readiness-ready-view.json",
+    "ui-view-models/run-switch-main-success-view.json",
+    "ui-view-models/blocked-readiness-view.json",
 }
 
 FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {

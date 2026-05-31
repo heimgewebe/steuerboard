@@ -1,0 +1,95 @@
+{
+  "schema_version": "ui-view-model.v1",
+  "view_id": "ui-view-switch-main-readiness-blocked",
+  "generated_at": "2026-05-31T00:00:00Z",
+  "title": "Switch-main readiness: blocked",
+  "view_kind": "readiness",
+  "status": "blocked",
+  "source_artifact": {
+    "artifact_schema_version": "switch-main-readiness.v1",
+    "artifact_ref": "switch-main-readiness-5c1ff5062a2fed2488a173e65eef8a9cec4e77228f95a8db16da2075fe0f4b62",
+    "artifact_path": "examples/switch-main-readiness/blocked-dirty-worktree.json"
+  },
+  "summary": [
+    {
+      "label": "Status",
+      "value": "blocked",
+      "severity": "danger"
+    },
+    {
+      "label": "Meaning",
+      "value": "blocked stays blocked. The display does not soften, override, or bypass it.",
+      "severity": "info"
+    },
+    {
+      "label": "Repository",
+      "value": "/home/alex/code/heimgewebe/infra",
+      "severity": "info"
+    },
+    {
+      "label": "Current branch",
+      "value": "docs/runtime-refresh",
+      "severity": "info"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Why it is blocked",
+      "rows": [
+        {
+          "label": "worktree_not_clean",
+          "value": "blocking",
+          "severity": "danger",
+          "source_ref": "switch-main-readiness.failure_reasons"
+        },
+        {
+          "label": "branch_lifecycle_unknown",
+          "value": "blocking",
+          "severity": "danger",
+          "source_ref": "switch-main-readiness.failure_reasons"
+        }
+      ]
+    },
+    {
+      "heading": "Gate checks",
+      "rows": [
+        {
+          "label": "worktree_clean",
+          "value": "failed",
+          "severity": "danger",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "branch_lifecycle_proof",
+          "value": "unknown",
+          "severity": "unknown",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "default_branch_is_main",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "remote_main_fresh",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "Unknown remains unknown. Inconclusive remains inconclusive. Blocked remains blocked. The UI adds no authority."
+  ],
+  "source_refs": [
+    "examples/switch-main-readiness/blocked-dirty-worktree.json"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "display_only": true
+  }
+}

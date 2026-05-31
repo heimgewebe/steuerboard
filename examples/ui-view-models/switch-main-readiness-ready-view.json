@@ -1,0 +1,95 @@
+{
+  "schema_version": "ui-view-model.v1",
+  "view_id": "ui-view-switch-main-readiness-ready",
+  "generated_at": "2026-05-31T00:00:00Z",
+  "title": "Switch-main readiness: ready",
+  "view_kind": "readiness",
+  "status": "ready",
+  "source_artifact": {
+    "artifact_schema_version": "switch-main-readiness.v1",
+    "artifact_ref": "switch-main-readiness-ff06cea57439bab1372201169d87e762f30f0e1ac1399ab101414a11d9344994",
+    "artifact_path": "examples/switch-main-readiness/ready.json"
+  },
+  "summary": [
+    {
+      "label": "Status",
+      "value": "ready",
+      "severity": "success"
+    },
+    {
+      "label": "Meaning",
+      "value": "Display-only readiness. Proof that a switch could be evaluated, never permission to switch.",
+      "severity": "info"
+    },
+    {
+      "label": "Plan",
+      "value": "plan-example-switch-main-blocked",
+      "severity": "info"
+    },
+    {
+      "label": "Repository",
+      "value": "/home/alex/code/heimgewebe/infra",
+      "severity": "info"
+    },
+    {
+      "label": "Current branch",
+      "value": "docs/runtime-refresh",
+      "severity": "info"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Readiness gates (all passed)",
+      "rows": [
+        {
+          "label": "plan_action_supported",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "default_branch_is_main",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "branch_lifecycle_proof",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "worktree_clean",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "remote_main_fresh",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        },
+        {
+          "label": "ownership_ok",
+          "value": "passed",
+          "severity": "success",
+          "source_ref": "switch-main-readiness.checks"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "ready is display-only. It is not approval and not execution permission."
+  ],
+  "source_refs": [
+    "examples/switch-main-readiness/ready.json"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "display_only": true
+  }
+}

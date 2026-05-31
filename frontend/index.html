@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>steuerboard — read-only view-model display (Phase 10A)</title>
+  <style>
+    :root {
+      --fg: #1c2024;
+      --muted: #5a6470;
+      --line: #d7dde3;
+      --bg: #f7f9fb;
+      --card: #ffffff;
+      --info: #2c6fb3;
+      --success: #1f8a4c;
+      --warning: #b5860b;
+      --danger: #b3322c;
+      --unknown: #6b7280;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    main { max-width: 880px; margin: 0 auto; padding: 24px 18px 64px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .banner {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--info);
+      background: var(--card);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 12px 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: vertical;
+      background: var(--card);
+      color: var(--fg);
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-top: 18px;
+    }
+    .titlerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .badge {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+    }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; }
+    td.label { white-space: nowrap; font-weight: 600; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+    h2 { font-size: 15px; margin: 18px 0 4px; }
+    .warn { color: var(--warning); font-size: 13px; margin: 4px 0; }
+    .refs { color: var(--muted); font-size: 12px; margin-top: 12px; word-break: break-all; }
+    .err { color: var(--danger); font-weight: 600; }
+    .s-info { color: var(--info); }
+    .s-success { color: var(--success); }
+    .s-warning { color: var(--warning); }
+    .s-danger { color: var(--danger); }
+    .s-unknown { color: var(--unknown); }
+    .bg-info { background: var(--info); }
+    .bg-success { background: var(--success); }
+    .bg-warning { background: var(--warning); }
+    .bg-danger { background: var(--danger); }
+    .bg-unknown { background: var(--unknown); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>steuerboard read-only view-model display</h1>
+    <div class="banner">
+      Phase 10A scaffold. This page renders a <code>ui-view-model.v1</code> artifact and nothing
+      else. It has no network access, no server, and no controls that act. It reads pasted JSON,
+      verifies the display-only boundary, and shows the facts. It changes nothing.
+    </div>
+
+    <label for="src">Paste a ui-view-model.v1 artifact (see <code>examples/ui-view-models/</code>):</label>
+    <textarea id="src" spellcheck="false" placeholder="Paste a ui-view-model.v1 JSON document here to render it read-only."></textarea>
+
+    <div id="out" class="card">
+      <p class="meta">Waiting for a ui-view-model.v1 document. Nothing is rendered yet.</p>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    var SEVERITIES = ["info", "success", "warning", "danger", "unknown"];
+
+    function severityClass(sev, prefix) {
+      return SEVERITIES.indexOf(sev) === -1 ? prefix + "unknown" : prefix + sev;
+    }
+
+    // A document may be displayed only when its boundary marks it display-only and
+    // every boundary flag is true. The renderer references no per-action verb; it
+    // reads the guarantee generically so it can never act on what it shows.
+    function isDisplayOnly(boundary) {
+      if (!boundary || typeof boundary !== "object" || Array.isArray(boundary)) return false;
+      if (boundary.display_only !== true) return false;
+      var values = Object.keys(boundary).map(function (k) { return boundary[k]; });
+      return values.length > 0 && values.every(function (v) { return v === true; });
+    }
+
+    function el(tag, cls, text) {
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined && text !== null) node.textContent = String(text);
+      return node;
+    }
+
+    function renderRows(parent, rows) {
+      var table = el("table");
+      var tbody = el("tbody");
+      (rows || []).forEach(function (row) {
+        var tr = el("tr");
+        var tdL = el("td", "label");
+        var dot = el("span", "dot " + severityClass(row.severity, "bg-"));
+        tdL.appendChild(dot);
+        tdL.appendChild(document.createTextNode(String(row.label)));
+        var tdV = el("td", severityClass(row.severity, "s-"), row.value);
+        tr.appendChild(tdL);
+        tr.appendChild(tdV);
+        if (row.source_ref) {
+          var tdS = el("td", "meta", row.source_ref);
+          tr.appendChild(tdS);
+        }
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      parent.appendChild(table);
+    }
+
+    function render(view) {
+      var out = document.getElementById("out");
+      out.textContent = "";
+
+      // Titlerow: title + status badge.
+      var titlerow = el("div", "titlerow");
+      titlerow.appendChild(el("strong", null, view.title));
+      if (view.status) {
+        titlerow.appendChild(el("span", "badge " + severityClass(statusSeverity(view.status), "s-"), view.status));
+      }
+      out.appendChild(titlerow);
+
+      var sa = view.source_artifact || {};
+      out.appendChild(el("div", "meta",
+        view.view_kind + " · derived from " + (sa.artifact_schema_version || "?") +
+        " (" + (sa.artifact_ref || "?") + ")"));
+
+      if (Array.isArray(view.summary) && view.summary.length) {
+        renderRows(out, view.summary);
+      }
+
+      (view.sections || []).forEach(function (section) {
+        out.appendChild(el("h2", null, section.heading));
+        renderRows(out, section.rows);
+      });
+
+      (view.warnings || []).forEach(function (w) {
+        out.appendChild(el("p", "warn", "⚠ " + w));
+      });
+
+      var refs = [];
+      if (sa.artifact_path) refs.push(sa.artifact_path);
+      (view.source_refs || []).forEach(function (r) { refs.push(r); });
+      if (refs.length) {
+        out.appendChild(el("div", "refs", "sources: " + refs.join(" · ")));
+      }
+    }
+
+    function statusSeverity(status) {
+      switch (status) {
+        case "success":
+        case "ready":
+        case "ok": return "success";
+        case "blocked":
+        case "failure": return "danger";
+        case "inconclusive": return "warning";
+        default: return "unknown";
+      }
+    }
+
+    function showError(message) {
+      var out = document.getElementById("out");
+      out.textContent = "";
+      out.appendChild(el("p", "err", message));
+    }
+
+    function update() {
+      var raw = document.getElementById("src").value.trim();
+      var out = document.getElementById("out");
+      if (!raw) {
+        out.textContent = "";
+        out.appendChild(el("p", "meta", "Waiting for a ui-view-model.v1 document. Nothing is rendered yet."));
+        return;
+      }
+      var view;
+      try {
+        view = JSON.parse(raw);
+      } catch (e) {
+        showError("Not valid JSON: " + e.message);
+        return;
+      }
+      if (!view || view.schema_version !== "ui-view-model.v1") {
+        showError("Refusing to render: schema_version must be \"ui-view-model.v1\".");
+        return;
+      }
+      if (!isDisplayOnly(view.boundary)) {
+        showError("Refusing to render: boundary is not display-only (all flags must be true).");
+        return;
+      }
+      render(view);
+    }
+
+    document.getElementById("src").addEventListener("input", update);
+    update();
+  </script>
+</body>
+</html>

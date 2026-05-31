@@ -1,0 +1,79 @@
+{
+  "schema_version": "ui-view-model.v1",
+  "view_id": "ui-view-run-switch-main-success",
+  "generated_at": "2026-05-31T00:00:00Z",
+  "title": "Run result: switch-main (success)",
+  "view_kind": "run_result",
+  "status": "success",
+  "source_artifact": {
+    "artifact_schema_version": "run-result.v1",
+    "artifact_ref": "run-switch-main-example-001",
+    "artifact_path": "examples/run-results/run-switch-main-success.json"
+  },
+  "summary": [
+    {
+      "label": "Run",
+      "value": "run-switch-main-example-001",
+      "severity": "info"
+    },
+    {
+      "label": "Result",
+      "value": "success",
+      "severity": "success"
+    },
+    {
+      "label": "Postcheck",
+      "value": "passed",
+      "severity": "success"
+    },
+    {
+      "label": "Plan",
+      "value": "plan-example-switch-main-blocked",
+      "severity": "info"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Recorded run evidence",
+      "rows": [
+        {
+          "label": "branch_before",
+          "value": "docs/runtime-refresh",
+          "severity": "info",
+          "source_ref": "run-postcheck.observations"
+        },
+        {
+          "label": "branch_after",
+          "value": "main",
+          "severity": "success",
+          "source_ref": "run-postcheck.observations"
+        },
+        {
+          "label": "Repository",
+          "value": "/home/alex/code/heimgewebe/infra",
+          "severity": "info",
+          "source_ref": "run-postcheck.repo_toplevel"
+        },
+        {
+          "label": "Redaction verified",
+          "value": "true",
+          "severity": "success",
+          "source_ref": "run-result.redaction_verified"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "This view displays recorded run evidence only. It exposes no rerun, retry, or action control."
+  ],
+  "source_refs": [
+    "examples/run-results/run-switch-main-success.json",
+    "examples/run-postchecks/switch-main-passed.json"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "display_only": true
+  }
+}

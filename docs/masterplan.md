@@ -875,7 +875,28 @@ Repo auf Feature-Branch
 
 Darstellung, keine eigene Logik.
 
-#### Module
+#### Status (Phase 10A umgesetzt)
+
+Phase 10A ist die erste, contract-first Scheibe dieser Phase: ein **read-only
+Darstellungsvertrag**, kein Bedienpult. Sie führt `docs/ui-readonly-contract.md`,
+das strikte Schema `ui-view-model.v1`, abgeleitete Beispiel-View-Models
+(`examples/ui-view-models/`) und ein minimales, abhängigkeitsfreies statisches
+Read-only-Scaffold (`frontend/index.html`) ein.
+
+Ein UI-View-Model ist Navigations-/Darstellungsmaterial, nicht kanonischer
+Repo-Zustand und keine Action-Freigabe. Jedes View-Model trägt eine const-true
+Boundary (`does_not_execute`, `does_not_mutate`, `does_not_authorise_actions`,
+`display_only`). Phase 10A fügt **keine** Action-Buttons, **kein** Backend,
+**keinen** Server, **kein** Live-Git und **keine** mutierende Fähigkeit hinzu;
+Stage D bleibt bei genau zwei Executoren (`run-git-pull-ff-only`,
+`run-switch-main`).
+
+Die untenstehenden Module, die Server-Sicherheitsgrenze und UI-getriggerte
+Actions (Stage E in `docs/action-model.md`) bleiben **future-gated** und sind
+nicht Teil von Phase 10A. Jede dieser Erweiterungen erfordert einen eigenen
+Vertrag.
+
+#### Module (Zielbild, future)
 
 - Repo-Übersicht
 - Inventory / Scope
@@ -886,7 +907,10 @@ Darstellung, keine eigene Logik.
 - Evidence-Viewer
 - Action-Plan-Viewer
 
-#### Sicherheitsgrenze
+#### Sicherheitsgrenze (future: lokaler Server)
+
+Gilt erst, wenn ein späterer Vertrag einen lokalen Server einführt; in Phase 10A
+gibt es keinen Server.
 
 - bind 127.0.0.1
 - kein LAN-Bind
@@ -900,6 +924,10 @@ Darstellung, keine eigene Logik.
 #### Stop-Kriterium
 
 UI zeigt exakt dieselben Ergebnisse wie CLI-JSON.
+
+Phase 10A erfüllt dies bereits für statische `ui-view-model.v1`-Artefakte:
+`docs/ui-readonly-contract.md` (Parity-Regel) plus
+`tests/test_ui_view_models.py`.
 
 ---
 

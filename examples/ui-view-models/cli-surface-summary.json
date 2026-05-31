@@ -1,0 +1,97 @@
+{
+  "schema_version": "ui-view-model.v1",
+  "view_id": "ui-view-cli-surface-summary",
+  "generated_at": "2026-05-31T00:00:00Z",
+  "title": "CLI capability surface",
+  "view_kind": "cli_surface",
+  "status": "ok",
+  "source_artifact": {
+    "artifact_schema_version": "cli-surface.generated",
+    "artifact_ref": "docs/_generated/cli-surface.md",
+    "artifact_path": "docs/_generated/cli-surface.md"
+  },
+  "summary": [
+    {
+      "label": "Total commands",
+      "value": "20",
+      "severity": "info"
+    },
+    {
+      "label": "read_only",
+      "value": "10",
+      "severity": "info"
+    },
+    {
+      "label": "derivation_only",
+      "value": "7",
+      "severity": "info"
+    },
+    {
+      "label": "fetch_only",
+      "value": "1",
+      "severity": "info"
+    },
+    {
+      "label": "mutating_stage_d",
+      "value": "2",
+      "severity": "warning"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Mutating Stage-D executors (exactly two)",
+      "rows": [
+        {
+          "label": "action run-git-pull-ff-only",
+          "value": "mutating_stage_d",
+          "severity": "warning",
+          "source_ref": "scripts/docmeta/cli_surface.json"
+        },
+        {
+          "label": "action run-switch-main",
+          "value": "mutating_stage_d",
+          "severity": "warning",
+          "source_ref": "scripts/docmeta/cli_surface.json"
+        }
+      ]
+    },
+    {
+      "heading": "Capability classes",
+      "rows": [
+        {
+          "label": "read_only",
+          "value": "Reads or runs a bounded read-only command; no mutation, no network.",
+          "severity": "info"
+        },
+        {
+          "label": "derivation_only",
+          "value": "Pure transformation or artifact validation; no mutation, no network, no execution.",
+          "severity": "info"
+        },
+        {
+          "label": "fetch_only",
+          "value": "Exactly one bounded network fetch and evidence write; no working-tree mutation.",
+          "severity": "info"
+        },
+        {
+          "label": "mutating_stage_d",
+          "value": "Bounded Stage-D executor; exactly one mutating Git operation behind a readiness gate.",
+          "severity": "warning"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "This view is display material derived from the generated CLI surface. It is not the CLI and triggers nothing."
+  ],
+  "source_refs": [
+    "docs/_generated/cli-surface.md",
+    "scripts/docmeta/cli_surface.json"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "display_only": true
+  }
+}
