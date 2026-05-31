@@ -10,12 +10,8 @@ from __future__ import annotations
 
 import ast
 import json
-import os
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -25,14 +21,12 @@ SCHEMAS_DIR = ROOT / "schemas"
 
 sys.path.insert(0, str(ROOT))
 
-from scripts.validate_examples import (
+from scripts.validate_examples import (  # noqa: E402
     ValidationError,
     load_json,
     validate_instance,
-    minimal_validate,
 )
-from steuerboard.runbooks import (
-    PHASE_11A_RUNBOOK_KINDS,
+from steuerboard.runbooks import (  # noqa: E402
     check_decision_state,
     check_is_git_repo,
     check_not_detached_head,
@@ -40,7 +34,7 @@ from steuerboard.runbooks import (
     check_worktree_clean,
     run_runbook,
 )
-from steuerboard.cli import build_parser
+from steuerboard.cli import build_parser  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +387,109 @@ class TestOutputSafety:
 
         assert not result_out.exists()
         assert not trace_out.exists()
+
+    def test_no_partial_outputs_on_second_replace_failure(self, tmp_path, monkeypatch):
+        """If os.replace succeeds for trace but fails for result, neither file exists.
+
+        This verifies the rollback logic introduced for Fix 2: after the first
+        os.replace commits the trace file, a failure on the second os.replace
+        must clean up the already-committed trace file too.
+        """
+        import os as _real_os
+        import steuerboard.runbooks as _runbooks_mod
+
+        call_count = [0]
+
+        def _failing_replace(src, dst):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call (trace): delegate to real os.replace
+                _real_os.replace(src, dst)
+            else:
+                # Second call (result): simulate failure
+                raise OSError("simulated failure on second replace")
+
+        monkeypatch.setattr(_runbooks_mod.os, "replace", _failing_replace)
+
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(OSError):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists(), (
+            "result.json must NOT exist after second os.replace failure"
+        )
+        assert not trace_out.exists(), (
+            "trace.jsonl must NOT exist after second os.replace failure — "
+            "already-committed target must be rolled back"
+        )
+
+    def test_result_evidence_paths_contains_trace(self, tmp_path):
+        """The written result JSON must contain the command_trace_out path in evidence_paths."""
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        result_out = str(tmp_path / "result.json")
+        trace_out = str(tmp_path / "trace.jsonl")
+        # _require_output_path resolves the path; use the same resolution for comparison.
+        resolved_trace_out = str(Path(trace_out).expanduser().resolve())
+
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=result_out,
+            command_trace_out=trace_out,
+        )
+
+        assert resolved_trace_out in result["evidence_paths"], (
+            f"command_trace_out {resolved_trace_out!r} must appear in evidence_paths; "
+            f"got {result['evidence_paths']!r}"
+        )
+
+        # Also verify the written JSON matches
+        written = load_json(Path(result_out))
+        assert resolved_trace_out in written["evidence_paths"]
+
+    def test_invalid_generated_artifact_writes_nothing(self, tmp_path, monkeypatch):
+        """If the generated result dict violates the schema, neither output file is written."""
+        import steuerboard.runbooks as _runbooks_mod
+
+        original_build = _runbooks_mod._build_short_assessment
+
+        def _inject_extra_field(*args, **kwargs):
+            # Return a string (valid short_assessment), but patch the result dict
+            # by monkeypatching _result_id to force an extra field into the result later.
+            return original_build(*args, **kwargs)
+
+        # We inject an invalid field into the result dict by patching _result_id
+        # to return a value, then patching the result construction path. The
+        # cleanest approach: monkeypatch _validate_result to simulate a validation
+        # error, which is what would happen if additionalProperties:false fired.
+        def _always_fail(result):
+            raise ValueError("schema validation error: extra_field is not allowed")
+
+        monkeypatch.setattr(_runbooks_mod, "_validate_result", _always_fail)
+
+        plan = _valid_runbook_plan(repo_path=str(ROOT))
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists(), (
+            "result.json must NOT be written when result schema validation fails"
+        )
+        assert not trace_out.exists(), (
+            "trace.jsonl must NOT be written when result schema validation fails"
+        )
 
 
 # ---------------------------------------------------------------------------

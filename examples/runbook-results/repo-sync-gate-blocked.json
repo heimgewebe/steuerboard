@@ -18,7 +18,7 @@
     {
       "step_id": "step-derive-assessment",
       "label": "Derive repo assessment",
-      "status": "blocked",
+      "status": "passed",
       "source_ref": "repo-assessment.v1"
     },
     {
@@ -47,7 +47,7 @@
       "status": "blocked"
     }
   ],
-  "evidence_paths": [],
+  "evidence_paths": ["examples/runbook-traces/repo-sync-gate-command-trace.jsonl"],
   "source_refs": [
     "runbook-model.v1",
     "repo-assessment.v1",

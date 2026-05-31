@@ -47,7 +47,7 @@
       "status": "passed"
     }
   ],
-  "evidence_paths": [],
+  "evidence_paths": ["examples/runbook-traces/repo-sync-gate-command-trace.jsonl"],
   "source_refs": [
     "runbook-model.v1",
     "repo-assessment.v1",

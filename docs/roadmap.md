@@ -1042,6 +1042,25 @@ Boundary for this slice:
 The full contract is in `docs/switch-main-readiness-contract.md`
 (Phase 9B Execution Implementation).
 
+## Phase 11A — Read-only Runbook Starter: repo-sync-gate
+
+Status: implemented.
+
+Scope:
+- runbook-plan.v1
+- runbook-result.v1
+- runbook-step-trace.v1
+- CLI: python -m steuerboard runbook run <runbook-plan-json> --result-out <result-json> --command-trace-out <trace-jsonl> --json
+- exactly one runbook kind: repo-sync-gate
+- read-only/derivation-only only
+
+Boundary:
+- no mutating action
+- no Stage-D executor call
+- no Git mutation
+- no fetch/pull/switch
+- no backend/server/UI trigger
+
 ## Phase 10A — Read-only UI Display Contract + View-Model Layer
 
 Status: implemented.

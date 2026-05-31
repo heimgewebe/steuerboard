@@ -25,7 +25,6 @@ import hashlib
 import json
 import os
 import tempfile
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from time import time_ns
@@ -217,6 +216,28 @@ def check_decision_state(assessment: dict[str, Any]) -> tuple[str, str]:
     return "inconclusive", f"Assessment decision_state is unknown or missing: {decision_state!r}."
 
 
+def _validate_step_trace(entry: dict[str, Any]) -> None:
+    """Validate a step trace entry against the runbook-step-trace.v1 schema.
+
+    Raises ValueError if validation fails.
+    """
+    try:
+        jsonschema_validate(entry, _get_runbook_step_trace_schema())
+    except (SchemaValidationError, Exception) as exc:
+        raise ValueError(f"step trace entry failed schema validation: {exc}") from exc
+
+
+def _validate_result(result: dict[str, Any]) -> None:
+    """Validate the result dict against the runbook-result.v1 schema.
+
+    Raises ValueError if validation fails.
+    """
+    try:
+        jsonschema_validate(result, _get_runbook_result_schema())
+    except (SchemaValidationError, Exception) as exc:
+        raise ValueError(f"runbook result failed schema validation: {exc}") from exc
+
+
 def _derive_overall_status(steps: list[dict[str, Any]]) -> str:
     """Derive overall runbook status from step statuses.
 
@@ -327,7 +348,7 @@ def run_runbook(
     observe_status = "passed"
     try:
         observation = observe_repo(Path(repo_path_str))
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         observe_status = "inconclusive"
         observation = {
             "observed_state": {},
@@ -361,7 +382,7 @@ def run_runbook(
     assess_status = "passed"
     try:
         assessment = assess_repo(Path(repo_path_str))
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         assess_status = "inconclusive"
         assessment = {
             "decision_state": "evidence_missing",
@@ -530,7 +551,7 @@ def run_runbook(
         "repo_path": repo_path_str,
         "short_assessment": short_assessment,
         "steps": steps,
-        "evidence_paths": [],
+        "evidence_paths": [str(trace_path)],
         "source_refs": all_source_refs,
         "redaction_verified": True,
         "boundary": BOUNDARY,
@@ -539,6 +560,7 @@ def run_runbook(
     # --- Atomic write: temp files -> os.replace ---
     trace_tmp_path: Path | None = None
     result_tmp_path: Path | None = None
+    committed_targets: list[Path] = []
     try:
         # Write trace JSONL to temp file
         with tempfile.NamedTemporaryFile(
@@ -550,7 +572,11 @@ def run_runbook(
         ) as trace_tmp:
             trace_tmp_path = Path(trace_tmp.name)
             for entry in step_traces:
+                _validate_step_trace(entry)
                 trace_tmp.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+
+        # Validate result before writing
+        _validate_result(result)
 
         # Write result JSON to temp file
         with tempfile.NamedTemporaryFile(
@@ -565,22 +591,28 @@ def run_runbook(
                 json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
             )
 
-        # Commit atomically
+        # Commit atomically; track each committed target so we can roll back on
+        # partial failure (e.g. second os.replace fails after first succeeds).
         os.replace(trace_tmp_path, trace_path)
         trace_tmp_path = None
+        committed_targets.append(trace_path)
         os.replace(result_tmp_path, result_path)
         result_tmp_path = None
+        committed_targets.append(result_path)
 
     except Exception:
-        # Clean up any partial temp files on failure
-        if trace_tmp_path is not None and trace_tmp_path.exists():
+        # Clean up temp files that were never promoted.
+        for tmp in (trace_tmp_path, result_tmp_path):
+            if tmp is not None and tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+        # Clean up any already-committed target files so no partial output
+        # remains on disk when the overall operation fails.
+        for target in committed_targets:
             try:
-                trace_tmp_path.unlink()
-            except OSError:
-                pass
-        if result_tmp_path is not None and result_tmp_path.exists():
-            try:
-                result_tmp_path.unlink()
+                os.unlink(target)
             except OSError:
                 pass
         raise
