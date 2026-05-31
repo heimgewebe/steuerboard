@@ -1,5 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/runbook-step-trace.v1.schema.json",
   "title": "runbook-step-trace.v1",
   "type": "object",
   "required": ["schema_version", "trace_id", "runbook_ref", "step_id", "operation", "capability_class", "started_at", "finished_at", "status", "redaction_verified"],

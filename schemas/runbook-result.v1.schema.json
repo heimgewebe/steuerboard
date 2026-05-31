@@ -1,5 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/runbook-result.v1.schema.json",
   "title": "runbook-result.v1",
   "type": "object",
   "required": ["schema_version", "result_id", "runbook_ref", "runbook_kind", "status", "started_at", "finished_at", "repo_path", "short_assessment", "steps", "evidence_paths", "source_refs", "redaction_verified", "boundary"],

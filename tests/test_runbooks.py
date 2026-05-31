@@ -76,6 +76,17 @@ def _valid_runbook_plan(repo_path: str = "/tmp/test-repo") -> dict:
 # ---------------------------------------------------------------------------
 
 class TestSchemaAndExamples:
+    def test_runbook_schemas_declare_draft_2020_12_with_id(self):
+        expected = {
+            "runbook-plan.v1.schema.json": "https://example.invalid/steuerboard/schemas/runbook-plan.v1.schema.json",
+            "runbook-result.v1.schema.json": "https://example.invalid/steuerboard/schemas/runbook-result.v1.schema.json",
+            "runbook-step-trace.v1.schema.json": "https://example.invalid/steuerboard/schemas/runbook-step-trace.v1.schema.json",
+        }
+        for filename, schema_id in expected.items():
+            schema = load_json(SCHEMAS_DIR / filename)
+            assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+            assert schema["$id"] == schema_id
+
     def test_runbook_plan_example_validates(self):
         schema = _runbook_plan_schema()
         example = load_json(EXAMPLES_DIR / "runbooks/repo-sync-gate.json")
