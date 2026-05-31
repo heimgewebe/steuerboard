@@ -1,0 +1,27 @@
+{
+  "schema_version": "runbook-plan.v1",
+  "runbook_id": "runbook-dns-gate-20260531-001",
+  "runbook_kind": "dns-gate",
+  "created_at": "2026-05-31T10:00:00Z",
+  "repo_path": "/home/alex/repos/steuerboard",
+  "mode": "read_only",
+  "dns_checks": [
+    {
+      "check_id": "dns-heimberry-home-arpa-a",
+      "hostname": "heimberry.home.arpa",
+      "record_type": "A",
+      "expected_values": ["192.168.178.62"],
+      "required": true
+    }
+  ],
+  "source_refs": [
+    "runbook-model.v1",
+    "local DNS truth"
+  ],
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

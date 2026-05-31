@@ -1,0 +1,31 @@
+{
+  "schema_version": "runbook-result.v1",
+  "result_id": "rbresult-dns-gate-20260531-blocked-001",
+  "runbook_ref": "runbook-dns-gate-20260531-001",
+  "runbook_kind": "dns-gate",
+  "status": "blocked",
+  "started_at": "2026-05-31T10:00:01Z",
+  "finished_at": "2026-05-31T10:00:02Z",
+  "repo_path": "/home/alex/repos/steuerboard",
+  "short_assessment": "DNS-gate blocked. Required checks blocked=['dns-heimberry-home-arpa-a']. Observed DNS responses did not match expected values.",
+  "steps": [
+    {
+      "step_id": "step-dns-check-001",
+      "label": "DNS check 'dns-heimberry-home-arpa-a': hostname='heimberry.home.arpa', record_type='A', expected_values=['192.168.178.62'], observed_values=['192.168.178.99'], required=True, reason_code=dns_expected_values_mismatch",
+      "status": "blocked",
+      "source_ref": "local DNS truth"
+    }
+  ],
+  "evidence_paths": ["examples/runbook-traces/dns-gate-command-trace.jsonl"],
+  "source_refs": [
+    "runbook-model.v1",
+    "local DNS truth"
+  ],
+  "redaction_verified": true,
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": "runbook-result.v1",
+  "result_id": "rbresult-dns-gate-20260531-inconclusive-001",
+  "runbook_ref": "runbook-dns-gate-20260531-001",
+  "runbook_kind": "dns-gate",
+  "status": "inconclusive",
+  "started_at": "2026-05-31T10:00:01Z",
+  "finished_at": "2026-05-31T10:00:02Z",
+  "repo_path": "/home/alex/repos/steuerboard",
+  "short_assessment": "DNS-gate inconclusive. Required checks inconclusive=['dns-heimberry-home-arpa-a']. Resolver evidence was incomplete or unavailable for a reliable verdict.",
+  "steps": [
+    {
+      "step_id": "step-dns-check-001",
+      "label": "DNS check 'dns-heimberry-home-arpa-a': hostname='heimberry.home.arpa', record_type='A', expected_values=['192.168.178.62'], observed_values=[], required=True, reason_code=dns_resolution_error, error='gaierror: [Errno -3] Temporary failure in name resolution'",
+      "status": "inconclusive",
+      "source_ref": "local DNS truth"
+    }
+  ],
+  "evidence_paths": ["examples/runbook-traces/dns-gate-command-trace.jsonl"],
+  "source_refs": [
+    "runbook-model.v1",
+    "local DNS truth"
+  ],
+  "redaction_verified": true,
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}
