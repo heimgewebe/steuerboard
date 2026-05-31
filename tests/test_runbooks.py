@@ -381,6 +381,9 @@ class TestCLIAndRunner:
         )
 
         assert result["source_refs"] == ["plan.ref", "obs.ref", "assess.ref"]
+        assert "" not in result["source_refs"]
+        assert " " not in result["source_refs"]
+        assert 123 not in result["source_refs"]
 
     def test_cli_error_sentinel_schema_valid_for_invalid_runbook_kind(self, tmp_path, capsys):
         plan = _valid_runbook_plan(repo_path=str(ROOT))

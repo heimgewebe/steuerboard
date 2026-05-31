@@ -97,8 +97,8 @@ def _trace_id(step_id: str) -> str:
 
 def _merge_source_refs(*groups: Any) -> list[str]:
     """Merge source_refs preserving insertion order and uniqueness."""
-    refs: list[str] = []
-    seen: set[str] = set()
+    merged_refs: list[str] = []
+    seen_refs: set[str] = set()
     for group in groups:
         if not isinstance(group, list):
             continue
@@ -106,11 +106,11 @@ def _merge_source_refs(*groups: Any) -> list[str]:
             if not isinstance(ref, str):
                 continue
             clean_ref = ref.strip()
-            if not clean_ref or clean_ref in seen:
+            if not clean_ref or clean_ref in seen_refs:
                 continue
-            seen.add(clean_ref)
-            refs.append(clean_ref)
-    return refs
+            seen_refs.add(clean_ref)
+            merged_refs.append(clean_ref)
+    return merged_refs
 
 
 def _require_output_path(raw: str, label: str) -> Path:
@@ -235,7 +235,11 @@ def check_worktree_clean(observation: dict[str, Any]) -> tuple[str, str]:
 
 
 def check_not_detached_head(observation: dict[str, Any]) -> tuple[str, str]:
-    """Return (step_status, label_note) for the not-detached-head check."""
+    """Return (step_status, label_note) for the not-detached-head check.
+
+    Note: In repo-observation.v1, ``current_branch is None`` is an explicit
+    detached-HEAD observation, so this check remains a hard block.
+    """
     obs_state = observation.get("observed_state")
     if not isinstance(obs_state, dict):
         return "inconclusive", "Git repository status is unknown; HEAD check skipped."
@@ -244,16 +248,24 @@ def check_not_detached_head(observation: dict[str, Any]) -> tuple[str, str]:
         if is_git is False:
             return "inconclusive", "Not a git repository; HEAD check skipped."
         return "inconclusive", "Git repository status is unknown; HEAD check skipped."
-    current_branch = obs_state.get("current_branch")
-    if current_branch is None:
+    current_branch_raw = obs_state.get("current_branch")
+    if current_branch_raw is None:
         return "blocked", "HEAD is detached."
-    if isinstance(current_branch, str) and current_branch.strip():
+    if not isinstance(current_branch_raw, str):
+        return "inconclusive", "Current branch is unknown; HEAD check inconclusive."
+    current_branch = current_branch_raw.strip()
+    if current_branch:
         return "passed", f"HEAD is on branch {current_branch!r}."
     return "inconclusive", "Current branch is unknown; HEAD check inconclusive."
 
 
 def check_on_default_branch(observation: dict[str, Any]) -> tuple[str, str]:
-    """Return (step_status, label_note) for the on-default-branch check."""
+    """Return (step_status, label_note) for the on-default-branch check.
+
+    Detached HEAD does not answer "on default branch", so this check is
+    inconclusive rather than blocked and relies on check_not_detached_head for
+    the hard block.
+    """
     obs_state = observation.get("observed_state")
     if not isinstance(obs_state, dict):
         return "inconclusive", "Git repository status is unknown; branch check skipped."
@@ -262,12 +274,14 @@ def check_on_default_branch(observation: dict[str, Any]) -> tuple[str, str]:
         if is_git is False:
             return "inconclusive", "Not a git repository; branch check skipped."
         return "inconclusive", "Git repository status is unknown; branch check skipped."
-    current_branch = obs_state.get("current_branch")
-    if current_branch is None:
+    current_branch_raw = obs_state.get("current_branch")
+    if current_branch_raw is None:
         return "inconclusive", "HEAD is detached; default branch check skipped."
-    if not isinstance(current_branch, str) or not current_branch.strip():
+    if not isinstance(current_branch_raw, str):
         return "inconclusive", "Current branch is unknown."
-    current_branch = current_branch.strip()
+    current_branch = current_branch_raw.strip()
+    if not current_branch:
+        return "inconclusive", "Current branch is unknown."
     default_candidate = obs_state.get("default_branch_candidate")
     if not isinstance(default_candidate, str) or not default_candidate.strip():
         return "inconclusive", "Default branch candidate is unknown."
