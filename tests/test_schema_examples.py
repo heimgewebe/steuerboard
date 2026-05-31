@@ -122,6 +122,10 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "ui-view-models/switch-main-readiness-ready-view.json",
     "ui-view-models/run-switch-main-success-view.json",
     "ui-view-models/blocked-readiness-view.json",
+    "runbooks/repo-sync-gate.json",
+    "runbook-results/repo-sync-gate-passed.json",
+    "runbook-results/repo-sync-gate-blocked.json",
+    "runbook-results/repo-sync-gate-inconclusive.json",
 }
 
 FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "runbook-plan.v1",
+  "type": "object",
+  "required": ["schema_version", "runbook_id", "runbook_kind", "created_at", "repo_path", "mode", "source_refs", "boundary"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "string", "const": "runbook-plan.v1"},
+    "runbook_id": {"type": "string", "minLength": 1},
+    "runbook_kind": {"type": "string", "enum": ["repo-sync-gate"]},
+    "created_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "repo_path": {"type": "string", "minLength": 1},
+    "mode": {"type": "string", "enum": ["read_only"]},
+    "source_refs": {"type": "array", "items": {"type": "string"}},
+    "boundary": {
+      "type": "object",
+      "required": ["does_not_execute_mutating_actions", "does_not_mutate", "does_not_authorise_actions", "read_only_or_dry_run_only"],
+      "additionalProperties": false,
+      "properties": {
+        "does_not_execute_mutating_actions": {"type": "boolean", "const": true},
+        "does_not_mutate": {"type": "boolean", "const": true},
+        "does_not_authorise_actions": {"type": "boolean", "const": true},
+        "read_only_or_dry_run_only": {"type": "boolean", "const": true}
+      }
+    }
+  }
+}

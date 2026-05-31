@@ -13,12 +13,12 @@
   "summary": [
     {
       "label": "Total commands",
-      "value": "20",
+      "value": "21",
       "severity": "info"
     },
     {
       "label": "read_only",
-      "value": "10",
+      "value": "11",
       "severity": "info"
     },
     {

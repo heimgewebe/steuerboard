@@ -11,7 +11,7 @@ marked block in `README.md`. Classification lives in
 `scripts/docmeta/cli_surface.json` and is declared explicitly, never inferred
 from help text.
 
-Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage_d=2.
+Capability counts: read_only=11, derivation_only=7, fetch_only=1, mutating_stage_d=2.
 
 <!-- BEGIN GENERATED: cli-surface -->
 | Command | Capability class | Invocation |
@@ -25,6 +25,7 @@ Capability counts: read_only=10, derivation_only=7, fetch_only=1, mutating_stage
 | `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |
 | `omnipull-report show` | `read_only` | `python -m steuerboard omnipull-report show <report-json> --json` |
+| `runbook run` | `read_only` | `python -m steuerboard runbook run <runbook-plan-json> --result-out <result-out> --command-trace-out <command-trace-out> --json` |
 | `scope explain` | `read_only` | `python -m steuerboard scope explain <path> [--config <config>] --json` |
 | `action bind-preflight-to-action` | `derivation_only` | `python -m steuerboard action bind-preflight-to-action <action-plan-json> --run-evidence-chain <run-evidence-chain> --binding-out <binding-out> --json` |
 | `action validate-execution-readiness` | `derivation_only` | `python -m steuerboard action validate-execution-readiness <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --readiness-out <readiness-out> [--preflight-binding <preflight-binding>] --json` |

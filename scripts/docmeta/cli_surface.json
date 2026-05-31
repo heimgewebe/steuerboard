@@ -17,6 +17,7 @@
     "omnipull-report latest": "read_only",
     "action run-read-only": "read_only",
     "action postcheck-read-only": "read_only",
+    "runbook run": "read_only",
     "plan switch-main": "derivation_only",
     "plan git-pull-ff-only": "derivation_only",
     "approval validate": "derivation_only",

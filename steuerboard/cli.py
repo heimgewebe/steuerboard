@@ -23,6 +23,7 @@ from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .remote_refresh import run_fetch_origin_prune
+from .runbooks import run_runbook
 
 
 def _sanitize_sentinel_reason(reason: str | object) -> str:
@@ -906,6 +907,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit run-result.v1 JSON.",
     )
 
+    runbook_parser = subparsers.add_parser(
+        "runbook",
+        help="Read-only runbook runner commands.",
+    )
+    runbook_subparsers = runbook_parser.add_subparsers(dest="runbook_command", required=True)
+
+    runbook_run_parser = runbook_subparsers.add_parser(
+        "run",
+        help=(
+            "Execute a read-only runbook from a runbook-plan.v1 JSON file. "
+            "Writes runbook-result.v1 and runbook-step-trace.v1 JSONL. "
+            "No mutation, no fetch, no branch switch, no free shell."
+        ),
+    )
+    runbook_run_parser.add_argument(
+        "runbook_plan_json",
+        help="Path to a runbook-plan.v1 JSON file.",
+    )
+    runbook_run_parser.add_argument(
+        "--result-out",
+        required=True,
+        help="Output path for runbook-result.v1 JSON. Must not already exist.",
+    )
+    runbook_run_parser.add_argument(
+        "--command-trace-out",
+        required=True,
+        help="Output path for runbook-step-trace.v1 JSONL. Must not already exist.",
+    )
+    runbook_run_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit runbook-result.v1 JSON.",
+    )
+
     approval_parser = subparsers.add_parser(
         "approval",
         help="Pure artifact approval commands.",
@@ -1438,6 +1474,80 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             return _emit_preflight_binding_inconclusive(str(exc))
         print(json.dumps(binding, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "runbook" and args.runbook_command == "run":
+        try:
+            with Path(args.runbook_plan_json).open("r", encoding="utf-8") as handle:
+                runbook_plan_data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(
+                json.dumps(
+                    {
+                        "schema_version": "runbook-result.v1",
+                        "result_id": "rbresult-blocked-precondition",
+                        "runbook_ref": "unknown",
+                        "runbook_kind": "repo-sync-gate",
+                        "status": "blocked",
+                        "started_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                        "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                        "repo_path": "unknown",
+                        "short_assessment": f"invalid_runbook_plan_json: {exc}",
+                        "steps": [],
+                        "evidence_paths": [],
+                        "source_refs": [],
+                        "redaction_verified": True,
+                        "boundary": {
+                            "does_not_execute_mutating_actions": True,
+                            "does_not_mutate": True,
+                            "does_not_authorise_actions": True,
+                            "read_only_or_dry_run_only": True,
+                        },
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 1
+
+        try:
+            result = run_runbook(
+                runbook_plan=runbook_plan_data,
+                result_out=args.result_out,
+                command_trace_out=args.command_trace_out,
+            )
+        except ValueError as exc:
+            print(
+                json.dumps(
+                    {
+                        "schema_version": "runbook-result.v1",
+                        "result_id": "rbresult-blocked-precondition",
+                        "runbook_ref": runbook_plan_data.get("runbook_id", "unknown"),
+                        "runbook_kind": runbook_plan_data.get("runbook_kind", "repo-sync-gate"),
+                        "status": "blocked",
+                        "started_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                        "finished_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                        "repo_path": runbook_plan_data.get("repo_path", "unknown"),
+                        "short_assessment": str(exc),
+                        "steps": [],
+                        "evidence_paths": [],
+                        "source_refs": [],
+                        "redaction_verified": True,
+                        "boundary": {
+                            "does_not_execute_mutating_actions": True,
+                            "does_not_mutate": True,
+                            "does_not_authorise_actions": True,
+                            "read_only_or_dry_run_only": True,
+                        },
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 1
+        print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     parser.error("unsupported command")
