@@ -226,6 +226,12 @@ def test_frontend_code_has_no_action_affordance():
             assert method not in text, f"{path.name}: forbidden HTTP mutation method {method!r}"
 
 
+def test_frontend_display_only_guard_requires_exact_boundary_keys():
+    text = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+    assert "keys.length !== requiredKeys.length" in text
+    assert "boundary[requiredKeys[i]] !== true" in text
+
+
 def test_frontend_readme_states_read_only_boundary():
     readme = (FRONTEND_DIR / "README.md").read_text(encoding="utf-8").lower()
     for phrase in (

@@ -118,9 +118,19 @@
     // reads the guarantee generically so it can never act on what it shows.
     function isDisplayOnly(boundary) {
       if (!boundary || typeof boundary !== "object" || Array.isArray(boundary)) return false;
-      if (boundary.display_only !== true) return false;
-      var values = Object.keys(boundary).map(function (k) { return boundary[k]; });
-      return values.length > 0 && values.every(function (v) { return v === true; });
+      var requiredKeys = [
+        "display_only",
+        "does_not_authorise_actions",
+        "does_not_execute",
+        "does_not_mutate"
+      ];
+      var keys = Object.keys(boundary).sort();
+      if (keys.length !== requiredKeys.length) return false;
+      for (var i = 0; i < requiredKeys.length; i += 1) {
+        if (keys[i] !== requiredKeys[i]) return false;
+        if (boundary[requiredKeys[i]] !== true) return false;
+      }
+      return true;
     }
 
     function el(tag, cls, text) {
