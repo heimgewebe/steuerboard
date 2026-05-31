@@ -106,7 +106,9 @@ def _merge_source_refs(*groups: Any) -> list[str]:
             if not isinstance(ref, str):
                 continue
             clean_ref = ref.strip()
-            if not clean_ref or clean_ref in seen_refs:
+            if not clean_ref:
+                continue
+            if clean_ref in seen_refs:
                 continue
             seen_refs.add(clean_ref)
             merged_refs.append(clean_ref)
@@ -282,10 +284,12 @@ def check_on_default_branch(observation: dict[str, Any]) -> tuple[str, str]:
     current_branch = current_branch_raw.strip()
     if not current_branch:
         return "inconclusive", "Current branch is unknown."
-    default_candidate = obs_state.get("default_branch_candidate")
-    if not isinstance(default_candidate, str) or not default_candidate.strip():
+    default_candidate_raw = obs_state.get("default_branch_candidate")
+    if not isinstance(default_candidate_raw, str):
         return "inconclusive", "Default branch candidate is unknown."
-    default_candidate = default_candidate.strip()
+    default_candidate = default_candidate_raw.strip()
+    if not default_candidate:
+        return "inconclusive", "Default branch candidate is unknown."
     if current_branch == default_candidate:
         return "passed", f"Current branch {current_branch!r} matches default branch candidate {default_candidate!r}."
     return "blocked", (

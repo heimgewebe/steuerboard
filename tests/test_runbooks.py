@@ -366,7 +366,7 @@ class TestCLIAndRunner:
                     "current_branch": "main",
                     "default_branch_candidate": "main",
                 },
-                "source_refs": ["obs.ref", "plan.ref", "", 123],
+                "source_refs": ["obs.ref", "plan.ref", "", 123, None, True, [], {}],
             },
         )
         monkeypatch.setattr(
