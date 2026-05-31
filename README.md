@@ -46,6 +46,7 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |
 | `omnipull-report show` | `read_only` | `python -m steuerboard omnipull-report show <report-json> --json` |
+| `runbook run` | `read_only` | `python -m steuerboard runbook run <runbook-plan-json> --result-out <result-out> --command-trace-out <command-trace-out> --json` |
 | `scope explain` | `read_only` | `python -m steuerboard scope explain <path> [--config <config>] --json` |
 | `action bind-preflight-to-action` | `derivation_only` | `python -m steuerboard action bind-preflight-to-action <action-plan-json> --run-evidence-chain <run-evidence-chain> --binding-out <binding-out> --json` |
 | `action validate-execution-readiness` | `derivation_only` | `python -m steuerboard action validate-execution-readiness <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --readiness-out <readiness-out> [--preflight-binding <preflight-binding>] --json` |

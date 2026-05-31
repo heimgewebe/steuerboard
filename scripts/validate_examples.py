@@ -47,6 +47,8 @@ SCHEMA_MAP = {
     "switch-main-preflight-proofs": SCHEMAS_DIR / "switch-main-preflight-proof.v1.schema.json",
     "switch-main-readiness": SCHEMAS_DIR / "switch-main-readiness.v1.schema.json",
     "ui-view-models": SCHEMAS_DIR / "ui-view-model.v1.schema.json",
+    "runbooks": SCHEMAS_DIR / "runbook-plan.v1.schema.json",
+    "runbook-results": SCHEMAS_DIR / "runbook-result.v1.schema.json",
 }
 
 RFC3339_DATE_TIME_RE = re.compile(
@@ -279,6 +281,37 @@ def iter_example_schema_pairs() -> list[tuple[Path, Path]]:
     return pairs
 
 
+def iter_jsonl_schema_pairs() -> list[tuple[Path, Path]]:
+    """Return (jsonl_path, schema_path) for known JSONL example directories."""
+    pairs: list[tuple[Path, Path]] = []
+    step_trace_schema = SCHEMAS_DIR / "runbook-step-trace.v1.schema.json"
+    for jsonl_path in sorted((EXAMPLES_DIR / "runbook-traces").glob("*.jsonl")):
+        pairs.append((jsonl_path, step_trace_schema))
+    return pairs
+
+
+def validate_jsonl_examples() -> list[Path]:
+    """Validate each line of JSONL example files against their schema."""
+    validated: list[Path] = []
+    for jsonl_path, schema_path in iter_jsonl_schema_pairs():
+        schema = load_json(schema_path)
+        validate_schema(schema, schema_path)
+        with jsonl_path.open("r", encoding="utf-8") as fh:
+            for line_num, line in enumerate(fh, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    instance = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValidationError(
+                        f"{jsonl_path}:{line_num}: invalid JSON: {exc}"
+                    ) from exc
+                validate_instance(instance, schema, jsonl_path)
+        validated.append(jsonl_path)
+    return validated
+
+
 def validate_examples() -> list[Path]:
     validated: list[Path] = []
     for example_path, schema_path in iter_example_schema_pairs():
@@ -287,6 +320,7 @@ def validate_examples() -> list[Path]:
         validate_schema(schema, schema_path)
         validate_instance(instance, schema, example_path)
         validated.append(example_path)
+    validated.extend(validate_jsonl_examples())
     return validated
 
 
@@ -300,7 +334,10 @@ def main() -> int:
     for path in validated_schemas:
         print(f"ok {path.relative_to(ROOT)}")
     for path in validated_examples:
-        print(f"ok {path.relative_to(ROOT)}")
+        try:
+            print(f"ok {path.relative_to(ROOT)}")
+        except ValueError:
+            print(f"ok {path}")
     print(f"validated {len(validated_schemas)} schema(s)")
     print(f"validated {len(validated_examples)} example(s)")
     return 0

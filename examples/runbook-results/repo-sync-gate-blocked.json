@@ -1,0 +1,63 @@
+{
+  "schema_version": "runbook-result.v1",
+  "result_id": "rbresult-repo-sync-gate-20260531-blocked-001",
+  "runbook_ref": "runbook-repo-sync-gate-20260531-001",
+  "runbook_kind": "repo-sync-gate",
+  "status": "blocked",
+  "started_at": "2026-05-31T10:00:01Z",
+  "finished_at": "2026-05-31T10:00:02Z",
+  "repo_path": "/home/alex/repos/steuerboard",
+  "short_assessment": "Repo-sync-gate blocked. Assessment decision_state is action_blocked. Derived status includes dirty_worktree. No mutating action is authorised. Manual inspection required before any sync.",
+  "steps": [
+    {
+      "step_id": "step-observe-repo",
+      "label": "Observe repository state",
+      "status": "passed",
+      "source_ref": "repo-observation.v1"
+    },
+    {
+      "step_id": "step-derive-assessment",
+      "label": "Derive repo assessment",
+      "status": "passed",
+      "source_ref": "repo-assessment.v1"
+    },
+    {
+      "step_id": "step-check-is-git-repo",
+      "label": "Check: path is a git repository",
+      "status": "passed"
+    },
+    {
+      "step_id": "step-check-worktree-clean",
+      "label": "Check: worktree is clean",
+      "status": "blocked"
+    },
+    {
+      "step_id": "step-check-not-detached-head",
+      "label": "Check: HEAD is not detached",
+      "status": "passed"
+    },
+    {
+      "step_id": "step-check-on-default-branch",
+      "label": "Check: current branch is default branch candidate",
+      "status": "passed"
+    },
+    {
+      "step_id": "step-check-decision-state",
+      "label": "Check: assessment decision_state is not action_blocked",
+      "status": "blocked"
+    }
+  ],
+  "evidence_paths": ["examples/runbook-traces/repo-sync-gate-command-trace.jsonl"],
+  "source_refs": [
+    "runbook-model.v1",
+    "repo-assessment.v1",
+    "repo-observation.v1"
+  ],
+  "redaction_verified": true,
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

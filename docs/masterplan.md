@@ -933,6 +933,12 @@ Phase 10A erfüllt dies bereits für statische `ui-view-model.v1`-Artefakte:
 
 ### Phase 11 — Runbook-Starter
 
+Status: Phase 11A implemented.
+
+Phase 11A introduces the first read-only runbook starter, repo-sync-gate.
+It adds contracts, schemas, examples, CLI runner, and tests.
+It remains read-only/dry-run-only and does not add Stage-D actions, backend, server, or UI trigger.
+
 #### Ziel
 
 Wiederholbare lokale Prüfabläufe starten.
