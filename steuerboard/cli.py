@@ -1518,18 +1518,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 command_trace_out=args.command_trace_out,
             )
         except ValueError as exc:
-            runbook_id_raw = runbook_plan_data.get("runbook_id")
-            runbook_ref = (
-                runbook_id_raw.strip()
-                if isinstance(runbook_id_raw, str) and runbook_id_raw.strip()
-                else "unknown"
-            )
-            repo_path_raw = runbook_plan_data.get("repo_path")
-            repo_path = (
-                repo_path_raw.strip()
-                if isinstance(repo_path_raw, str) and repo_path_raw.strip()
-                else "unknown"
-            )
+            if isinstance(runbook_plan_data, dict):
+                runbook_id_raw = runbook_plan_data.get("runbook_id")
+                runbook_ref = (
+                    runbook_id_raw.strip()
+                    if isinstance(runbook_id_raw, str) and runbook_id_raw.strip()
+                    else "unknown"
+                )
+                repo_path_raw = runbook_plan_data.get("repo_path")
+                repo_path = (
+                    repo_path_raw.strip()
+                    if isinstance(repo_path_raw, str) and repo_path_raw.strip()
+                    else "unknown"
+                )
+            else:
+                runbook_ref = "unknown"
+                repo_path = "unknown"
             print(
                 json.dumps(
                     {

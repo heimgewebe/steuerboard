@@ -374,6 +374,68 @@ class TestCLIAndRunner:
         assert payload["repo_path"] == "unknown"
         assert isinstance(payload["short_assessment"], str)
 
+    def test_cli_error_sentinel_normalizes_non_dict_json_array(self, tmp_path, capsys):
+        plan_path = tmp_path / "plan.json"
+        plan_path.write_text(json.dumps([]), encoding="utf-8")
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        exit_code = main(
+            [
+                "runbook",
+                "run",
+                str(plan_path),
+                "--result-out",
+                str(result_out),
+                "--command-trace-out",
+                str(trace_out),
+                "--json",
+            ]
+        )
+
+        assert exit_code == 1
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+        payload = json.loads(capsys.readouterr().out)
+        validate_instance(payload, _runbook_result_schema(), Path("stdout"))
+        assert payload["status"] == "blocked"
+        assert payload["runbook_ref"] == "unknown"
+        assert payload["repo_path"] == "unknown"
+        assert payload["runbook_kind"] == "repo-sync-gate"
+        assert isinstance(payload["short_assessment"], str)
+
+    def test_cli_error_sentinel_normalizes_non_dict_json_string(self, tmp_path, capsys):
+        plan_path = tmp_path / "plan.json"
+        plan_path.write_text(json.dumps("not-an-object"), encoding="utf-8")
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        exit_code = main(
+            [
+                "runbook",
+                "run",
+                str(plan_path),
+                "--result-out",
+                str(result_out),
+                "--command-trace-out",
+                str(trace_out),
+                "--json",
+            ]
+        )
+
+        assert exit_code == 1
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+        payload = json.loads(capsys.readouterr().out)
+        validate_instance(payload, _runbook_result_schema(), Path("stdout"))
+        assert payload["status"] == "blocked"
+        assert payload["runbook_ref"] == "unknown"
+        assert payload["repo_path"] == "unknown"
+        assert payload["runbook_kind"] == "repo-sync-gate"
+        assert isinstance(payload["short_assessment"], str)
+
 
 # ---------------------------------------------------------------------------
 # C. Output safety
