@@ -22,9 +22,11 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 
 ## Current scope
 
-This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces.
+This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces, plus a Phase 10A read-only UI display contract and schema-validated UI view models.
 
-It intentionally does **not** contain a productive fleet scanner, backend, UI, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capabilities are exactly two bounded Stage-D executors — `action run-git-pull-ff-only` (exactly one fast-forward pull, behind a reproduced readiness gate) and `action run-switch-main` (exactly one switch to `main`, gated by a `ready` switch-main-readiness verdict plus live-state rechecks).
+It intentionally does **not** contain a productive fleet scanner, backend, UI beyond the Phase 10A read-only display scaffold, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capabilities are exactly two bounded Stage-D executors — `action run-git-pull-ff-only` (exactly one fast-forward pull, behind a reproduced readiness gate) and `action run-switch-main` (exactly one switch to `main`, gated by a `ready` switch-main-readiness verdict plus live-state rechecks).
+
+Phase 10A adds a **read-only UI display contract** ([docs/ui-readonly-contract.md](docs/ui-readonly-contract.md)), a schema-validated UI view model (`ui-view-model.v1`) with examples derived from existing CLI/example artifacts, and a minimal dependency-free read-only frontend scaffold. It does **not** add a productive backend, a server, or any action/approval/execute UI. A UI view model is display material, not canonical repository state and not an action approval.
 
 Architecture rule:
 

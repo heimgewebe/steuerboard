@@ -1041,3 +1041,55 @@ Boundary for this slice:
 
 The full contract is in `docs/switch-main-readiness-contract.md`
 (Phase 9B Execution Implementation).
+
+## Phase 10A — Read-only UI Display Contract + View-Model Layer
+
+Status: implemented.
+
+Phase 10A is the first, contract-first slice of the Phase 10 read-only UI. It
+proves *displayability without action*: steuerboard artifacts can be shown
+faithfully through a thin presentation film that carries no authority of its own.
+It adds a display contract, a schema-validated UI view model, derived examples,
+and a minimal dependency-free read-only scaffold — and nothing that can act.
+
+Artifacts:
+
+- contract: `docs/ui-readonly-contract.md`
+- schema: `ui-view-model.v1` (`schemas/ui-view-model.v1.schema.json`)
+- examples: `examples/ui-view-models/` (`cli-surface-summary`,
+  `switch-main-readiness-ready-view`, `run-switch-main-success-view`,
+  `blocked-readiness-view`)
+- scaffold: `frontend/index.html` (static, dependency-free read-only renderer)
+  plus an updated `frontend/README.md`
+- tests: `tests/test_ui_view_models.py`
+
+Scope in this slice:
+
+- a UI view model is bounded display material derived from an existing artifact;
+  it is not canonical repository state and not an action approval
+- every view model carries a const-true boundary (`does_not_execute`,
+  `does_not_mutate`, `does_not_authorise_actions`, `display_only`)
+- the schema is strict (`additionalProperties: false` everywhere) and defines no
+  command, `argv`, endpoint, method, approval-decision, or execution field
+- the static scaffold renders one pasted `ui-view-model.v1` document read-only,
+  refusing anything whose boundary is not display-only
+- parity: the CLI-surface summary view's counts are tested against the real
+  capability classification; `ready` displays as proof, never permission;
+  blocked/inconclusive/unknown are never softened
+
+Boundary for this slice:
+
+- no action buttons, no approval UI, no execute UI
+- no backend, no server, no localhost/LAN bind
+- no Git, no subprocess, no shell, no network mutation, no action endpoint
+- no `POST`/`PUT`/`PATCH`/`DELETE` for actions
+- no new mutating command; Stage D stays at exactly two executors
+  (`action run-git-pull-ff-only`, `action run-switch-main`)
+
+Out of scope (future, separately-contracted phases):
+
+- a productive backend or local server (any server must bind `127.0.0.1` only)
+- UI-triggered actions (Stage E in `docs/action-model.md`)
+- approval UI, fleet/multi-repo views, richer interactive UI
+
+The full contract is in `docs/ui-readonly-contract.md`.
