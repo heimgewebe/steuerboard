@@ -359,12 +359,12 @@ def _derive_overall_status(steps: list[dict[str, Any]]) -> str:
     return "passed"
 
 
-def _build_short_assessment(
+def _build_repo_sync_short_assessment(
     overall_status: str,
     steps: list[dict[str, Any]],
     assessment: dict[str, Any],
 ) -> str:
-    """Build a short human-readable assessment string."""
+    """Build repo-sync-gate short assessment text."""
     derived_status = assessment.get("derived_status", [])
     decision_state = assessment.get("decision_state", "unknown")
     missing_evidence = assessment.get("missing_evidence", [])
@@ -392,6 +392,15 @@ def _build_short_assessment(
         f"missing_evidence={missing_evidence!r}. "
         f"Cannot determine sync readiness without additional evidence. No action authorised."
     )
+
+
+def _build_short_assessment(
+    overall_status: str,
+    steps: list[dict[str, Any]],
+    assessment: dict[str, Any],
+) -> str:
+    """Backward-compatible alias for existing tests/hooks."""
+    return _build_repo_sync_short_assessment(overall_status, steps, assessment)
 
 
 def _normalize_ip_values(values: list[str]) -> list[str]:
@@ -425,7 +434,8 @@ def _resolve_dns(hostname: str, record_type: str) -> tuple[str, list[str], str |
     try:
         addrinfo = socket.getaddrinfo(hostname, None, family=family, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
-        if exc.errno == socket.EAI_NONAME:
+        error_code = exc.args[0] if exc.args else None
+        if error_code == socket.EAI_NONAME:
             return "not_found", [], None
         return "error", [], _redact_dns_error(exc)
     except OSError as exc:
@@ -838,7 +848,7 @@ def run_runbook(
         overall_status = _derive_overall_status(steps)
 
         # --- Build short assessment ---
-        short_assessment = _build_short_assessment(overall_status, steps, assessment)
+        short_assessment = _build_repo_sync_short_assessment(overall_status, steps, assessment)
 
         # --- Merge source_refs from plan, observation, and assessment ---
         all_source_refs = _merge_source_refs(

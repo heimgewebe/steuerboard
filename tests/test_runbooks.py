@@ -427,7 +427,9 @@ class TestCLIAndRunner:
         assert 123 not in result["source_refs"]
 
     def test_dns_gate_passed_with_matching_resolution(self, tmp_path, monkeypatch):
-        plan = _valid_runbook_plan(repo_path=str(tmp_path), runbook_kind="dns-gate")
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
         result_out = str(tmp_path / "dns-passed-result.json")
         trace_out = str(tmp_path / "dns-passed-trace.jsonl")
 
@@ -446,7 +448,9 @@ class TestCLIAndRunner:
         assert result["boundary"]["does_not_execute_mutating_actions"] is True
 
     def test_dns_gate_blocked_on_expected_value_mismatch(self, tmp_path, monkeypatch):
-        plan = _valid_runbook_plan(repo_path=str(tmp_path), runbook_kind="dns-gate")
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
         result_out = str(tmp_path / "dns-blocked-result.json")
         trace_out = str(tmp_path / "dns-blocked-trace.jsonl")
 
@@ -461,7 +465,9 @@ class TestCLIAndRunner:
         assert any("dns_expected_values_mismatch" in step["label"] for step in result["steps"])
 
     def test_dns_gate_inconclusive_on_resolution_error(self, tmp_path, monkeypatch):
-        plan = _valid_runbook_plan(repo_path=str(tmp_path), runbook_kind="dns-gate")
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
         result_out = str(tmp_path / "dns-inconclusive-result.json")
         trace_out = str(tmp_path / "dns-inconclusive-trace.jsonl")
 
@@ -480,7 +486,9 @@ class TestCLIAndRunner:
 
     def test_dns_gate_no_checks_inconclusive(self, tmp_path, monkeypatch):
         schema = _runbook_plan_schema()
-        invalid = _valid_runbook_plan(repo_path=str(tmp_path), runbook_kind="dns-gate")
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        invalid = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
         invalid.pop("dns_checks")
         with pytest.raises((ValidationError, Exception)):
             validate_instance(invalid, schema, Path("invalid-dns-gate-plan-no-checks.json"))
@@ -496,7 +504,9 @@ class TestCLIAndRunner:
         assert any("dns_no_checks" in step["label"] for step in result["steps"])
 
     def test_dns_gate_does_not_call_subprocess(self, tmp_path, monkeypatch):
-        plan = _valid_runbook_plan(repo_path=str(tmp_path), runbook_kind="dns-gate")
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
         result_out = str(tmp_path / "dns-subprocess-result.json")
         trace_out = str(tmp_path / "dns-subprocess-trace.jsonl")
 
