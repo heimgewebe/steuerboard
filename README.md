@@ -23,7 +23,7 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 ## Current scope
 
 This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, and assessment CLI surfaces, plus a Phase 10A read-only UI display contract and schema-validated UI view models.
-Runbook scope is read-only: `runbook run` supports `repo-sync-gate`, `dns-gate`, and `ssh-gate` diagnostics that emit artifacts, not repair actions.
+Runbook scope is read-only: `runbook run` supports `repo-sync-gate`, `dns-gate`, `ssh-gate`, and `tailscale-preflight` diagnostics that emit artifacts, not repair actions.
 
 It intentionally does **not** contain a productive fleet scanner, backend, UI beyond the Phase 10A read-only display scaffold, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capabilities are exactly two bounded Stage-D executors — `action run-git-pull-ff-only` (exactly one fast-forward pull, behind a reproduced readiness gate) and `action run-switch-main` (exactly one switch to `main`, gated by a `ready` switch-main-readiness verdict plus live-state rechecks).
 

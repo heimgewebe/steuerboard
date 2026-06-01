@@ -153,3 +153,11 @@ Do not soften blocked or inconclusive into permissive language.
 Future runbooks may cover Tailscale-Preflight, server-facts Snapshot, Heimserver-Service-Gate.
 dns-gate is the second and ssh-gate is the third concrete read-only runbook kind.
 All additional runbook kinds beyond ssh-gate remain future-gated.
+
+## tailscale-preflight semantics
+
+- `passed`: each configured required Tailscale check resolved locally and, when a `port` is present, the TCP probe also succeeded.
+- `blocked`: a required Tailscale check definitively failed due to host non-resolution, expected IP mismatch, expected prefix mismatch, or TCP connection failure.
+- `inconclusive`: required checks were missing, inputs were invalid, or local socket resolution/probing failed for indeterminate reasons.
+
+A `passed` result is evidence-only. It is **not** proof that Tailscale is correctly authenticated or configured, and it is **not** action authorisation.
