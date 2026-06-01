@@ -1,6 +1,8 @@
-"""Phase 11A — Read-only Runbook Runner.
+"""Phase 11B — Read-only Runbook Runner.
 
-Implements the repo-sync-gate runbook kind only.
+Implements read-only runbook kinds:
+- repo-sync-gate
+- dns-gate
 
 Architecture rule (Observation != Derivation != Decision != Action):
 - A runbook sequences observations and derivations only.
@@ -22,8 +24,10 @@ Boundary:
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
+import socket
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -46,8 +50,8 @@ _RUNBOOK_PLAN_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
 
-# Allowed runbook kinds in Phase 11A.
-PHASE_11A_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate"})
+# Allowed runbook kinds in Phase 11B.
+SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate"})
 
 
 def _load_schema(name: str) -> dict[str, Any]:
@@ -153,6 +157,20 @@ def _resolve_repo_worktree_root(repo_path_raw: str) -> Path:
     return repo_path
 
 
+def _resolve_git_marker_worktree_root(repo_path_raw: str) -> Path:
+    """Resolve repository worktree root by walking parents for a ``.git`` marker.
+
+    Returns the closest ancestor containing ``.git`` (file or directory), or the
+    resolved input path when no marker is found.
+    """
+    repo_path = Path(repo_path_raw).expanduser().resolve()
+    cursor = repo_path if repo_path.is_dir() else repo_path.parent
+    for candidate in (cursor, *cursor.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return repo_path
+
+
 def _ensure_outputs_outside_worktree(
     repo_worktree_root: Path,
     result_out: Path,
@@ -184,12 +202,12 @@ def _validate_plan_preconditions(
     except (SchemaValidationError, Exception) as exc:
         raise ValueError(f"runbook_plan schema validation failed: {exc}") from exc
 
-    # 2. Only repo-sync-gate is allowed in Phase 11A
+    # 2. Only explicitly supported read-only runbook kinds are allowed.
     runbook_kind = runbook_plan.get("runbook_kind", "")
-    if runbook_kind not in PHASE_11A_RUNBOOK_KINDS:
+    if runbook_kind not in SUPPORTED_RUNBOOK_KINDS:
         raise ValueError(
             f"unsupported runbook_kind {runbook_kind!r}; "
-            f"Phase 11A supports only: {sorted(PHASE_11A_RUNBOOK_KINDS)}"
+            f"supported runbook kinds: {sorted(SUPPORTED_RUNBOOK_KINDS)}"
         )
 
     # 3. Mode must be read_only
@@ -355,13 +373,12 @@ def _derive_overall_status(steps: list[dict[str, Any]]) -> str:
     return "passed"
 
 
-def _build_short_assessment(
+def _build_repo_sync_short_assessment(
     overall_status: str,
     steps: list[dict[str, Any]],
-    runbook_kind: str,
     assessment: dict[str, Any],
 ) -> str:
-    """Build a short human-readable assessment string."""
+    """Build repo-sync-gate short assessment text."""
     derived_status = assessment.get("derived_status", [])
     decision_state = assessment.get("decision_state", "unknown")
     missing_evidence = assessment.get("missing_evidence", [])
@@ -389,6 +406,221 @@ def _build_short_assessment(
         f"missing_evidence={missing_evidence!r}. "
         f"Cannot determine sync readiness without additional evidence. No action authorised."
     )
+
+
+def _build_short_assessment(
+    overall_status: str,
+    steps: list[dict[str, Any]],
+    assessment: dict[str, Any],
+) -> str:
+    """Backward-compatible alias for existing tests/hooks."""
+    return _build_repo_sync_short_assessment(overall_status, steps, assessment)
+
+
+def _normalize_ip_values(values: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        stripped = value.strip()
+        if not stripped:
+            continue
+        try:
+            stripped = str(ipaddress.ip_address(stripped))
+        except ValueError:
+            pass
+        normalized.append(stripped)
+    return sorted(set(normalized))
+
+
+def _redact_dns_error(exc: BaseException) -> str:
+    message = str(exc).strip()
+    compact = message.replace("\n", " ")
+    if len(compact) > 120:
+        compact = compact[:117] + "..."
+    if compact:
+        return f"{exc.__class__.__name__}: {compact}"
+    return exc.__class__.__name__
+
+
+def _resolve_dns(hostname: str, record_type: str) -> tuple[str, list[str], str | None]:
+    family = socket.AF_INET if record_type == "A" else socket.AF_INET6
+    try:
+        addrinfo = socket.getaddrinfo(hostname, None, family=family, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        error_code = exc.args[0] if exc.args else None
+        not_found_codes = {socket.EAI_NONAME}
+        nodata = getattr(socket, "EAI_NODATA", None)
+        if nodata is not None:
+            not_found_codes.add(nodata)
+        if error_code in not_found_codes:
+            return "not_found", [], None
+        return "error", [], _redact_dns_error(exc)
+    except OSError as exc:
+        return "error", [], _redact_dns_error(exc)
+
+    observed: list[str] = []
+    for entry in addrinfo:
+        sockaddr = entry[4]
+        if not isinstance(sockaddr, tuple) or not sockaddr:
+            continue
+        ip_raw = sockaddr[0]
+        if isinstance(ip_raw, str):
+            observed.append(ip_raw)
+    deduped = _normalize_ip_values(observed)
+    if not deduped:
+        return "not_found", [], None
+    return "ok", deduped, None
+
+
+def _run_dns_gate(
+    runbook_plan: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    checks_raw = runbook_plan.get("dns_checks")
+    runbook_id = runbook_plan["runbook_id"]
+    source_ref = "local DNS truth"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+
+    if not isinstance(checks_raw, list) or len(checks_raw) == 0:
+        step_id = "step-dns-no-checks"
+        t0 = _utc_now()
+        t1 = _utc_now()
+        label = "DNS check set is missing or empty (reason_code=dns_no_checks)."
+        steps.append({"step_id": step_id, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_dns_gate",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "DNS-gate inconclusive. No dns_checks were available for evaluation. "
+            "No mutation and no action authorisation occurred."
+        )
+        return steps, step_traces, "inconclusive", short
+
+    required_statuses: list[str] = []
+    blocked_required_ids: list[str] = []
+    inconclusive_required_ids: list[str] = []
+    passed_required_ids: list[str] = []
+
+    for index, check in enumerate(checks_raw):
+        step_id = f"step-dns-check-{index + 1:03d}"
+        t0 = _utc_now()
+        status = "inconclusive"
+        reason_code = "dns_resolution_error"
+        check_id = f"dns-check-{index + 1}"
+        hostname = ""
+        record_type = ""
+        expected_values_norm: list[str] = []
+        observed_values: list[str] = []
+        required_flag = False
+        error_note = ""
+
+        if isinstance(check, dict):
+            check_id_raw = check.get("check_id")
+            if isinstance(check_id_raw, str) and check_id_raw.strip():
+                check_id = check_id_raw.strip()
+            hostname_raw = check.get("hostname")
+            if isinstance(hostname_raw, str):
+                hostname = hostname_raw.strip()
+            record_type_raw = check.get("record_type")
+            if isinstance(record_type_raw, str):
+                record_type = record_type_raw.strip()
+            required_flag = bool(check.get("required") is True)
+            expected_raw = check.get("expected_values")
+            if isinstance(expected_raw, list):
+                expected_values_norm = _normalize_ip_values(
+                    [item for item in expected_raw if isinstance(item, str)]
+                )
+
+        if record_type not in {"A", "AAAA"}:
+            status = "inconclusive"
+            reason_code = "dns_unsupported_record_type"
+        elif not hostname or not expected_values_norm:
+            status = "inconclusive"
+            reason_code = "dns_resolution_error"
+        else:
+            resolve_status, observed_values, error_note = _resolve_dns(hostname, record_type)
+            if resolve_status == "ok":
+                if observed_values == expected_values_norm:
+                    status = "passed"
+                    reason_code = "dns_expected_values_matched"
+                else:
+                    status = "blocked"
+                    reason_code = "dns_expected_values_mismatch"
+            elif resolve_status == "not_found":
+                status = "blocked"
+                reason_code = "dns_name_not_resolved"
+            else:
+                status = "inconclusive"
+                reason_code = "dns_resolution_error"
+
+        label = (
+            f"DNS check {check_id!r}: hostname={hostname!r}, record_type={record_type!r}, "
+            f"expected_values={expected_values_norm!r}, observed_values={observed_values!r}, "
+            f"required={required_flag!r}, reason_code={reason_code}"
+        )
+        if error_note:
+            label = f"{label}, error={error_note!r}"
+
+        t1 = _utc_now()
+        steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._resolve_dns",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": status,
+            "redaction_verified": True,
+        })
+
+        if required_flag:
+            required_statuses.append(status)
+            if status == "passed":
+                passed_required_ids.append(check_id)
+            elif status == "blocked":
+                blocked_required_ids.append(check_id)
+            else:
+                inconclusive_required_ids.append(check_id)
+
+    if not required_statuses:
+        overall_status = "inconclusive"
+    elif "inconclusive" in required_statuses:
+        overall_status = "inconclusive"
+    elif "blocked" in required_statuses:
+        overall_status = "blocked"
+    else:
+        overall_status = "passed"
+
+    if overall_status == "passed":
+        short_assessment = (
+            f"DNS-gate passed. Required checks passed={passed_required_ids!r}. "
+            "This is a local resolver diagnosis at check time, not global DNS truth."
+        )
+    elif overall_status == "blocked":
+        short_assessment = (
+            f"DNS-gate blocked. Required checks blocked={blocked_required_ids!r}. "
+            "Observed DNS responses did not match expected values."
+        )
+    else:
+        short_assessment = (
+            f"DNS-gate inconclusive. Required checks inconclusive={inconclusive_required_ids!r}. "
+            "Resolver evidence was incomplete or unavailable for a reliable verdict."
+        )
+
+    return steps, step_traces, overall_status, short_assessment
 
 
 def run_runbook(
@@ -424,13 +656,16 @@ def run_runbook(
 
     # --- Validate plan schema, kind, mode, path distinctness ---
     _validate_plan_preconditions(runbook_plan, result_path, trace_path)
-    repo_worktree_root = _resolve_repo_worktree_root(str(runbook_plan["repo_path"]))
+    runbook_kind = runbook_plan["runbook_kind"]
+    if runbook_kind == "repo-sync-gate":
+        repo_worktree_root = _resolve_repo_worktree_root(str(runbook_plan["repo_path"]))
+    else:
+        repo_worktree_root = _resolve_git_marker_worktree_root(str(runbook_plan["repo_path"]))
     _ensure_outputs_outside_worktree(repo_worktree_root, result_path, trace_path)
 
     # --- Execution begins here ---
     runbook_id = runbook_plan["runbook_id"]
     repo_path_str = runbook_plan["repo_path"]
-    runbook_kind = runbook_plan["runbook_kind"]
     started_at = _utc_now()
     steps: list[dict[str, Any]] = []
     step_traces: list[dict[str, Any]] = []
@@ -442,204 +677,215 @@ def run_runbook(
         "read_only_or_dry_run_only": True,
     }
 
-    # --- Step 1: observe_repo (read_only) ---
-    step_id_observe = "step-observe-repo"
-    t0 = _utc_now()
-    observation: dict[str, Any] = {}
-    observe_status = "passed"
-    try:
-        observation = observe_repo(Path(repo_path_str))
-    except Exception:  # noqa: BLE001
-        observe_status = "inconclusive"
-        observation = {
-            "observed_state": {},
-            "observation_id": "observe-failed",
-            "source_refs": [],
-        }
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_observe,
-        "label": "Observe repository state",
-        "status": observe_status,
-        "source_ref": "repo-observation.v1",
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_observe),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_observe,
-        "operation": "steuerboard.observation.observe_repo",
-        "capability_class": "read_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": observe_status,
-        "redaction_verified": True,
-    })
+    if runbook_kind == "repo-sync-gate":
+        # --- Step 1: observe_repo (read_only) ---
+        step_id_observe = "step-observe-repo"
+        t0 = _utc_now()
+        observation: dict[str, Any] = {}
+        observe_status = "passed"
+        try:
+            observation = observe_repo(Path(repo_path_str))
+        except Exception:  # noqa: BLE001
+            observe_status = "inconclusive"
+            observation = {
+                "observed_state": {},
+                "observation_id": "observe-failed",
+                "source_refs": [],
+            }
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_observe,
+            "label": "Observe repository state",
+            "status": observe_status,
+            "source_ref": "repo-observation.v1",
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_observe),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_observe,
+            "operation": "steuerboard.observation.observe_repo",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": observe_status,
+            "redaction_verified": True,
+        })
 
-    # --- Step 2: assess_repo (derivation_only) ---
-    step_id_assess = "step-derive-assessment"
-    t0 = _utc_now()
-    assessment: dict[str, Any] = {}
-    assess_status = "passed"
-    try:
-        assessment = assess_repo(Path(repo_path_str))
-    except Exception:  # noqa: BLE001
-        assess_status = "inconclusive"
-        assessment = {
-            "decision_state": "evidence_missing",
-            "derived_status": [],
-            "missing_evidence": ["observation_failed"],
-            "skip_reasons": [],
-        }
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_assess,
-        "label": "Derive repo assessment",
-        "status": assess_status,
-        "source_ref": "repo-assessment.v1",
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_assess),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_assess,
-        "operation": "steuerboard.assessment.assess_repo",
-        "capability_class": "derivation_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": assess_status,
-        "redaction_verified": True,
-    })
+        # --- Step 2: assess_repo (derivation_only) ---
+        step_id_assess = "step-derive-assessment"
+        t0 = _utc_now()
+        assessment: dict[str, Any] = {}
+        assess_status = "passed"
+        try:
+            assessment = assess_repo(Path(repo_path_str))
+        except Exception:  # noqa: BLE001
+            assess_status = "inconclusive"
+            assessment = {
+                "decision_state": "evidence_missing",
+                "derived_status": [],
+                "missing_evidence": ["observation_failed"],
+                "skip_reasons": [],
+            }
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_assess,
+            "label": "Derive repo assessment",
+            "status": assess_status,
+            "source_ref": "repo-assessment.v1",
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_assess),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_assess,
+            "operation": "steuerboard.assessment.assess_repo",
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": assess_status,
+            "redaction_verified": True,
+        })
 
-    # --- Step 3: check_is_git_repo (derivation_only) ---
-    step_id_isgit = "step-check-is-git-repo"
-    t0 = _utc_now()
-    isgit_status, _ = check_is_git_repo(observation)
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_isgit,
-        "label": "Check: path is a git repository",
-        "status": isgit_status,
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_isgit),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_isgit,
-        "operation": "steuerboard.runbooks.check_is_git_repo",
-        "capability_class": "derivation_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": isgit_status,
-        "redaction_verified": True,
-    })
+        # --- Step 3: check_is_git_repo (derivation_only) ---
+        step_id_isgit = "step-check-is-git-repo"
+        t0 = _utc_now()
+        isgit_status, _ = check_is_git_repo(observation)
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_isgit,
+            "label": "Check: path is a git repository",
+            "status": isgit_status,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_isgit),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_isgit,
+            "operation": "steuerboard.runbooks.check_is_git_repo",
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": isgit_status,
+            "redaction_verified": True,
+        })
 
-    # --- Step 4: check_worktree_clean (derivation_only) ---
-    step_id_clean = "step-check-worktree-clean"
-    t0 = _utc_now()
-    clean_status, _ = check_worktree_clean(observation)
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_clean,
-        "label": "Check: worktree is clean",
-        "status": clean_status,
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_clean),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_clean,
-        "operation": "steuerboard.runbooks.check_worktree_clean",
-        "capability_class": "derivation_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": clean_status,
-        "redaction_verified": True,
-    })
+        # --- Step 4: check_worktree_clean (derivation_only) ---
+        step_id_clean = "step-check-worktree-clean"
+        t0 = _utc_now()
+        clean_status, _ = check_worktree_clean(observation)
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_clean,
+            "label": "Check: worktree is clean",
+            "status": clean_status,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_clean),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_clean,
+            "operation": "steuerboard.runbooks.check_worktree_clean",
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": clean_status,
+            "redaction_verified": True,
+        })
 
-    # --- Step 5: check_not_detached_head (derivation_only) ---
-    step_id_head = "step-check-not-detached-head"
-    t0 = _utc_now()
-    head_status, _ = check_not_detached_head(observation)
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_head,
-        "label": "Check: HEAD is not detached",
-        "status": head_status,
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_head),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_head,
-        "operation": "steuerboard.runbooks.check_not_detached_head",
-        "capability_class": "derivation_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": head_status,
-        "redaction_verified": True,
-    })
+        # --- Step 5: check_not_detached_head (derivation_only) ---
+        step_id_head = "step-check-not-detached-head"
+        t0 = _utc_now()
+        head_status, _ = check_not_detached_head(observation)
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_head,
+            "label": "Check: HEAD is not detached",
+            "status": head_status,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_head),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_head,
+            "operation": "steuerboard.runbooks.check_not_detached_head",
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": head_status,
+            "redaction_verified": True,
+        })
 
-    # --- Step 6: check_on_default_branch (derivation_only) ---
-    step_id_branch = "step-check-on-default-branch"
-    t0 = _utc_now()
-    branch_status, _ = check_on_default_branch(observation)
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_branch,
-        "label": "Check: current branch is default branch candidate",
-        "status": branch_status,
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_branch),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_branch,
-        "operation": "steuerboard.runbooks.check_on_default_branch",
-        "capability_class": "derivation_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": branch_status,
-        "redaction_verified": True,
-    })
+        # --- Step 6: check_on_default_branch (derivation_only) ---
+        step_id_branch = "step-check-on-default-branch"
+        t0 = _utc_now()
+        branch_status, _ = check_on_default_branch(observation)
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_branch,
+            "label": "Check: current branch is default branch candidate",
+            "status": branch_status,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_branch),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_branch,
+            "operation": "steuerboard.runbooks.check_on_default_branch",
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": branch_status,
+            "redaction_verified": True,
+        })
 
-    # --- Step 7: check_decision_state (derivation_only) ---
-    step_id_decision = "step-check-decision-state"
-    t0 = _utc_now()
-    decision_status, _ = check_decision_state(assessment)
-    t1 = _utc_now()
-    steps.append({
-        "step_id": step_id_decision,
-        "label": "Check: assessment decision_state is not action_blocked",
-        "status": decision_status,
-    })
-    step_traces.append({
-        "schema_version": "runbook-step-trace.v1",
-        "trace_id": _trace_id(step_id_decision),
-        "runbook_ref": runbook_id,
-        "step_id": step_id_decision,
-        "operation": "steuerboard.runbooks.check_decision_state",
-        "capability_class": "derivation_only",
-        "started_at": t0,
-        "finished_at": t1,
-        "status": decision_status,
-        "redaction_verified": True,
-    })
+        # --- Step 7: check_decision_state (derivation_only) ---
+        step_id_decision = "step-check-decision-state"
+        t0 = _utc_now()
+        decision_status, _ = check_decision_state(assessment)
+        t1 = _utc_now()
+        steps.append({
+            "step_id": step_id_decision,
+            "label": "Check: assessment decision_state is not action_blocked",
+            "status": decision_status,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_decision),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_decision,
+            "operation": "steuerboard.runbooks.check_decision_state",
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": decision_status,
+            "redaction_verified": True,
+        })
+
+        # --- Derive overall status ---
+        overall_status = _derive_overall_status(steps)
+
+        # --- Build short assessment ---
+        short_assessment = _build_repo_sync_short_assessment(overall_status, steps, assessment)
+
+        # --- Merge source_refs from plan, observation, and assessment ---
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            observation.get("source_refs", []),
+            assessment.get("source_refs", []),
+        )
+    elif runbook_kind == "dns-gate":
+        steps, step_traces, overall_status, short_assessment = _run_dns_gate(
+            runbook_plan=runbook_plan,
+        )
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["local DNS truth"],
+        )
+    else:  # pragma: no cover - schema/preconditions already guard this path
+        raise ValueError(f"unsupported runbook_kind {runbook_kind!r}")
 
     finished_at = _utc_now()
-
-    # --- Derive overall status ---
-    overall_status = _derive_overall_status(steps)
-
-    # --- Build short assessment ---
-    short_assessment = _build_short_assessment(overall_status, steps, runbook_kind, assessment)
-
-    # --- Merge source_refs from plan, observation, and assessment ---
-    all_source_refs = _merge_source_refs(
-        runbook_plan.get("source_refs", []),
-        observation.get("source_refs", []),
-        assessment.get("source_refs", []),
-    )
 
     # --- Build runbook-result.v1 ---
     result: dict[str, Any] = {

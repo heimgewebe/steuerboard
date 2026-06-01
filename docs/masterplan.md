@@ -933,11 +933,11 @@ Phase 10A erfüllt dies bereits für statische `ui-view-model.v1`-Artefakte:
 
 ### Phase 11 — Runbook-Starter
 
-Status: Phase 11A implemented.
+Status: Phase 11A + 11B implemented.
 
 Phase 11A introduces the first read-only runbook starter, repo-sync-gate.
-It adds contracts, schemas, examples, CLI runner, and tests.
-It remains read-only/dry-run-only and does not add Stage-D actions, backend, server, or UI trigger.
+Phase 11B extends the same read-only model with dns-gate as a second concrete runbook kind.
+Both phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
 
 #### Ziel
 
@@ -955,6 +955,7 @@ Wiederholbare lokale Prüfabläufe starten.
 #### Regel
 
 Runbooks dürfen in v1 nur lesen oder explizit dry-run ausführen.
+Für dns-gate ist `repo_path` derzeit ein Kontextanker; es ist kein Git-Gate-Zwang.
 
 #### Stop-Kriterium
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 11A introduces read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
+Phase 11A/11B introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
 
 A runbook is an operational checklist, not an action executor.
 
@@ -20,14 +20,22 @@ It is not an approval.
 It is not permission to execute.
 It is not a substitute for Stage-D readiness/approval gates.
 
-## Phase 11A scope
+## Phase 11 scope
 
-Implemented runbook kind:
+Phase 11A status: implemented.
 - repo-sync-gate
+
+Phase 11B status: implemented.
+- dns-gate
+
+Implemented runbook kinds:
+- repo-sync-gate
+- dns-gate
 
 Allowed:
 - observe repository state read-only
 - derive repo assessment using existing assessment logic
+- resolve DNS names via local system resolver for read-only diagnostics
 - emit runbook-result.v1
 - emit runbook-step-trace.v1 JSONL
 - include evidence paths and short assessment
@@ -43,6 +51,7 @@ Forbidden:
 - git push
 - branch delete
 - shell=True
+- subprocess DNS tools as runtime dependency (dig/nslookup/getent)
 - free shell
 - generic command runner
 - Stage-D executor calls
@@ -61,6 +70,28 @@ It checks local diagnosis conditions only.
 `passed` means local diagnosis looked unblocked at check time.
 `passed` does not prove remote freshness.
 `passed` is not permission for pull, switch, or any Stage-D executor.
+
+## dns-gate semantics
+
+The runbook answers:
+"Can the local system resolver resolve configured DNS names to the expected values at check time?"
+
+It is local DNS diagnostic material, not global DNS truth.
+It does not change resolver configuration and does not restart resolver services.
+For dns-gate, `repo_path` is currently a context anchor only; it is not a Git gate precondition.
+
+Status rules:
+- `passed`: all required DNS checks were evaluated and matched expected values.
+- `blocked`: at least one required DNS check was evaluated and mismatched expected values (including unresolved names).
+- `inconclusive`: required DNS checks could not be evaluated reliably (resolver error, unsupported input, or missing checks).
+
+Boundary:
+- no DNS configuration mutation
+- no subprocess DNS execution path for runbook evaluation
+- no shell=True
+- no os.system
+- no Stage-D executor call
+- no action authorisation
 
 ## Output contract
 
@@ -84,7 +115,8 @@ Use:
 Do not invent permissive statuses.
 Do not soften blocked or inconclusive into permissive language.
 
-## Phase 11A vs future phases
+## Phase 11 vs future phases
 
 Future runbooks may cover DNS-Gate, SSH-Gate, Tailscale-Preflight, server-facts Snapshot, Heimserver-Service-Gate.
-Those are out of scope here.
+dns-gate is now implemented as the second concrete read-only runbook kind.
+All additional runbook kinds remain future-gated.

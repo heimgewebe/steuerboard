@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import json
+import socket
 import sys
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from scripts.validate_examples import (  # noqa: E402
     validate_instance,
 )
 from steuerboard.runbooks import (  # noqa: E402
+    _resolve_dns,
+    SUPPORTED_RUNBOOK_KINDS,
     check_decision_state,
     check_is_git_repo,
     check_not_detached_head,
@@ -53,11 +56,14 @@ def _runbook_step_trace_schema() -> dict:
     return load_json(SCHEMAS_DIR / "runbook-step-trace.v1.schema.json")
 
 
-def _valid_runbook_plan(repo_path: str = "/tmp/test-repo") -> dict:
-    return {
+def _valid_runbook_plan(
+    repo_path: str = "/tmp/test-repo",
+    runbook_kind: str = "repo-sync-gate",
+) -> dict:
+    plan = {
         "schema_version": "runbook-plan.v1",
         "runbook_id": "runbook-test-001",
-        "runbook_kind": "repo-sync-gate",
+        "runbook_kind": runbook_kind,
         "created_at": "2026-05-31T10:00:00Z",
         "repo_path": repo_path,
         "mode": "read_only",
@@ -69,6 +75,17 @@ def _valid_runbook_plan(repo_path: str = "/tmp/test-repo") -> dict:
             "read_only_or_dry_run_only": True,
         },
     }
+    if runbook_kind == "dns-gate":
+        plan["dns_checks"] = [
+            {
+                "check_id": "dns-heimberry-home-arpa-a",
+                "hostname": "heimberry.home.arpa",
+                "record_type": "A",
+                "expected_values": ["192.168.178.62"],
+                "required": True,
+            }
+        ]
+    return plan
 
 
 # ---------------------------------------------------------------------------
@@ -92,27 +109,92 @@ class TestSchemaAndExamples:
         example = load_json(EXAMPLES_DIR / "runbooks/repo-sync-gate.json")
         validate_instance(example, schema, EXAMPLES_DIR / "runbooks/repo-sync-gate.json")
 
+    def test_dns_gate_plan_example_validates(self):
+        schema = _runbook_plan_schema()
+        example = load_json(EXAMPLES_DIR / "runbooks/dns-gate.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "runbooks/dns-gate.json")
+
     def test_runbook_result_examples_validate(self):
         schema = _runbook_result_schema()
-        for name in ["repo-sync-gate-passed.json", "repo-sync-gate-blocked.json", "repo-sync-gate-inconclusive.json"]:
+        for name in [
+            "repo-sync-gate-passed.json",
+            "repo-sync-gate-blocked.json",
+            "repo-sync-gate-inconclusive.json",
+            "dns-gate-passed.json",
+            "dns-gate-blocked.json",
+            "dns-gate-inconclusive.json",
+        ]:
             path = EXAMPLES_DIR / "runbook-results" / name
             example = load_json(path)
             validate_instance(example, schema, path)
 
     def test_runbook_trace_jsonl_example_validates_each_line(self):
         schema = _runbook_step_trace_schema()
-        jsonl_path = EXAMPLES_DIR / "runbook-traces/repo-sync-gate-command-trace.jsonl"
-        with jsonl_path.open("r", encoding="utf-8") as fh:
-            lines = [line.strip() for line in fh if line.strip()]
-        assert len(lines) > 0, "JSONL trace must have at least one line"
-        for i, line in enumerate(lines):
-            entry = json.loads(line)
-            validate_instance(entry, schema, jsonl_path)
+        for name in [
+            "repo-sync-gate-command-trace.jsonl",
+            "dns-gate-passed-trace.jsonl",
+            "dns-gate-blocked-trace.jsonl",
+            "dns-gate-inconclusive-trace.jsonl",
+        ]:
+            jsonl_path = EXAMPLES_DIR / "runbook-traces" / name
+            with jsonl_path.open("r", encoding="utf-8") as fh:
+                lines = [line.strip() for line in fh if line.strip()]
+            assert len(lines) > 0, "JSONL trace must have at least one line"
+            for line in lines:
+                entry = json.loads(line)
+                validate_instance(entry, schema, jsonl_path)
+
+    def test_dns_gate_example_result_trace_statuses_are_coherent(self):
+        """Verify that dns-gate result examples reference traces with matching step statuses.
+        
+        Each result example should reference trace entries where the specific step_id
+        has the same status as recorded in the result. This ensures example artifacts
+        are precisely truthful and their evidence matches step-by-step.
+        """
+        for result_name in [
+            "dns-gate-passed.json",
+            "dns-gate-blocked.json",
+            "dns-gate-inconclusive.json",
+        ]:
+            result_path = EXAMPLES_DIR / "runbook-results" / result_name
+            result = load_json(result_path)
+            
+            # Build result step status map
+            result_step_status_by_id = {
+                step["step_id"]: step["status"]
+                for step in result.get("steps", [])
+            }
+            assert len(result_step_status_by_id) > 0, f"{result_name} must have steps"
+            
+            # Collect trace entries by step_id from referenced evidence files
+            evidence_paths = result.get("evidence_paths", [])
+            assert len(evidence_paths) > 0, f"{result_name} must have evidence_paths"
+            
+            trace_status_by_step_id = {}
+            for evidence_path in evidence_paths:
+                full_path = ROOT / evidence_path
+                with full_path.open("r", encoding="utf-8") as fh:
+                    lines = [line.strip() for line in fh if line.strip()]
+                for line in lines:
+                    entry = json.loads(line)
+                    step_id = entry.get("step_id")
+                    status = entry.get("status")
+                    if step_id:
+                        trace_status_by_step_id[step_id] = status
+            
+            # Verify each result step has matching trace entry
+            for step_id, result_status in result_step_status_by_id.items():
+                trace_status = trace_status_by_step_id.get(step_id)
+                assert trace_status == result_status, (
+                    f"{result_name}: step_id={step_id!r} has status={result_status!r} "
+                    f"in result but trace has status={trace_status!r}"
+                )
+
 
     def test_runbook_plan_rejects_unknown_runbook_kind(self):
         schema = _runbook_plan_schema()
         invalid = _valid_runbook_plan()
-        invalid["runbook_kind"] = "dns-gate"
+        invalid["runbook_kind"] = "unknown-gate"
         with pytest.raises((ValidationError, Exception)):
             validate_instance(invalid, schema, Path("invalid-plan.json"))
 
@@ -140,12 +222,72 @@ class TestSchemaAndExamples:
         with pytest.raises((ValidationError, Exception)):
             validate_instance(invalid, schema, Path("invalid-plan-extra.json"))
 
+    def test_runbook_plan_dns_checks_allowed_only_for_dns_gate(self):
+        schema = _runbook_plan_schema()
+
+        repo_sync_valid = _valid_runbook_plan(runbook_kind="repo-sync-gate")
+        validate_instance(repo_sync_valid, schema, Path("repo-sync-gate-valid.json"))
+
+        dns_gate_valid = _valid_runbook_plan(runbook_kind="dns-gate")
+        validate_instance(dns_gate_valid, schema, Path("dns-gate-valid.json"))
+
+        dns_gate_missing_checks = _valid_runbook_plan(runbook_kind="dns-gate")
+        dns_gate_missing_checks.pop("dns_checks")
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(dns_gate_missing_checks, schema, Path("dns-gate-missing-dns-checks.json"))
+
+        repo_sync_with_dns_checks = _valid_runbook_plan(runbook_kind="repo-sync-gate")
+        repo_sync_with_dns_checks["dns_checks"] = _valid_runbook_plan(runbook_kind="dns-gate")["dns_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(repo_sync_with_dns_checks, schema, Path("repo-sync-gate-with-dns-checks.json"))
+
 
 # ---------------------------------------------------------------------------
 # B. CLI and runner
 # ---------------------------------------------------------------------------
 
 class TestCLIAndRunner:
+    def test_resolve_dns_returns_normalized_values_on_success(self, monkeypatch):
+        def _fake_addrinfo(*_args, **_kwargs):
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.178.62", 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.178.62", 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.0.0.7", 0)),
+            ]
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _fake_addrinfo)
+        assert _resolve_dns("example.invalid", "A") == ("ok", ["10.0.0.7", "192.168.178.62"], None)
+
+    def test_resolve_dns_maps_eai_noname_to_not_found(self, monkeypatch):
+        def _raise_noname(*_args, **_kwargs):
+            raise socket.gaierror(socket.EAI_NONAME, "name not known")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _raise_noname)
+        assert _resolve_dns("example.invalid", "A") == ("not_found", [], None)
+
+    def test_resolve_dns_maps_eai_nodata_to_not_found_when_available(self, monkeypatch):
+        nodata = getattr(socket, "EAI_NODATA", None)
+        if nodata is None:
+            pytest.skip("socket.EAI_NODATA is not defined on this platform")
+
+        def _raise_nodata(*_args, **_kwargs):
+            raise socket.gaierror(nodata, "no data of requested type")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _raise_nodata)
+        assert _resolve_dns("example.invalid", "A") == ("not_found", [], None)
+
+    def test_resolve_dns_other_gaierror_remains_error(self, monkeypatch):
+        error_code = getattr(socket, "EAI_AGAIN", 9999)
+
+        def _raise_other(*_args, **_kwargs):
+            raise socket.gaierror(error_code, "temporary resolver failure")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _raise_other)
+        status, values, note = _resolve_dns("example.invalid", "A")
+        assert status == "error"
+        assert values == []
+        assert isinstance(note, str) and note
+
     def test_runbook_run_cli_exists(self):
         parser = build_parser()
         # Build a namespace to verify runbook run is parseable
@@ -321,6 +463,16 @@ class TestCLIAndRunner:
         written = load_json(Path(result_out))
         assert written == result
 
+    def test_repo_sync_gate_still_works(self, tmp_path):
+        plan = _valid_runbook_plan(repo_path=str(ROOT), runbook_kind="repo-sync-gate")
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=str(tmp_path / "repo-sync-still-works-result.json"),
+            command_trace_out=str(tmp_path / "repo-sync-still-works-trace.jsonl"),
+        )
+        assert result["runbook_kind"] == "repo-sync-gate"
+        assert result["status"] in ("passed", "blocked", "inconclusive")
+
     def test_repo_sync_gate_observe_failure_stays_inconclusive(self, tmp_path, monkeypatch):
         plan = _valid_runbook_plan(repo_path=str(ROOT))
         result_out = str(tmp_path / "result.json")
@@ -385,9 +537,117 @@ class TestCLIAndRunner:
         assert " " not in result["source_refs"]
         assert 123 not in result["source_refs"]
 
+    def test_dns_gate_passed_with_matching_resolution(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
+        result_out = str(tmp_path / "dns-passed-result.json")
+        trace_out = str(tmp_path / "dns-passed-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._resolve_dns",
+            lambda hostname, record_type: ("ok", ["192.168.178.62"], None),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["runbook_kind"] == "dns-gate"
+        assert result["status"] == "passed"
+        assert any(step["status"] == "passed" for step in result["steps"])
+        assert any("dns_expected_values_matched" in step["label"] for step in result["steps"])
+        assert result["boundary"]["does_not_mutate"] is True
+        assert result["boundary"]["does_not_execute_mutating_actions"] is True
+
+    def test_dns_gate_blocked_on_expected_value_mismatch(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
+        result_out = str(tmp_path / "dns-blocked-result.json")
+        trace_out = str(tmp_path / "dns-blocked-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._resolve_dns",
+            lambda hostname, record_type: ("ok", ["192.168.178.99"], None),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["status"] == "blocked"
+        assert any("dns_expected_values_mismatch" in step["label"] for step in result["steps"])
+
+    def test_dns_gate_inconclusive_on_resolution_error(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
+        result_out = str(tmp_path / "dns-inconclusive-result.json")
+        trace_out = str(tmp_path / "dns-inconclusive-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._resolve_dns",
+            lambda hostname, record_type: ("error", [], "gaierror: resolver unavailable"),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["status"] == "inconclusive"
+        assert any(
+            "dns_resolution_error" in step["label"] or "dns_name_not_resolved" in step["label"]
+            for step in result["steps"]
+        )
+
+    def test_dns_gate_no_checks_inconclusive(self, tmp_path, monkeypatch):
+        schema = _runbook_plan_schema()
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        invalid = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
+        invalid.pop("dns_checks")
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(invalid, schema, Path("invalid-dns-gate-plan-no-checks.json"))
+
+        monkeypatch.setattr("steuerboard.runbooks._validate_plan_preconditions", lambda *_args, **_kwargs: None)
+        result = run_runbook(
+            invalid,
+            result_out=str(tmp_path / "dns-no-checks-result.json"),
+            command_trace_out=str(tmp_path / "dns-no-checks-trace.jsonl"),
+        )
+
+        assert result["status"] == "inconclusive"
+        assert any("dns_no_checks" in step["label"] for step in result["steps"])
+
+    def test_dns_gate_does_not_call_subprocess(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="dns-gate")
+        result_out = str(tmp_path / "dns-subprocess-result.json")
+        trace_out = str(tmp_path / "dns-subprocess-trace.jsonl")
+
+        def _fail_subprocess(*args, **kwargs):
+            raise AssertionError("dns-gate must not call subprocess.run")
+
+        monkeypatch.setattr("steuerboard.runbooks.subprocess.run", _fail_subprocess)
+        monkeypatch.setattr(
+            "steuerboard.runbooks._resolve_dns",
+            lambda hostname, record_type: ("ok", ["192.168.178.62"], None),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+        assert result["status"] == "passed"
+
+    def test_supported_runbook_kinds_exactly_two(self):
+        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate"})
+
+    def test_stage_d_still_exactly_two_mutating_executors(self):
+        surface_path = ROOT / "scripts" / "docmeta" / "cli_surface.json"
+        surface = load_json(surface_path)
+        mutating = [
+            cmd for cmd, cls in surface["commands"].items()
+            if cls == "mutating_stage_d"
+        ]
+        assert sorted(mutating) == ["action run-git-pull-ff-only", "action run-switch-main"]
+
     def test_cli_error_sentinel_schema_valid_for_invalid_runbook_kind(self, tmp_path, capsys):
         plan = _valid_runbook_plan(repo_path=str(ROOT))
-        plan["runbook_kind"] = "dns-gate"
+        plan["runbook_kind"] = "unknown-gate"
         plan_path = tmp_path / "plan.json"
         plan_path.write_text(json.dumps(plan), encoding="utf-8")
         result_out = tmp_path / "result.json"
@@ -414,7 +674,7 @@ class TestCLIAndRunner:
         validate_instance(payload, _runbook_result_schema(), Path("stdout"))
         assert payload["status"] == "blocked"
         assert payload["runbook_kind"] == "repo-sync-gate"
-        assert "dns-gate" in payload["short_assessment"]
+        assert "unknown-gate" in payload["short_assessment"]
         assert "schema-compatibility fallback" in payload["short_assessment"]
 
     def test_cli_error_sentinel_normalizes_non_string_refs(self, tmp_path, capsys):
@@ -563,7 +823,7 @@ class TestOutputSafety:
 
         # Use an invalid plan (wrong runbook_kind)
         invalid_plan = _valid_runbook_plan()
-        invalid_plan["runbook_kind"] = "dns-gate"  # unsupported kind
+        invalid_plan["runbook_kind"] = "unknown-gate"  # unsupported kind
 
         with pytest.raises(ValueError):
             run_runbook(
@@ -612,6 +872,30 @@ class TestOutputSafety:
         plan = _valid_runbook_plan(repo_path=str(ROOT))
         result_out = tmp_path / "result.json"
         trace_out = ROOT / "trace-inside-worktree.jsonl"
+
+        with pytest.raises(ValueError, match="outside repository worktree"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+    def test_dns_gate_subdirectory_context_uses_repository_worktree_root(self, tmp_path):
+        import subprocess as _subprocess
+
+        repo_root = tmp_path / "dns-gate-repo"
+        repo_root.mkdir()
+        _subprocess.run(["git", "init", str(repo_root)], check=True, capture_output=True)
+
+        context_subdir = repo_root / "context"
+        context_subdir.mkdir()
+
+        plan = _valid_runbook_plan(repo_path=str(context_subdir), runbook_kind="dns-gate")
+        result_out = repo_root / "result-inside-repo-root.json"
+        trace_out = tmp_path / "trace.jsonl"
 
         with pytest.raises(ValueError, match="outside repository worktree"):
             run_runbook(
