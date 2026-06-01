@@ -247,6 +247,17 @@ class TestSchemaAndExamples:
 # ---------------------------------------------------------------------------
 
 class TestCLIAndRunner:
+    def test_resolve_dns_returns_normalized_values_on_success(self, monkeypatch):
+        def _fake_addrinfo(*_args, **_kwargs):
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.178.62", 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.178.62", 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.0.0.7", 0)),
+            ]
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _fake_addrinfo)
+        assert _resolve_dns("example.invalid", "A") == ("ok", ["10.0.0.7", "192.168.178.62"], None)
+
     def test_resolve_dns_maps_eai_noname_to_not_found(self, monkeypatch):
         def _raise_noname(*_args, **_kwargs):
             raise socket.gaierror(socket.EAI_NONAME, "name not known")

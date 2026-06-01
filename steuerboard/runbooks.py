@@ -158,6 +158,11 @@ def _resolve_repo_worktree_root(repo_path_raw: str) -> Path:
 
 
 def _resolve_git_marker_worktree_root(repo_path_raw: str) -> Path:
+    """Resolve repository worktree root by walking parents for a ``.git`` marker.
+
+    Returns the closest ancestor containing ``.git`` (file or directory), or the
+    resolved input path when no marker is found.
+    """
     repo_path = Path(repo_path_raw).expanduser().resolve()
     cursor = repo_path if repo_path.is_dir() else repo_path.parent
     for candidate in (cursor, *cursor.parents):
