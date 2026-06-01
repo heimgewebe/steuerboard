@@ -53,7 +53,7 @@ _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
 
 # Allowed runbook kinds in Phase 11C.
-SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate", "ssh-gate"})
+SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
 
 
 def _load_schema(name: str) -> dict[str, Any]:
@@ -684,6 +684,267 @@ def _check_tcp_connectivity(host: str, port: int, timeout_seconds: float) -> tup
         return _classify_tcp_os_error(exc)
 
 
+def _ip_matches_expected_prefixes(ip: str, prefixes: list[str]) -> tuple[bool, str | None]:
+    """Check whether an IP matches any configured CIDR prefix."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False, None
+    for prefix in prefixes:
+        try:
+            network = ipaddress.ip_network(prefix, strict=False)
+        except ValueError:
+            return False, prefix
+        if addr in network:
+            return True, None
+    return False, None
+
+
+def _resolve_host_for_tailscale(host: str) -> tuple[str, list[str], str | None]:
+    """Resolve a host for tailscale-preflight checks."""
+    try:
+        addrinfo = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        error_code = exc.args[0] if exc.args else None
+        not_found_codes = {socket.EAI_NONAME}
+        nodata = getattr(socket, "EAI_NODATA", None)
+        if nodata is not None:
+            not_found_codes.add(nodata)
+        if error_code in not_found_codes:
+            return "not_found", [], None
+        return "error", [], _redact_dns_error(exc)
+    except OSError as exc:
+        return "error", [], _redact_dns_error(exc)
+
+    observed: list[str] = []
+    for entry in addrinfo:
+        sockaddr = entry[4]
+        if not isinstance(sockaddr, tuple) or not sockaddr:
+            continue
+        ip_raw = sockaddr[0]
+        if isinstance(ip_raw, str):
+            observed.append(ip_raw)
+    deduped = _normalize_ip_values(observed)
+    if not deduped:
+        return "not_found", [], None
+    return "ok", deduped, None
+
+
+def _run_tailscale_preflight(
+    runbook_plan: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    """Evaluate tailscale_checks via local overlay resolution and optional TCP probes."""
+    checks_raw = runbook_plan.get("tailscale_checks")
+    runbook_id = runbook_plan["runbook_id"]
+    source_ref = "local overlay reachability"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+
+    if not isinstance(checks_raw, list) or len(checks_raw) == 0:
+        step_id = "step-tailscale-no-checks"
+        t0 = _utc_now()
+        t1 = _utc_now()
+        label = "Tailscale-preflight check set is missing or empty (reason_code=tailscale_no_checks)."
+        steps.append({"step_id": step_id, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_tailscale_preflight",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Tailscale-preflight inconclusive. No tailscale_checks were available for evaluation. "
+            "No mutation and no action authorisation occurred."
+        )
+        return steps, step_traces, "inconclusive", short
+
+    required_statuses: list[str] = []
+    blocked_required_ids: list[str] = []
+    inconclusive_required_ids: list[str] = []
+    passed_required_ids: list[str] = []
+
+    for index, check in enumerate(checks_raw):
+        step_id = f"step-tailscale-check-{index + 1:03d}"
+        t0 = _utc_now()
+        status = "inconclusive"
+        reason_code = "tailscale_invalid_check"
+        check_id = f"tailscale-check-{index + 1}"
+        host = ""
+        required_flag = False
+        error_note: str | None = None
+
+        if not isinstance(check, dict):
+            label = (
+                f"Tailscale-preflight check {check_id!r}: invalid check entry (not a dict), "
+                f"reason_code={reason_code}"
+            )
+            t1 = _utc_now()
+            steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+            step_traces.append({
+                "schema_version": "runbook-step-trace.v1",
+                "trace_id": _trace_id(step_id),
+                "runbook_ref": runbook_id,
+                "step_id": step_id,
+                "operation": "steuerboard.runbooks._run_tailscale_preflight",
+                "capability_class": "read_only",
+                "started_at": t0,
+                "finished_at": t1,
+                "status": status,
+                "redaction_verified": True,
+            })
+            continue
+
+        check_id_raw = check.get("check_id")
+        if isinstance(check_id_raw, str) and check_id_raw.strip():
+            check_id = check_id_raw.strip()
+        host_raw = check.get("host")
+        if isinstance(host_raw, str):
+            host = host_raw.strip()
+        required_flag = bool(check.get("required") is True)
+        expected_prefixes_raw = check.get("expected_ip_prefixes")
+        expected_prefixes: list[str] = []
+        if isinstance(expected_prefixes_raw, list):
+            expected_prefixes = [p.strip() for p in expected_prefixes_raw if isinstance(p, str) and p.strip()]
+        expected_values_raw = check.get("expected_ip_values")
+        expected_values_norm: list[str] = []
+        if isinstance(expected_values_raw, list):
+            expected_values_norm = _normalize_ip_values([v for v in expected_values_raw if isinstance(v, str)])
+        port_raw = check.get("port")
+        port: int | None = None
+        if isinstance(port_raw, int) and 1 <= port_raw <= 65535:
+            port = port_raw
+        timeout_seconds = 2.0
+        timeout_raw = check.get("timeout_seconds")
+        if isinstance(timeout_raw, (int, float)):
+            timeout_seconds = float(timeout_raw)
+
+        if not host:
+            status = "inconclusive"
+            reason_code = "tailscale_invalid_check"
+        else:
+            resolve_status, observed_ips, error_note = _resolve_host_for_tailscale(host)
+            if resolve_status == "not_found":
+                status = "blocked"
+                reason_code = "tailscale_resolution_failed"
+            elif resolve_status == "error":
+                status = "inconclusive"
+                reason_code = "tailscale_resolution_failed"
+            else:
+                status = "passed"
+                reason_code = "tailscale_resolution_succeeded"
+
+                if expected_values_norm:
+                    observed_norm = _normalize_ip_values(observed_ips)
+                    matched_values = [ip for ip in observed_norm if ip in expected_values_norm]
+                    if matched_values:
+                        status = "passed"
+                        reason_code = "tailscale_expected_ip_matched"
+                    else:
+                        status = "blocked"
+                        reason_code = "tailscale_expected_ip_mismatch"
+
+                if expected_prefixes and status != "blocked":
+                    observed_norm = _normalize_ip_values(observed_ips)
+                    prefix_match = False
+                    invalid_prefix = None
+                    for ip in observed_norm:
+                        matched, bad_prefix = _ip_matches_expected_prefixes(ip, expected_prefixes)
+                        if bad_prefix is not None:
+                            invalid_prefix = bad_prefix
+                            break
+                        if matched:
+                            prefix_match = True
+                            break
+                    if invalid_prefix is not None:
+                        status = "inconclusive"
+                        reason_code = "tailscale_invalid_prefix"
+                        error_note = f"invalid prefix: {invalid_prefix!r}"
+                    elif prefix_match:
+                        status = "passed"
+                        reason_code = "tailscale_expected_prefix_matched"
+                    else:
+                        status = "blocked"
+                        reason_code = "tailscale_expected_prefix_mismatch"
+
+                if port is not None and status == "passed":
+                    tcp_status, tcp_error = _check_tcp_connectivity(host, port, timeout_seconds)
+                    if tcp_status == "ok":
+                        status = "passed"
+                        reason_code = "tailscale_tcp_connect_succeeded"
+                    elif tcp_status == "blocked":
+                        status = "blocked"
+                        reason_code = "tailscale_tcp_connect_failed"
+                        error_note = tcp_error
+                    else:
+                        status = "inconclusive"
+                        reason_code = "tailscale_tcp_connect_inconclusive"
+                        error_note = tcp_error
+
+        label = (
+            f"Tailscale-preflight check {check_id!r}: host={host!r}, "
+            f"required={required_flag!r}, reason_code={reason_code}"
+        )
+        if error_note:
+            label = f"{label}, error={error_note!r}"
+
+        t1 = _utc_now()
+        steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_tailscale_preflight",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": status,
+            "redaction_verified": True,
+        })
+
+        if required_flag:
+            required_statuses.append(status)
+            if status == "passed":
+                passed_required_ids.append(check_id)
+            elif status == "blocked":
+                blocked_required_ids.append(check_id)
+            else:
+                inconclusive_required_ids.append(check_id)
+
+    if not required_statuses:
+        overall_status = "inconclusive"
+    elif "inconclusive" in required_statuses:
+        overall_status = "inconclusive"
+    elif "blocked" in required_statuses:
+        overall_status = "blocked"
+    else:
+        overall_status = "passed"
+
+    if overall_status == "passed":
+        short_assessment = (
+            f"Tailscale-preflight passed. Required checks passed={passed_required_ids!r}. "
+            "This is local overlay reachability at check time, not proof that Tailscale is correctly authenticated or configured."
+        )
+    elif overall_status == "blocked":
+        short_assessment = (
+            f"Tailscale-preflight blocked. Required checks blocked={blocked_required_ids!r}. "
+            "One or more configured overlay targets were not locally reachable or resolvable."
+        )
+    else:
+        short_assessment = (
+            f"Tailscale-preflight inconclusive. Required checks inconclusive={inconclusive_required_ids!r}. "
+            "Local overlay reachability evidence was incomplete or indeterminate."
+        )
+
+    return steps, step_traces, overall_status, short_assessment
+
+
 def _run_ssh_gate(
     runbook_plan: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
@@ -1115,6 +1376,14 @@ def run_runbook(
         all_source_refs = _merge_source_refs(
             runbook_plan.get("source_refs", []),
             ["local TCP reachability"],
+        )
+    elif runbook_kind == "tailscale-preflight":
+        steps, step_traces, overall_status, short_assessment = _run_tailscale_preflight(
+            runbook_plan=runbook_plan,
+        )
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["local overlay reachability"],
         )
     else:  # pragma: no cover - schema/preconditions already guard this path
         raise ValueError(f"unsupported runbook_kind {runbook_kind!r}")

@@ -11,8 +11,10 @@ from __future__ import annotations
 import ast
 import json
 import socket
+import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -38,6 +40,7 @@ from steuerboard.runbooks import (  # noqa: E402
     check_worktree_clean,
     run_runbook,
 )
+import steuerboard.runbooks as runbooks  # noqa: E402
 from steuerboard.cli import build_parser, main  # noqa: E402
 
 
@@ -91,6 +94,17 @@ def _valid_runbook_plan(
             {
                 "check_id": "ssh-heimserver-22",
                 "host": "heimserver.home.arpa",
+                "port": 22,
+                "timeout_seconds": 2.0,
+                "required": True,
+            }
+        ]
+    if runbook_kind == "tailscale-preflight":
+        plan["tailscale_checks"] = [
+            {
+                "check_id": "tailscale-heimserver",
+                "host": "heimserver.tailscale.example.invalid",
+                "expected_ip_prefixes": ["100.64.0.0/10"],
                 "port": 22,
                 "timeout_seconds": 2.0,
                 "required": True,
@@ -854,8 +868,8 @@ class TestCLIAndRunner:
         result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
         assert result["status"] == "passed"
 
-    def test_supported_runbook_kinds_exactly_three(self):
-        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate", "ssh-gate"})
+    def test_supported_runbook_kinds_exactly_four(self):
+        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
 
     def test_stage_d_still_exactly_two_mutating_executors(self):
         surface_path = ROOT / "scripts" / "docmeta" / "cli_surface.json"
@@ -1067,6 +1081,115 @@ class TestCheckTcpConnectivity:
         assert status == "inconclusive"
         assert err is not None
 
+
+    def test_tailscale_preflight_passed_with_prefix_match_and_tcp(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("ok", ["100.100.100.10"], None))
+        monkeypatch.setattr(runbooks, "_check_tcp_connectivity", lambda host, port, timeout_seconds: ("ok", None))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "passed"
+        assert result["steps"][0]["status"] == "passed"
+        assert "reason_code=tailscale_tcp_connect_succeeded" in result["steps"][0]["label"]
+
+    def test_tailscale_preflight_blocked_on_prefix_mismatch(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("ok", ["203.0.113.10"], None))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "blocked"
+        assert "reason_code=tailscale_expected_prefix_mismatch" in result["steps"][0]["label"]
+
+    def test_tailscale_preflight_blocked_on_not_found(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("not_found", [], None))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "blocked"
+        assert "reason_code=tailscale_resolution_failed" in result["steps"][0]["label"]
+
+    def test_tailscale_preflight_blocked_on_tcp_refused(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("ok", ["100.100.100.10"], None))
+        monkeypatch.setattr(runbooks, "_check_tcp_connectivity", lambda host, port, timeout_seconds: ("blocked", "connection refused"))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "blocked"
+        assert "reason_code=tailscale_tcp_connect_failed" in result["steps"][0]["label"]
+        assert "connection refused" in result["steps"][0]["label"]
+
+    def test_tailscale_preflight_inconclusive_on_resolution_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("error", [], "gaierror: Name or service not known"))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "inconclusive"
+        assert "reason_code=tailscale_resolution_failed" in result["steps"][0]["label"]
+        assert "gaierror: Name or service not known" in result["steps"][0]["label"]
+
+    def test_tailscale_preflight_inconclusive_on_invalid_prefix(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"][0]["expected_ip_prefixes"] = ["not-a-prefix"]
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("ok", ["100.100.100.10"], None))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "inconclusive"
+        assert "reason_code=tailscale_resolution_failed" not in result["steps"][0]["label"]
+        assert "reason_code=tailscale_invalid_prefix" in result["steps"][0]["label"]
+
+    def test_tailscale_preflight_no_checks_inconclusive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"] = []
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        monkeypatch.setattr("steuerboard.runbooks._validate_plan_preconditions", lambda *_args, **_kwargs: None)
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "inconclusive"
+        assert result["steps"][0]["step_id"] == "step-tailscale-no-checks"
+        assert "No tailscale_checks were available" in result["short_assessment"]
+
+    def test_tailscale_preflight_does_not_call_subprocess(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        def fail_subprocess(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("subprocess should not be called for tailscale-preflight")
+
+        monkeypatch.setattr(subprocess, "run", fail_subprocess)
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("ok", ["100.100.100.10"], None))
+        monkeypatch.setattr(runbooks, "_check_tcp_connectivity", lambda host, port, timeout_seconds: ("ok", None))
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "passed"
 
 class TestOutputSafety:
     def test_rejects_existing_result_out(self, tmp_path):
@@ -1563,4 +1686,45 @@ class TestStepCheckFunctions:
         status, _ = check_decision_state(assessment)
         assert status not in ("passed", "inconclusive"), (
             f"action_blocked must not be softened; got {status!r}"
+        )
+
+
+def test_validate_plan_preconditions_allows_git_subdir_for_tailscale_preflight(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    docs_dir = repo_root / "docs"
+    docs_dir.mkdir(parents=True)
+    (repo_root / ".git").mkdir()
+    plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    plan["repo_path"] = str(docs_dir)
+    runbooks._validate_plan_preconditions(
+        plan,
+        result_out=tmp_path / "result.json",
+        command_trace_out=tmp_path / "trace.jsonl",
+    )
+
+
+def test_validate_plan_preconditions_allows_git_root_for_tailscale_preflight(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / ".git").mkdir()
+    plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    plan["repo_path"] = str(repo_root)
+    runbooks._validate_plan_preconditions(
+        plan,
+        result_out=tmp_path / "result.json",
+        command_trace_out=tmp_path / "trace.jsonl",
+    )
+
+
+def test_validate_plan_preconditions_rejects_result_path_inside_repo_for_tailscale_preflight(tmp_path: Path) -> None:
+    plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / ".git").mkdir()
+    plan["repo_path"] = str(repo_root)
+    with pytest.raises(ValueError, match="outside repository worktree"):
+        run_runbook(
+            runbook_plan=plan,
+            result_out=str((repo_root / "result.json").resolve()),
+            command_trace_out=str((tmp_path / "trace.jsonl").resolve()),
         )
