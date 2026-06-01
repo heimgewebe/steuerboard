@@ -933,12 +933,13 @@ Phase 10A erfüllt dies bereits für statische `ui-view-model.v1`-Artefakte:
 
 ### Phase 11 — Runbook-Starter
 
-Status: Phase 11A + 11B + 11C implemented.
+Status: Phase 11A + 11B + 11C + 11D implemented.
 
 Phase 11A introduces the first read-only runbook starter, repo-sync-gate.
 Phase 11B extends the same read-only model with dns-gate as a second concrete runbook kind.
 Phase 11C extends the same read-only model with ssh-gate as a third concrete runbook kind. ssh-gate checks configured host/port reachability via Python stdlib sockets only. It does not invoke ssh, does not authenticate, does not read SSH keys, does not execute remote commands, and does not authorise actions. For ssh-gate, `repo_path` is currently a context anchor only; it is not a Git gate precondition.
-All three phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
+Phase 11D extends the same read-only model with tailscale-preflight as a fourth concrete runbook kind for local overlay reachability diagnostics (resolver + optional TCP checks) using Python stdlib sockets only. It does not invoke the tailscale CLI, does not access Tailscale APIs/auth/key/state material, and does not authorise actions.
+All four phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
 
 #### Ziel
 

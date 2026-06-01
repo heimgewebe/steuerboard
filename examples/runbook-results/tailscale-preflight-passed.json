@@ -11,7 +11,7 @@
   "steps": [
     {
       "step_id": "step-tailscale-check-001",
-      "label": "Tailscale-preflight check 'tailscale-heimserver-ssh': host='heimserver.tailnet.example.invalid', required=True, reason_code=tailscale_tcp_connect_succeeded",
+      "label": "Tailscale-preflight check 'tailscale-heimserver-ssh': host='heimserver.tailnet.example.invalid', observed_ips=['100.100.10.20'], expected_ip_prefixes=['100.64.0.0/10'], expected_ip_values=[], port=22, timeout_seconds=2.0, required=True, reason_code=tailscale_tcp_connect_succeeded",
       "status": "passed",
       "source_ref": "local overlay reachability"
     }

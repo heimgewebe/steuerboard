@@ -1,4 +1,4 @@
-"""Tests for Phase 11A read-only runbook runner.
+"""Tests for Phase 11D read-only runbook runner.
 
 Groups:
 A. Schema and examples
@@ -144,6 +144,11 @@ class TestSchemaAndExamples:
         example = load_json(EXAMPLES_DIR / "runbooks/ssh-gate.json")
         validate_instance(example, schema, EXAMPLES_DIR / "runbooks/ssh-gate.json")
 
+    def test_tailscale_preflight_plan_example_validates(self):
+        schema = _runbook_plan_schema()
+        example = load_json(EXAMPLES_DIR / "runbooks/tailscale-preflight.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "runbooks/tailscale-preflight.json")
+
     def test_runbook_result_examples_validate(self):
         schema = _runbook_result_schema()
         for name in [
@@ -156,6 +161,9 @@ class TestSchemaAndExamples:
             "ssh-gate-passed.json",
             "ssh-gate-blocked.json",
             "ssh-gate-inconclusive.json",
+            "tailscale-preflight-passed.json",
+            "tailscale-preflight-blocked.json",
+            "tailscale-preflight-inconclusive.json",
         ]:
             path = EXAMPLES_DIR / "runbook-results" / name
             example = load_json(path)
@@ -171,6 +179,9 @@ class TestSchemaAndExamples:
             "ssh-gate-passed-trace.jsonl",
             "ssh-gate-blocked-trace.jsonl",
             "ssh-gate-inconclusive-trace.jsonl",
+            "tailscale-preflight-passed-trace.jsonl",
+            "tailscale-preflight-blocked-trace.jsonl",
+            "tailscale-preflight-inconclusive-trace.jsonl",
         ]:
             jsonl_path = EXAMPLES_DIR / "runbook-traces" / name
             with jsonl_path.open("r", encoding="utf-8") as fh:
@@ -214,6 +225,44 @@ class TestSchemaAndExamples:
                         trace_status_by_step_id[step_id] = status
             
             # Verify each result step has matching trace entry
+            for step_id, result_status in result_step_status_by_id.items():
+                trace_status = trace_status_by_step_id.get(step_id)
+                assert trace_status == result_status, (
+                    f"{result_name}: step_id={step_id!r} has status={result_status!r} "
+                    f"in result but trace has status={trace_status!r}"
+                )
+
+    def test_tailscale_preflight_example_result_trace_statuses_are_coherent(self):
+        """Verify that tailscale-preflight result examples reference traces with matching step statuses."""
+        for result_name in [
+            "tailscale-preflight-passed.json",
+            "tailscale-preflight-blocked.json",
+            "tailscale-preflight-inconclusive.json",
+        ]:
+            result_path = EXAMPLES_DIR / "runbook-results" / result_name
+            result = load_json(result_path)
+
+            result_step_status_by_id = {
+                step["step_id"]: step["status"]
+                for step in result.get("steps", [])
+            }
+            assert len(result_step_status_by_id) > 0, f"{result_name} must have steps"
+
+            evidence_paths = result.get("evidence_paths", [])
+            assert len(evidence_paths) > 0, f"{result_name} must have evidence_paths"
+
+            trace_status_by_step_id = {}
+            for evidence_path in evidence_paths:
+                full_path = ROOT / evidence_path
+                with full_path.open("r", encoding="utf-8") as fh:
+                    lines = [line.strip() for line in fh if line.strip()]
+                for line in lines:
+                    entry = json.loads(line)
+                    step_id = entry.get("step_id")
+                    status = entry.get("status")
+                    if step_id:
+                        trace_status_by_step_id[step_id] = status
+
             for step_id, result_status in result_step_status_by_id.items():
                 trace_status = trace_status_by_step_id.get(step_id)
                 assert trace_status == result_status, (
@@ -338,6 +387,70 @@ class TestSchemaAndExamples:
         ssh_gate_with_dns_checks["dns_checks"] = _valid_runbook_plan(runbook_kind="dns-gate")["dns_checks"]
         with pytest.raises((ValidationError, Exception)):
             validate_instance(ssh_gate_with_dns_checks, schema, Path("ssh-gate-with-dns-checks.json"))
+
+    def test_runbook_plan_tailscale_checks_allowed_only_for_tailscale_preflight(self):
+        schema = _runbook_plan_schema()
+
+        tailscale_valid = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        validate_instance(tailscale_valid, schema, Path("tailscale-preflight-valid.json"))
+
+        tailscale_missing_checks = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        tailscale_missing_checks.pop("tailscale_checks")
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(tailscale_missing_checks, schema, Path("tailscale-preflight-missing-tailscale-checks.json"))
+
+        repo_sync_with_tailscale_checks = _valid_runbook_plan(runbook_kind="repo-sync-gate")
+        repo_sync_with_tailscale_checks["tailscale_checks"] = _valid_runbook_plan(runbook_kind="tailscale-preflight")["tailscale_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(repo_sync_with_tailscale_checks, schema, Path("repo-sync-gate-with-tailscale-checks.json"))
+
+        dns_gate_with_tailscale_checks = _valid_runbook_plan(runbook_kind="dns-gate")
+        dns_gate_with_tailscale_checks["tailscale_checks"] = _valid_runbook_plan(runbook_kind="tailscale-preflight")["tailscale_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(dns_gate_with_tailscale_checks, schema, Path("dns-gate-with-tailscale-checks.json"))
+
+        ssh_gate_with_tailscale_checks = _valid_runbook_plan(runbook_kind="ssh-gate")
+        ssh_gate_with_tailscale_checks["tailscale_checks"] = _valid_runbook_plan(runbook_kind="tailscale-preflight")["tailscale_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(ssh_gate_with_tailscale_checks, schema, Path("ssh-gate-with-tailscale-checks.json"))
+
+        tailscale_with_dns_checks = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        tailscale_with_dns_checks["dns_checks"] = _valid_runbook_plan(runbook_kind="dns-gate")["dns_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(tailscale_with_dns_checks, schema, Path("tailscale-preflight-with-dns-checks.json"))
+
+        tailscale_with_ssh_checks = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        tailscale_with_ssh_checks["ssh_checks"] = _valid_runbook_plan(runbook_kind="ssh-gate")["ssh_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(tailscale_with_ssh_checks, schema, Path("tailscale-preflight-with-ssh-checks.json"))
+
+    def test_tailscale_preflight_plan_rejects_port_zero(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"][0]["port"] = 0
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("tailscale-preflight-port-zero.json"))
+
+    def test_tailscale_preflight_plan_rejects_port_too_high(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"][0]["port"] = 65536
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("tailscale-preflight-port-too-high.json"))
+
+    def test_tailscale_preflight_plan_rejects_timeout_zero(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"][0]["timeout_seconds"] = 0
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("tailscale-preflight-timeout-zero.json"))
+
+    def test_tailscale_preflight_plan_rejects_timeout_over_30(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"][0]["timeout_seconds"] = 31
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("tailscale-preflight-timeout-over-30.json"))
 
     def test_ssh_gate_plan_rejects_port_zero(self):
         schema = _runbook_plan_schema()
@@ -1139,13 +1252,13 @@ class TestCheckTcpConnectivity:
         result_out = tmp_path / "tailscale-result.json"
         trace_out = tmp_path / "tailscale-trace.jsonl"
 
-        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("error", [], "gaierror: Name or service not known"))
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("error", [], "gaierror: Temporary failure in name resolution"))
 
         result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
 
         assert result["status"] == "inconclusive"
         assert "reason_code=tailscale_resolution_failed" in result["steps"][0]["label"]
-        assert "gaierror: Name or service not known" in result["steps"][0]["label"]
+        assert "gaierror: Temporary failure in name resolution" in result["steps"][0]["label"]
 
     def test_tailscale_preflight_inconclusive_on_invalid_prefix(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")

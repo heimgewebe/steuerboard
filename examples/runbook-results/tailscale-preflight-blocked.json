@@ -11,7 +11,7 @@
   "steps": [
     {
       "step_id": "step-tailscale-check-001",
-      "label": "Tailscale-preflight check 'tailscale-heimserver-ssh': host='heimserver.tailnet.example.invalid', required=True, reason_code=tailscale_expected_prefix_mismatch",
+      "label": "Tailscale-preflight check 'tailscale-heimserver-ssh': host='heimserver.tailnet.example.invalid', observed_ips=['192.168.178.62'], expected_ip_prefixes=['100.64.0.0/10'], expected_ip_values=[], port=22, timeout_seconds=2.0, required=True, reason_code=tailscale_expected_prefix_mismatch",
       "status": "blocked",
       "source_ref": "local overlay reachability"
     }

@@ -1,10 +1,10 @@
-"""Phase 11C — Read-only Runbook Runner.
+"""Phase 11D — Read-only Runbook Runner.
 
 Implements read-only runbook kinds:
 - repo-sync-gate
 - dns-gate
 - ssh-gate
-- ssh-gate
+- tailscale-preflight
 
 Architecture rule (Observation != Derivation != Decision != Action):
 - A runbook sequences observations and derivations only.
@@ -778,6 +778,7 @@ def _run_tailscale_preflight(
         host = ""
         required_flag = False
         error_note: str | None = None
+        observed_ips: list[str] = []
 
         if not isinstance(check, dict):
             label = (
@@ -888,6 +889,8 @@ def _run_tailscale_preflight(
 
         label = (
             f"Tailscale-preflight check {check_id!r}: host={host!r}, "
+            f"observed_ips={observed_ips!r}, expected_ip_prefixes={expected_prefixes!r}, "
+            f"expected_ip_values={expected_values_norm!r}, port={port!r}, timeout_seconds={timeout_seconds!r}, "
             f"required={required_flag!r}, reason_code={reason_code}"
         )
         if error_note:

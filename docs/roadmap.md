@@ -1137,6 +1137,35 @@ Stage D remains exactly two mutating executors:
 - action run-git-pull-ff-only
 - action run-switch-main
 
+## Phase 11D — Read-only Runbook Starter: tailscale-preflight
+
+Status: implemented.
+
+Scope:
+- add tailscale-preflight as fourth runbook kind in runbook-plan.v1 and runbook-result.v1
+- add tailscale_checks contract for tailscale-preflight inputs (required for tailscale-preflight plans)
+- implement read-only local resolver checks via `socket.getaddrinfo`
+- implement optional read-only TCP reachability checks via `socket.create_connection` when `port` is present
+- emit runbook-result.v1 and runbook-step-trace.v1 JSONL artifacts
+- add passed / blocked / inconclusive examples and deterministic tests with mocked sockets
+- keep `python -m steuerboard runbook run ...` as the only runbook CLI entrypoint (no new CLI command)
+
+Boundary:
+- no tailscale CLI invocation
+- no Tailscale API access
+- no auth/key/socket/state-file access
+- no route/DNS/firewall mutation
+- no subprocess execution for runbook evaluation
+- no Stage-D executor call
+- no Git mutation
+- no fetch/pull/switch/reset/clean/merge/rebase/push
+- no backend/server/UI trigger
+- no shell=True or generic command runner
+
+Stage D remains exactly two mutating executors:
+- action run-git-pull-ff-only
+- action run-switch-main
+
 ## Phase 11C — Read-only Runbook Starter: ssh-gate
 
 Status: implemented.

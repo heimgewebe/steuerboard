@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 11A/11B introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
+Phase 11A/11B/11C/11D introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
 
 A runbook is an operational checklist, not an action executor.
 
@@ -28,14 +28,23 @@ Phase 11A status: implemented.
 Phase 11B status: implemented.
 - dns-gate
 
+Phase 11C status: implemented.
+- ssh-gate
+
+Phase 11D status: implemented.
+- tailscale-preflight
+
 Implemented runbook kinds:
 - repo-sync-gate
 - dns-gate
+- ssh-gate
+- tailscale-preflight
 
 Allowed:
 - observe repository state read-only
 - derive repo assessment using existing assessment logic
 - resolve DNS names via local system resolver for read-only diagnostics
+- resolve configured overlay/Tailscale targets via local resolver and optional TCP checks for diagnostics
 - emit runbook-result.v1
 - emit runbook-step-trace.v1 JSONL
 - include evidence paths and short assessment
@@ -150,14 +159,29 @@ Do not soften blocked or inconclusive into permissive language.
 
 ## Phase 11 vs future phases
 
-Future runbooks may cover Tailscale-Preflight, server-facts Snapshot, Heimserver-Service-Gate.
-dns-gate is the second and ssh-gate is the third concrete read-only runbook kind.
-All additional runbook kinds beyond ssh-gate remain future-gated.
+Future runbooks may cover server-facts Snapshot and Heimserver-Service-Gate.
+dns-gate is the second, ssh-gate is the third, and tailscale-preflight is the fourth concrete read-only runbook kind.
+Additional runbook kinds beyond tailscale-preflight remain future-gated.
 
 ## tailscale-preflight semantics
+
+The runbook answers:
+"Are configured overlay/Tailscale targets locally resolvable at check time, and reachable via TCP when a port is configured?"
 
 - `passed`: each configured required Tailscale check resolved locally and, when a `port` is present, the TCP probe also succeeded.
 - `blocked`: a required Tailscale check definitively failed due to host non-resolution, expected IP mismatch, expected prefix mismatch, or TCP connection failure.
 - `inconclusive`: required checks were missing, inputs were invalid, or local socket resolution/probing failed for indeterminate reasons.
 
 A `passed` result is evidence-only. It is **not** proof that Tailscale is correctly authenticated or configured, and it is **not** action authorisation.
+
+Boundary:
+- no tailscale CLI invocation
+- no Tailscale API access
+- no auth/key/socket/state-file access
+- no daemon/service management
+- no route/DNS/firewall mutation
+- no subprocess execution path for runbook evaluation
+- no shell=True
+- no os.system
+- no Stage-D executor call
+- no action authorisation
