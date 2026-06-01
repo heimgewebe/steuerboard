@@ -130,7 +130,9 @@ class TestSchemaAndExamples:
         schema = _runbook_step_trace_schema()
         for name in [
             "repo-sync-gate-command-trace.jsonl",
-            "dns-gate-command-trace.jsonl",
+            "dns-gate-passed-trace.jsonl",
+            "dns-gate-blocked-trace.jsonl",
+            "dns-gate-inconclusive-trace.jsonl",
         ]:
             jsonl_path = EXAMPLES_DIR / "runbook-traces" / name
             with jsonl_path.open("r", encoding="utf-8") as fh:
@@ -139,6 +141,41 @@ class TestSchemaAndExamples:
             for line in lines:
                 entry = json.loads(line)
                 validate_instance(entry, schema, jsonl_path)
+
+    def test_dns_gate_example_result_trace_statuses_are_coherent(self):
+        """Verify that dns-gate result examples reference traces with matching statuses.
+        
+        Each result example should reference a trace file where at least one step
+        has the same status as the result itself. This ensures example artifacts
+        are truthful and don't contradict their evidence.
+        """
+        for result_name in [
+            "dns-gate-passed.json",
+            "dns-gate-blocked.json",
+            "dns-gate-inconclusive.json",
+        ]:
+            result_path = EXAMPLES_DIR / "runbook-results" / result_name
+            result = load_json(result_path)
+            result_status = result["status"]
+            
+            # Collect all trace statuses from referenced evidence files
+            evidence_paths = result.get("evidence_paths", [])
+            assert len(evidence_paths) > 0, f"{result_name} must have evidence_paths"
+            
+            trace_statuses = set()
+            for evidence_path in evidence_paths:
+                full_path = ROOT / evidence_path
+                with full_path.open("r", encoding="utf-8") as fh:
+                    lines = [line.strip() for line in fh if line.strip()]
+                for line in lines:
+                    entry = json.loads(line)
+                    trace_statuses.add(entry.get("status"))
+            
+            assert result_status in trace_statuses, (
+                f"{result_name} has status={result_status!r} but referenced traces "
+                f"only have statuses {trace_statuses!r}"
+            )
+
 
     def test_runbook_plan_rejects_unknown_runbook_kind(self):
         schema = _runbook_plan_schema()

@@ -16,7 +16,7 @@
       "source_ref": "local DNS truth"
     }
   ],
-  "evidence_paths": ["examples/runbook-traces/dns-gate-command-trace.jsonl"],
+  "evidence_paths": ["examples/runbook-traces/dns-gate-inconclusive-trace.jsonl"],
   "source_refs": [
     "runbook-model.v1",
     "local DNS truth"
