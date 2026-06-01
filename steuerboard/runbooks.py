@@ -814,8 +814,21 @@ def _run_tailscale_preflight(
             expected_prefixes = [p.strip() for p in expected_prefixes_raw if isinstance(p, str) and p.strip()]
         expected_values_raw = check.get("expected_ip_values")
         expected_values_norm: list[str] = []
+        invalid_expected_values: list[str] = []
         if isinstance(expected_values_raw, list):
-            expected_values_norm = _normalize_ip_values([v for v in expected_values_raw if isinstance(v, str)])
+            for value in expected_values_raw:
+                if not isinstance(value, str):
+                    invalid_expected_values.append(repr(value))
+                    continue
+                stripped = value.strip()
+                if not stripped:
+                    invalid_expected_values.append(repr(value))
+                    continue
+                try:
+                    expected_values_norm.append(str(ipaddress.ip_address(stripped)))
+                except ValueError:
+                    invalid_expected_values.append(stripped)
+            expected_values_norm = sorted(set(expected_values_norm))
         port_raw = check.get("port")
         port: int | None = None
         if isinstance(port_raw, int) and 1 <= port_raw <= 65535:
@@ -825,7 +838,11 @@ def _run_tailscale_preflight(
         if isinstance(timeout_raw, (int, float)):
             timeout_seconds = float(timeout_raw)
 
-        if not host:
+        if invalid_expected_values:
+            status = "inconclusive"
+            reason_code = "tailscale_invalid_expected_ip_values"
+            error_note = f"invalid expected_ip_values: {sorted(set(invalid_expected_values))!r}"
+        elif not host:
             status = "inconclusive"
             reason_code = "tailscale_invalid_check"
         else:
