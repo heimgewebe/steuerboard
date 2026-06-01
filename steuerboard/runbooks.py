@@ -52,7 +52,7 @@ _RUNBOOK_PLAN_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
 
-# Allowed runbook kinds in Phase 11C.
+# Allowed runbook kinds in Phase 11D.
 SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
 
 
