@@ -143,11 +143,11 @@ class TestSchemaAndExamples:
                 validate_instance(entry, schema, jsonl_path)
 
     def test_dns_gate_example_result_trace_statuses_are_coherent(self):
-        """Verify that dns-gate result examples reference traces with matching statuses.
+        """Verify that dns-gate result examples reference traces with matching step statuses.
         
-        Each result example should reference a trace file where at least one step
-        has the same status as the result itself. This ensures example artifacts
-        are truthful and don't contradict their evidence.
+        Each result example should reference trace entries where the specific step_id
+        has the same status as recorded in the result. This ensures example artifacts
+        are precisely truthful and their evidence matches step-by-step.
         """
         for result_name in [
             "dns-gate-passed.json",
@@ -156,25 +156,37 @@ class TestSchemaAndExamples:
         ]:
             result_path = EXAMPLES_DIR / "runbook-results" / result_name
             result = load_json(result_path)
-            result_status = result["status"]
             
-            # Collect all trace statuses from referenced evidence files
+            # Build result step status map
+            result_step_status_by_id = {
+                step["step_id"]: step["status"]
+                for step in result.get("steps", [])
+            }
+            assert len(result_step_status_by_id) > 0, f"{result_name} must have steps"
+            
+            # Collect trace entries by step_id from referenced evidence files
             evidence_paths = result.get("evidence_paths", [])
             assert len(evidence_paths) > 0, f"{result_name} must have evidence_paths"
             
-            trace_statuses = set()
+            trace_status_by_step_id = {}
             for evidence_path in evidence_paths:
                 full_path = ROOT / evidence_path
                 with full_path.open("r", encoding="utf-8") as fh:
                     lines = [line.strip() for line in fh if line.strip()]
                 for line in lines:
                     entry = json.loads(line)
-                    trace_statuses.add(entry.get("status"))
+                    step_id = entry.get("step_id")
+                    status = entry.get("status")
+                    if step_id:
+                        trace_status_by_step_id[step_id] = status
             
-            assert result_status in trace_statuses, (
-                f"{result_name} has status={result_status!r} but referenced traces "
-                f"only have statuses {trace_statuses!r}"
-            )
+            # Verify each result step has matching trace entry
+            for step_id, result_status in result_step_status_by_id.items():
+                trace_status = trace_status_by_step_id.get(step_id)
+                assert trace_status == result_status, (
+                    f"{result_name}: step_id={step_id!r} has status={result_status!r} "
+                    f"in result but trace has status={trace_status!r}"
+                )
 
 
     def test_runbook_plan_rejects_unknown_runbook_kind(self):
