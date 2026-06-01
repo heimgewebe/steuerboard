@@ -51,7 +51,8 @@
         "properties": {"runbook_kind": {"const": "dns-gate"}},
         "required": ["runbook_kind"]
       },
-      "then": {"required": ["dns_checks"]}
+      "then": {"required": ["dns_checks"]},
+      "else": {"not": {"required": ["dns_checks"]}}
     }
   ]
 }

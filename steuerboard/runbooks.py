@@ -157,6 +157,15 @@ def _resolve_repo_worktree_root(repo_path_raw: str) -> Path:
     return repo_path
 
 
+def _resolve_git_marker_worktree_root(repo_path_raw: str) -> Path:
+    repo_path = Path(repo_path_raw).expanduser().resolve()
+    cursor = repo_path if repo_path.is_dir() else repo_path.parent
+    for candidate in (cursor, *cursor.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return repo_path
+
+
 def _ensure_outputs_outside_worktree(
     repo_worktree_root: Path,
     result_out: Path,
@@ -435,7 +444,11 @@ def _resolve_dns(hostname: str, record_type: str) -> tuple[str, list[str], str |
         addrinfo = socket.getaddrinfo(hostname, None, family=family, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         error_code = exc.args[0] if exc.args else None
-        if error_code == socket.EAI_NONAME:
+        not_found_codes = {socket.EAI_NONAME}
+        nodata = getattr(socket, "EAI_NODATA", None)
+        if nodata is not None:
+            not_found_codes.add(nodata)
+        if error_code in not_found_codes:
             return "not_found", [], None
         return "error", [], _redact_dns_error(exc)
     except OSError as exc:
@@ -642,7 +655,7 @@ def run_runbook(
     if runbook_kind == "repo-sync-gate":
         repo_worktree_root = _resolve_repo_worktree_root(str(runbook_plan["repo_path"]))
     else:
-        repo_worktree_root = Path(str(runbook_plan["repo_path"])).expanduser().resolve()
+        repo_worktree_root = _resolve_git_marker_worktree_root(str(runbook_plan["repo_path"]))
     _ensure_outputs_outside_worktree(repo_worktree_root, result_path, trace_path)
 
     # --- Execution begins here ---

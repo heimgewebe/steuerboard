@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import json
+import socket
 import sys
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from scripts.validate_examples import (  # noqa: E402
     validate_instance,
 )
 from steuerboard.runbooks import (  # noqa: E402
+    _resolve_dns,
     SUPPORTED_RUNBOOK_KINDS,
     check_decision_state,
     check_is_git_repo,
@@ -220,12 +222,61 @@ class TestSchemaAndExamples:
         with pytest.raises((ValidationError, Exception)):
             validate_instance(invalid, schema, Path("invalid-plan-extra.json"))
 
+    def test_runbook_plan_dns_checks_allowed_only_for_dns_gate(self):
+        schema = _runbook_plan_schema()
+
+        repo_sync_valid = _valid_runbook_plan(runbook_kind="repo-sync-gate")
+        validate_instance(repo_sync_valid, schema, Path("repo-sync-gate-valid.json"))
+
+        dns_gate_valid = _valid_runbook_plan(runbook_kind="dns-gate")
+        validate_instance(dns_gate_valid, schema, Path("dns-gate-valid.json"))
+
+        dns_gate_missing_checks = _valid_runbook_plan(runbook_kind="dns-gate")
+        dns_gate_missing_checks.pop("dns_checks")
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(dns_gate_missing_checks, schema, Path("dns-gate-missing-dns-checks.json"))
+
+        repo_sync_with_dns_checks = _valid_runbook_plan(runbook_kind="repo-sync-gate")
+        repo_sync_with_dns_checks["dns_checks"] = _valid_runbook_plan(runbook_kind="dns-gate")["dns_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(repo_sync_with_dns_checks, schema, Path("repo-sync-gate-with-dns-checks.json"))
+
 
 # ---------------------------------------------------------------------------
 # B. CLI and runner
 # ---------------------------------------------------------------------------
 
 class TestCLIAndRunner:
+    def test_resolve_dns_maps_eai_noname_to_not_found(self, monkeypatch):
+        def _raise_noname(*_args, **_kwargs):
+            raise socket.gaierror(socket.EAI_NONAME, "name not known")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _raise_noname)
+        assert _resolve_dns("example.invalid", "A") == ("not_found", [], None)
+
+    def test_resolve_dns_maps_eai_nodata_to_not_found_when_available(self, monkeypatch):
+        nodata = getattr(socket, "EAI_NODATA", None)
+        if nodata is None:
+            pytest.skip("socket.EAI_NODATA is not defined on this platform")
+
+        def _raise_nodata(*_args, **_kwargs):
+            raise socket.gaierror(nodata, "no data of requested type")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _raise_nodata)
+        assert _resolve_dns("example.invalid", "A") == ("not_found", [], None)
+
+    def test_resolve_dns_other_gaierror_remains_error(self, monkeypatch):
+        error_code = getattr(socket, "EAI_AGAIN", 9999)
+
+        def _raise_other(*_args, **_kwargs):
+            raise socket.gaierror(error_code, "temporary resolver failure")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.getaddrinfo", _raise_other)
+        status, values, note = _resolve_dns("example.invalid", "A")
+        assert status == "error"
+        assert values == []
+        assert isinstance(note, str) and note
+
     def test_runbook_run_cli_exists(self):
         parser = build_parser()
         # Build a namespace to verify runbook run is parseable
@@ -810,6 +861,30 @@ class TestOutputSafety:
         plan = _valid_runbook_plan(repo_path=str(ROOT))
         result_out = tmp_path / "result.json"
         trace_out = ROOT / "trace-inside-worktree.jsonl"
+
+        with pytest.raises(ValueError, match="outside repository worktree"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+    def test_dns_gate_subdirectory_context_uses_repository_worktree_root(self, tmp_path):
+        import subprocess as _subprocess
+
+        repo_root = tmp_path / "dns-gate-repo"
+        repo_root.mkdir()
+        _subprocess.run(["git", "init", str(repo_root)], check=True, capture_output=True)
+
+        context_subdir = repo_root / "context"
+        context_subdir.mkdir()
+
+        plan = _valid_runbook_plan(repo_path=str(context_subdir), runbook_kind="dns-gate")
+        result_out = repo_root / "result-inside-repo-root.json"
+        trace_out = tmp_path / "trace.jsonl"
 
         with pytest.raises(ValueError, match="outside repository worktree"):
             run_runbook(
