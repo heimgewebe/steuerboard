@@ -1,0 +1,31 @@
+{
+  "schema_version": "runbook-result.v1",
+  "result_id": "rbresult-ssh-gate-20260601-inconclusive-001",
+  "runbook_ref": "runbook-ssh-gate-20260601-001",
+  "runbook_kind": "ssh-gate",
+  "status": "inconclusive",
+  "started_at": "2026-06-01T10:00:01Z",
+  "finished_at": "2026-06-01T10:00:02Z",
+  "repo_path": "/home/alex/repos/steuerboard",
+  "short_assessment": "SSH-gate inconclusive. Required checks inconclusive=['ssh-heimserver-22']. TCP reachability evidence was incomplete or locally indeterminate.",
+  "steps": [
+    {
+      "step_id": "step-ssh-check-001",
+      "label": "SSH check 'ssh-heimserver-22': host='heimserver.home.arpa', port=22, timeout_seconds=2.0, required=True, reason_code=ssh_tcp_connect_inconclusive, error='OSError: [Errno 101] Network is unreachable'",
+      "status": "inconclusive",
+      "source_ref": "local TCP reachability"
+    }
+  ],
+  "evidence_paths": ["examples/runbook-traces/ssh-gate-inconclusive-trace.jsonl"],
+  "source_refs": [
+    "runbook-model.v1",
+    "local TCP reachability"
+  ],
+  "redaction_verified": true,
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

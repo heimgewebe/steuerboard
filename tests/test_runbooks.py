@@ -28,6 +28,7 @@ from scripts.validate_examples import (  # noqa: E402
     validate_instance,
 )
 from steuerboard.runbooks import (  # noqa: E402
+    _check_tcp_connectivity,
     _resolve_dns,
     SUPPORTED_RUNBOOK_KINDS,
     check_decision_state,
@@ -85,6 +86,16 @@ def _valid_runbook_plan(
                 "required": True,
             }
         ]
+    if runbook_kind == "ssh-gate":
+        plan["ssh_checks"] = [
+            {
+                "check_id": "ssh-heimserver-22",
+                "host": "heimserver.home.arpa",
+                "port": 22,
+                "timeout_seconds": 2.0,
+                "required": True,
+            }
+        ]
     return plan
 
 
@@ -114,6 +125,11 @@ class TestSchemaAndExamples:
         example = load_json(EXAMPLES_DIR / "runbooks/dns-gate.json")
         validate_instance(example, schema, EXAMPLES_DIR / "runbooks/dns-gate.json")
 
+    def test_ssh_gate_plan_example_validates(self):
+        schema = _runbook_plan_schema()
+        example = load_json(EXAMPLES_DIR / "runbooks/ssh-gate.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "runbooks/ssh-gate.json")
+
     def test_runbook_result_examples_validate(self):
         schema = _runbook_result_schema()
         for name in [
@@ -123,6 +139,9 @@ class TestSchemaAndExamples:
             "dns-gate-passed.json",
             "dns-gate-blocked.json",
             "dns-gate-inconclusive.json",
+            "ssh-gate-passed.json",
+            "ssh-gate-blocked.json",
+            "ssh-gate-inconclusive.json",
         ]:
             path = EXAMPLES_DIR / "runbook-results" / name
             example = load_json(path)
@@ -135,6 +154,9 @@ class TestSchemaAndExamples:
             "dns-gate-passed-trace.jsonl",
             "dns-gate-blocked-trace.jsonl",
             "dns-gate-inconclusive-trace.jsonl",
+            "ssh-gate-passed-trace.jsonl",
+            "ssh-gate-blocked-trace.jsonl",
+            "ssh-gate-inconclusive-trace.jsonl",
         ]:
             jsonl_path = EXAMPLES_DIR / "runbook-traces" / name
             with jsonl_path.open("r", encoding="utf-8") as fh:
@@ -145,12 +167,7 @@ class TestSchemaAndExamples:
                 validate_instance(entry, schema, jsonl_path)
 
     def test_dns_gate_example_result_trace_statuses_are_coherent(self):
-        """Verify that dns-gate result examples reference traces with matching step statuses.
-        
-        Each result example should reference trace entries where the specific step_id
-        has the same status as recorded in the result. This ensures example artifacts
-        are precisely truthful and their evidence matches step-by-step.
-        """
+        """Verify that dns-gate result examples reference traces with matching step statuses."""
         for result_name in [
             "dns-gate-passed.json",
             "dns-gate-blocked.json",
@@ -190,6 +207,43 @@ class TestSchemaAndExamples:
                     f"in result but trace has status={trace_status!r}"
                 )
 
+    def test_ssh_gate_example_result_trace_statuses_are_coherent(self):
+        """Verify that ssh-gate result examples reference traces with matching step statuses."""
+        for result_name in [
+            "ssh-gate-passed.json",
+            "ssh-gate-blocked.json",
+            "ssh-gate-inconclusive.json",
+        ]:
+            result_path = EXAMPLES_DIR / "runbook-results" / result_name
+            result = load_json(result_path)
+
+            result_step_status_by_id = {
+                step["step_id"]: step["status"]
+                for step in result.get("steps", [])
+            }
+            assert len(result_step_status_by_id) > 0, f"{result_name} must have steps"
+
+            evidence_paths = result.get("evidence_paths", [])
+            assert len(evidence_paths) > 0, f"{result_name} must have evidence_paths"
+
+            trace_status_by_step_id = {}
+            for evidence_path in evidence_paths:
+                full_path = ROOT / evidence_path
+                with full_path.open("r", encoding="utf-8") as fh:
+                    lines = [line.strip() for line in fh if line.strip()]
+                for line in lines:
+                    entry = json.loads(line)
+                    step_id = entry.get("step_id")
+                    status = entry.get("status")
+                    if step_id:
+                        trace_status_by_step_id[step_id] = status
+
+            for step_id, result_status in result_step_status_by_id.items():
+                trace_status = trace_status_by_step_id.get(step_id)
+                assert trace_status == result_status, (
+                    f"{result_name}: step_id={step_id!r} has status={result_status!r} "
+                    f"in result but trace has status={trace_status!r}"
+                )
 
     def test_runbook_plan_rejects_unknown_runbook_kind(self):
         schema = _runbook_plan_schema()
@@ -240,6 +294,64 @@ class TestSchemaAndExamples:
         repo_sync_with_dns_checks["dns_checks"] = _valid_runbook_plan(runbook_kind="dns-gate")["dns_checks"]
         with pytest.raises((ValidationError, Exception)):
             validate_instance(repo_sync_with_dns_checks, schema, Path("repo-sync-gate-with-dns-checks.json"))
+
+    def test_runbook_plan_ssh_checks_allowed_only_for_ssh_gate(self):
+        schema = _runbook_plan_schema()
+
+        ssh_gate_valid = _valid_runbook_plan(runbook_kind="ssh-gate")
+        validate_instance(ssh_gate_valid, schema, Path("ssh-gate-valid.json"))
+
+        # ssh-gate without ssh_checks must fail
+        ssh_gate_missing_checks = _valid_runbook_plan(runbook_kind="ssh-gate")
+        ssh_gate_missing_checks.pop("ssh_checks")
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(ssh_gate_missing_checks, schema, Path("ssh-gate-missing-ssh-checks.json"))
+
+        # repo-sync-gate with ssh_checks must fail
+        repo_sync_with_ssh_checks = _valid_runbook_plan(runbook_kind="repo-sync-gate")
+        repo_sync_with_ssh_checks["ssh_checks"] = _valid_runbook_plan(runbook_kind="ssh-gate")["ssh_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(repo_sync_with_ssh_checks, schema, Path("repo-sync-gate-with-ssh-checks.json"))
+
+        # dns-gate with ssh_checks must fail
+        dns_gate_with_ssh_checks = _valid_runbook_plan(runbook_kind="dns-gate")
+        dns_gate_with_ssh_checks["ssh_checks"] = _valid_runbook_plan(runbook_kind="ssh-gate")["ssh_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(dns_gate_with_ssh_checks, schema, Path("dns-gate-with-ssh-checks.json"))
+
+        # ssh-gate with dns_checks must fail
+        ssh_gate_with_dns_checks = _valid_runbook_plan(runbook_kind="ssh-gate")
+        ssh_gate_with_dns_checks["dns_checks"] = _valid_runbook_plan(runbook_kind="dns-gate")["dns_checks"]
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(ssh_gate_with_dns_checks, schema, Path("ssh-gate-with-dns-checks.json"))
+
+    def test_ssh_gate_plan_rejects_port_zero(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="ssh-gate")
+        plan["ssh_checks"][0]["port"] = 0
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("ssh-gate-port-zero.json"))
+
+    def test_ssh_gate_plan_rejects_port_too_high(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="ssh-gate")
+        plan["ssh_checks"][0]["port"] = 65536
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("ssh-gate-port-too-high.json"))
+
+    def test_ssh_gate_plan_rejects_timeout_zero(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="ssh-gate")
+        plan["ssh_checks"][0]["timeout_seconds"] = 0
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("ssh-gate-timeout-zero.json"))
+
+    def test_ssh_gate_plan_rejects_timeout_over_30(self):
+        schema = _runbook_plan_schema()
+        plan = _valid_runbook_plan(runbook_kind="ssh-gate")
+        plan["ssh_checks"][0]["timeout_seconds"] = 31
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(plan, schema, Path("ssh-gate-timeout-over-30.json"))
 
 
 # ---------------------------------------------------------------------------
@@ -633,8 +745,117 @@ class TestCLIAndRunner:
         result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
         assert result["status"] == "passed"
 
-    def test_supported_runbook_kinds_exactly_two(self):
-        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate"})
+    def test_ssh_gate_passed_with_successful_tcp_connect(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="ssh-gate")
+        result_out = str(tmp_path / "ssh-passed-result.json")
+        trace_out = str(tmp_path / "ssh-passed-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._check_tcp_connectivity",
+            lambda host, port, timeout_seconds: ("ok", None),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["runbook_kind"] == "ssh-gate"
+        assert result["status"] == "passed"
+        assert any("ssh_tcp_connect_succeeded" in step["label"] for step in result["steps"])
+        assert result["boundary"]["does_not_mutate"] is True
+        assert result["boundary"]["does_not_execute_mutating_actions"] is True
+
+    def test_ssh_gate_blocked_on_connection_refused(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="ssh-gate")
+        result_out = str(tmp_path / "ssh-blocked-result.json")
+        trace_out = str(tmp_path / "ssh-blocked-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._check_tcp_connectivity",
+            lambda host, port, timeout_seconds: ("blocked", "ConnectionRefusedError: [Errno 111] Connection refused"),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["status"] == "blocked"
+        assert any("ssh_tcp_connect_failed" in step["label"] for step in result["steps"])
+
+    def test_ssh_gate_blocked_on_timeout(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="ssh-gate")
+        result_out = str(tmp_path / "ssh-timeout-result.json")
+        trace_out = str(tmp_path / "ssh-timeout-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._check_tcp_connectivity",
+            lambda host, port, timeout_seconds: ("blocked", "TimeoutError: timed out"),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["status"] == "blocked"
+        assert any("ssh_tcp_connect_failed" in step["label"] for step in result["steps"])
+
+    def test_ssh_gate_inconclusive_on_unknown_oserror(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="ssh-gate")
+        result_out = str(tmp_path / "ssh-inconclusive-result.json")
+        trace_out = str(tmp_path / "ssh-inconclusive-trace.jsonl")
+
+        monkeypatch.setattr(
+            "steuerboard.runbooks._check_tcp_connectivity",
+            lambda host, port, timeout_seconds: ("inconclusive", "OSError: unknown socket error"),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+
+        assert result["status"] == "inconclusive"
+        assert any("ssh_tcp_connect_inconclusive" in step["label"] for step in result["steps"])
+
+    def test_ssh_gate_no_checks_inconclusive(self, tmp_path, monkeypatch):
+        schema = _runbook_plan_schema()
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        invalid = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="ssh-gate")
+        invalid.pop("ssh_checks")
+        with pytest.raises((ValidationError, Exception)):
+            validate_instance(invalid, schema, Path("invalid-ssh-gate-plan-no-checks.json"))
+
+        monkeypatch.setattr("steuerboard.runbooks._validate_plan_preconditions", lambda *_args, **_kwargs: None)
+        result = run_runbook(
+            invalid,
+            result_out=str(tmp_path / "ssh-no-checks-result.json"),
+            command_trace_out=str(tmp_path / "ssh-no-checks-trace.jsonl"),
+        )
+
+        assert result["status"] == "inconclusive"
+        assert any("ssh_no_checks" in step["label"] for step in result["steps"])
+
+    def test_ssh_gate_does_not_call_subprocess(self, tmp_path, monkeypatch):
+        repo_context = tmp_path / "repo-context"
+        repo_context.mkdir()
+        plan = _valid_runbook_plan(repo_path=str(repo_context), runbook_kind="ssh-gate")
+        result_out = str(tmp_path / "ssh-subprocess-result.json")
+        trace_out = str(tmp_path / "ssh-subprocess-trace.jsonl")
+
+        def _fail_subprocess(*args, **kwargs):
+            raise AssertionError("ssh-gate must not call subprocess.run")
+
+        monkeypatch.setattr("steuerboard.runbooks.subprocess.run", _fail_subprocess)
+        monkeypatch.setattr(
+            "steuerboard.runbooks._check_tcp_connectivity",
+            lambda host, port, timeout_seconds: ("ok", None),
+        )
+
+        result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
+        assert result["status"] == "passed"
+
+    def test_supported_runbook_kinds_exactly_three(self):
+        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate", "ssh-gate"})
 
     def test_stage_d_still_exactly_two_mutating_executors(self):
         surface_path = ROOT / "scripts" / "docmeta" / "cli_surface.json"
@@ -780,6 +1001,73 @@ class TestCLIAndRunner:
 # C. Output safety
 # ---------------------------------------------------------------------------
 
+class TestCheckTcpConnectivity:
+    """Unit tests for _check_tcp_connectivity using mocked sockets."""
+
+    def test_ok_on_successful_connection(self, monkeypatch):
+        import contextlib
+
+        @contextlib.contextmanager
+        def _fake_create_connection(address, timeout):
+            yield None  # connection object not used
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.create_connection", _fake_create_connection)
+        status, err = _check_tcp_connectivity("example.invalid", 22, 2.0)
+        assert status == "ok"
+        assert err is None
+
+    def test_blocked_on_connection_refused(self, monkeypatch):
+        def _raise_refused(address, timeout):
+            raise ConnectionRefusedError(111, "Connection refused")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.create_connection", _raise_refused)
+        status, err = _check_tcp_connectivity("example.invalid", 22, 2.0)
+        assert status == "blocked"
+        assert err is not None
+
+    def test_blocked_on_timeout_error(self, monkeypatch):
+        def _raise_timeout(address, timeout):
+            raise TimeoutError("timed out")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.create_connection", _raise_timeout)
+        status, err = _check_tcp_connectivity("example.invalid", 22, 2.0)
+        assert status == "blocked"
+        assert err is not None
+
+    def test_blocked_on_socket_timeout(self, monkeypatch):
+        def _raise_socket_timeout(address, timeout):
+            raise socket.timeout("timed out")
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.create_connection", _raise_socket_timeout)
+        status, err = _check_tcp_connectivity("example.invalid", 22, 2.0)
+        assert status == "blocked"
+        assert err is not None
+
+    def test_blocked_on_known_network_errno(self, monkeypatch):
+        import errno
+
+        def _raise_enetunreach(address, timeout):
+            exc = OSError(errno.ENETUNREACH, "Network is unreachable")
+            exc.errno = errno.ENETUNREACH
+            raise exc
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.create_connection", _raise_enetunreach)
+        status, err = _check_tcp_connectivity("example.invalid", 22, 2.0)
+        assert status == "blocked"
+        assert err is not None
+
+    def test_inconclusive_on_unknown_oserror(self, monkeypatch):
+        def _raise_unknown_oserror(address, timeout):
+            exc = OSError(99999, "unknown socket error")
+            exc.errno = 99999
+            raise exc
+
+        monkeypatch.setattr("steuerboard.runbooks.socket.create_connection", _raise_unknown_oserror)
+        status, err = _check_tcp_connectivity("example.invalid", 22, 2.0)
+        assert status == "inconclusive"
+        assert err is not None
+
+
 class TestOutputSafety:
     def test_rejects_existing_result_out(self, tmp_path):
         existing = tmp_path / "existing-result.json"
@@ -894,6 +1182,30 @@ class TestOutputSafety:
         context_subdir.mkdir()
 
         plan = _valid_runbook_plan(repo_path=str(context_subdir), runbook_kind="dns-gate")
+        result_out = repo_root / "result-inside-repo-root.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError, match="outside repository worktree"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
+    def test_ssh_gate_subdirectory_context_uses_repository_worktree_root(self, tmp_path):
+        import subprocess as _subprocess
+
+        repo_root = tmp_path / "ssh-gate-repo"
+        repo_root.mkdir()
+        _subprocess.run(["git", "init", str(repo_root)], check=True, capture_output=True)
+
+        context_subdir = repo_root / "context"
+        context_subdir.mkdir()
+
+        plan = _valid_runbook_plan(repo_path=str(context_subdir), runbook_kind="ssh-gate")
         result_out = repo_root / "result-inside-repo-root.json"
         trace_out = tmp_path / "trace.jsonl"
 

@@ -1136,3 +1136,29 @@ Boundary:
 Stage D remains exactly two mutating executors:
 - action run-git-pull-ff-only
 - action run-switch-main
+
+## Phase 11C — Read-only Runbook Starter: ssh-gate
+
+Status: implemented.
+
+Scope:
+- add ssh-gate as third runbook kind in runbook-plan.v1 and runbook-result.v1
+- add ssh_checks contract for ssh-gate inputs (required for ssh-gate plans)
+- implement read-only local TCP reachability checks via Python stdlib (`socket.create_connection`)
+- emit runbook-result.v1 and runbook-step-trace.v1 JSONL artifacts
+- add passed / blocked / inconclusive examples and deterministic tests with mocked sockets
+- keep `python -m steuerboard runbook run ...` as the only runbook CLI entrypoint (no new CLI command)
+
+Boundary:
+- no ssh subprocess invocation
+- no SSH authentication or key handling
+- no remote command execution
+- no Stage-D executor call
+- no Git mutation
+- no fetch/pull/switch/reset/clean/merge/rebase/push
+- no backend/server/UI trigger
+- no shell=True or generic command runner
+
+Stage D remains exactly two mutating executors:
+- action run-git-pull-ff-only
+- action run-switch-main

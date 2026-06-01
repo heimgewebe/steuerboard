@@ -1,8 +1,10 @@
-"""Phase 11B — Read-only Runbook Runner.
+"""Phase 11C — Read-only Runbook Runner.
 
 Implements read-only runbook kinds:
 - repo-sync-gate
 - dns-gate
+- ssh-gate
+- ssh-gate
 
 Architecture rule (Observation != Derivation != Decision != Action):
 - A runbook sequences observations and derivations only.
@@ -50,8 +52,8 @@ _RUNBOOK_PLAN_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
 
-# Allowed runbook kinds in Phase 11B.
-SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate"})
+# Allowed runbook kinds in Phase 11C.
+SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate", "ssh-gate"})
 
 
 def _load_schema(name: str) -> dict[str, Any]:
@@ -623,6 +625,230 @@ def _run_dns_gate(
     return steps, step_traces, overall_status, short_assessment
 
 
+# ---------------------------------------------------------------------------
+# SSH-gate TCP check (read_only — no ssh, no subprocess, no shell)
+# ---------------------------------------------------------------------------
+
+def _redact_network_error(exc: BaseException) -> str:
+    message = str(exc).strip()
+    compact = message.replace("\n", " ")
+    if len(compact) > 120:
+        compact = compact[:117] + "..."
+    if compact:
+        return f"{exc.__class__.__name__}: {compact}"
+    return exc.__class__.__name__
+
+
+def _classify_tcp_os_error(exc: OSError) -> tuple[str, str]:
+    """Classify an OSError from socket.create_connection into blocked or inconclusive.
+
+    Known network-unreachability errno codes map to blocked.
+    Ambiguous or local-socket errors map to inconclusive.
+    """
+    import errno as _errno
+
+    BLOCKED_ERRNOS = {
+        getattr(_errno, "ECONNREFUSED", None),
+        getattr(_errno, "ETIMEDOUT", None),
+        getattr(_errno, "ENETUNREACH", None),
+        getattr(_errno, "EHOSTUNREACH", None),
+        getattr(_errno, "ENETDOWN", None),
+        getattr(_errno, "EHOSTDOWN", None),
+    }
+    BLOCKED_ERRNOS.discard(None)
+
+    code = exc.errno
+    if code is not None and code in BLOCKED_ERRNOS:
+        return "blocked", _redact_network_error(exc)
+    return "inconclusive", _redact_network_error(exc)
+
+
+def _check_tcp_connectivity(host: str, port: int, timeout_seconds: float) -> tuple[str, str | None]:
+    """Attempt a TCP connection to (host, port) and return (status, error_note).
+
+    Status values:
+    - "ok"           — connection established and closed cleanly
+    - "blocked"      — connection refused, timed out, or host/network unreachable
+    - "inconclusive" — local socket error that cannot be classified as reachability failure
+    """
+    try:
+        with socket.create_connection((host, port), timeout=timeout_seconds):
+            return "ok", None
+    except TimeoutError as exc:
+        return "blocked", _redact_network_error(exc)
+    except ConnectionRefusedError as exc:
+        return "blocked", _redact_network_error(exc)
+    except socket.timeout as exc:
+        return "blocked", _redact_network_error(exc)
+    except OSError as exc:
+        return _classify_tcp_os_error(exc)
+
+
+def _run_ssh_gate(
+    runbook_plan: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    """Evaluate ssh_checks from the runbook plan via TCP-only reachability probes.
+
+    No SSH subprocess, no authentication, no remote commands, no key access.
+    """
+    checks_raw = runbook_plan.get("ssh_checks")
+    runbook_id = runbook_plan["runbook_id"]
+    source_ref = "local TCP reachability"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+
+    if not isinstance(checks_raw, list) or len(checks_raw) == 0:
+        step_id = "step-ssh-no-checks"
+        t0 = _utc_now()
+        t1 = _utc_now()
+        label = "SSH check set is missing or empty (reason_code=ssh_no_checks)."
+        steps.append({"step_id": step_id, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_ssh_gate",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "SSH-gate inconclusive. No ssh_checks were available for evaluation. "
+            "No mutation and no action authorisation occurred."
+        )
+        return steps, step_traces, "inconclusive", short
+
+    required_statuses: list[str] = []
+    blocked_required_ids: list[str] = []
+    inconclusive_required_ids: list[str] = []
+    passed_required_ids: list[str] = []
+
+    for index, check in enumerate(checks_raw):
+        step_id = f"step-ssh-check-{index + 1:03d}"
+        t0 = _utc_now()
+        status = "inconclusive"
+        reason_code = "ssh_invalid_check"
+        check_id = f"ssh-check-{index + 1}"
+        host = ""
+        port = 0
+        timeout_seconds = 2.0
+        required_flag = False
+        error_note: str | None = None
+
+        if not isinstance(check, dict):
+            label = (
+                f"SSH check {check_id!r}: invalid check entry (not a dict), "
+                f"reason_code={reason_code}"
+            )
+            t1 = _utc_now()
+            steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+            step_traces.append({
+                "schema_version": "runbook-step-trace.v1",
+                "trace_id": _trace_id(step_id),
+                "runbook_ref": runbook_id,
+                "step_id": step_id,
+                "operation": "steuerboard.runbooks._check_tcp_connectivity",
+                "capability_class": "read_only",
+                "started_at": t0,
+                "finished_at": t1,
+                "status": status,
+                "redaction_verified": True,
+            })
+            # Non-dict checks never count as required — treat as inconclusive non-required
+            continue
+
+        check_id_raw = check.get("check_id")
+        if isinstance(check_id_raw, str) and check_id_raw.strip():
+            check_id = check_id_raw.strip()
+        host_raw = check.get("host")
+        if isinstance(host_raw, str):
+            host = host_raw.strip()
+        port_raw = check.get("port")
+        if isinstance(port_raw, int):
+            port = port_raw
+        timeout_raw = check.get("timeout_seconds")
+        if isinstance(timeout_raw, (int, float)):
+            timeout_seconds = float(timeout_raw)
+        required_flag = bool(check.get("required") is True)
+
+        if not host or not isinstance(port_raw, int) or port < 1 or port > 65535:
+            status = "inconclusive"
+            reason_code = "ssh_invalid_check"
+        else:
+            tcp_status, error_note = _check_tcp_connectivity(host, port, timeout_seconds)
+            if tcp_status == "ok":
+                status = "passed"
+                reason_code = "ssh_tcp_connect_succeeded"
+            elif tcp_status == "blocked":
+                status = "blocked"
+                reason_code = "ssh_tcp_connect_failed"
+            else:
+                status = "inconclusive"
+                reason_code = "ssh_tcp_connect_inconclusive"
+
+        label = (
+            f"SSH check {check_id!r}: host={host!r}, port={port!r}, "
+            f"timeout_seconds={timeout_seconds!r}, required={required_flag!r}, "
+            f"reason_code={reason_code}"
+        )
+        if error_note:
+            label = f"{label}, error={error_note!r}"
+
+        t1 = _utc_now()
+        steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._check_tcp_connectivity",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": status,
+            "redaction_verified": True,
+        })
+
+        if required_flag:
+            required_statuses.append(status)
+            if status == "passed":
+                passed_required_ids.append(check_id)
+            elif status == "blocked":
+                blocked_required_ids.append(check_id)
+            else:
+                inconclusive_required_ids.append(check_id)
+
+    if not required_statuses:
+        overall_status = "inconclusive"
+    elif "inconclusive" in required_statuses:
+        overall_status = "inconclusive"
+    elif "blocked" in required_statuses:
+        overall_status = "blocked"
+    else:
+        overall_status = "passed"
+
+    if overall_status == "passed":
+        short_assessment = (
+            f"SSH-gate passed. Required checks passed={passed_required_ids!r}. "
+            "This is local TCP reachability at check time, not proof of SSH login success."
+        )
+    elif overall_status == "blocked":
+        short_assessment = (
+            f"SSH-gate blocked. Required checks blocked={blocked_required_ids!r}. "
+            "One or more configured SSH endpoints were not reachable."
+        )
+    else:
+        short_assessment = (
+            f"SSH-gate inconclusive. Required checks inconclusive={inconclusive_required_ids!r}. "
+            "TCP reachability evidence was incomplete or locally indeterminate."
+        )
+
+    return steps, step_traces, overall_status, short_assessment
+
+
 def run_runbook(
     runbook_plan: dict[str, Any],
     result_out: str,
@@ -881,6 +1107,14 @@ def run_runbook(
         all_source_refs = _merge_source_refs(
             runbook_plan.get("source_refs", []),
             ["local DNS truth"],
+        )
+    elif runbook_kind == "ssh-gate":
+        steps, step_traces, overall_status, short_assessment = _run_ssh_gate(
+            runbook_plan=runbook_plan,
+        )
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["local TCP reachability"],
         )
     else:  # pragma: no cover - schema/preconditions already guard this path
         raise ValueError(f"unsupported runbook_kind {runbook_kind!r}")

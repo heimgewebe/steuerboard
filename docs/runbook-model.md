@@ -93,6 +93,39 @@ Boundary:
 - no Stage-D executor call
 - no action authorisation
 
+## ssh-gate semantics
+
+The runbook answers:
+"Can a TCP connection to the configured host:port be established at check time?"
+
+ssh-gate is purely a TCP reachability check. The name refers to checking whether the SSH port is open, not to SSH authentication, key exchange, or remote command execution.
+
+It does not invoke ssh. It does not authenticate. It does not read SSH keys or agent sockets. It does not send any SSH protocol material. It does not execute remote commands. It only attempts a TCP connection using Python stdlib `socket.create_connection` and immediately closes the socket on success.
+
+For ssh-gate, `repo_path` is currently a context anchor only; it is not a Git gate precondition.
+
+Status rules:
+- `passed`: all required TCP checks established a connection (port is open and reachable).
+- `blocked`: at least one required TCP check failed with a definitive network refusal or timeout (port is closed, filtered, or unreachable).
+- `inconclusive`: required TCP checks could not produce a definitive verdict (unknown socket error, no checks defined, or invalid check input).
+
+Reason codes:
+- `ssh_tcp_connect_succeeded`: TCP connection was successfully established.
+- `ssh_tcp_connect_failed`: TCP connection was refused or timed out.
+- `ssh_tcp_connect_inconclusive`: TCP connection failed with an indeterminate error.
+- `ssh_no_checks`: no ssh_checks were defined in the plan (produces inconclusive).
+- `ssh_invalid_check`: a check entry was malformed (produces inconclusive).
+
+Boundary:
+- no ssh subprocess invocation
+- no SSH authentication or key handling
+- no remote command execution
+- no subprocess execution of any kind
+- no shell=True
+- no os.system
+- no Stage-D executor call
+- no action authorisation
+
 ## Output contract
 
 The runbook must write:
@@ -117,6 +150,6 @@ Do not soften blocked or inconclusive into permissive language.
 
 ## Phase 11 vs future phases
 
-Future runbooks may cover DNS-Gate, SSH-Gate, Tailscale-Preflight, server-facts Snapshot, Heimserver-Service-Gate.
-dns-gate is now implemented as the second concrete read-only runbook kind.
-All additional runbook kinds remain future-gated.
+Future runbooks may cover Tailscale-Preflight, server-facts Snapshot, Heimserver-Service-Gate.
+dns-gate is the second and ssh-gate is the third concrete read-only runbook kind.
+All additional runbook kinds beyond ssh-gate remain future-gated.
