@@ -11,7 +11,7 @@
   "steps": [
     {
       "step_id": "step-ssh-check-001",
-      "label": "SSH check 'ssh-heimserver-22': host='heimserver.home.arpa', port=22, timeout_seconds=2.0, required=True, reason_code=ssh_tcp_connect_inconclusive, error='OSError: [Errno 101] Network is unreachable'",
+      "label": "SSH check 'ssh-heimserver-22': host='heimserver.home.arpa', port=22, timeout_seconds=2.0, required=True, reason_code=ssh_tcp_connect_inconclusive, error='OSError: [Errno 92] Protocol not available'",
       "status": "inconclusive",
       "source_ref": "local TCP reachability"
     }
