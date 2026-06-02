@@ -201,6 +201,8 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
     if isinstance(instance, (int, float)) and not isinstance(instance, bool):
         if "minimum" in schema and instance < schema["minimum"]:
             raise ValidationError(f"{path}: {instance!r} is less than minimum {schema['minimum']!r}")
+        if "exclusiveMinimum" in schema and instance <= schema["exclusiveMinimum"]:
+            raise ValidationError(f"{path}: {instance!r} is less than or equal to exclusiveMinimum {schema['exclusiveMinimum']!r}")
         if "maximum" in schema and instance > schema["maximum"]:
             raise ValidationError(f"{path}: {instance!r} is greater than maximum {schema['maximum']!r}")
 

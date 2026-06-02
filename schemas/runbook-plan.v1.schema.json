@@ -3,56 +3,287 @@
   "$id": "https://example.invalid/steuerboard/schemas/runbook-plan.v1.schema.json",
   "title": "runbook-plan.v1",
   "type": "object",
-  "required": ["schema_version", "runbook_id", "runbook_kind", "created_at", "repo_path", "mode", "source_refs", "boundary"],
+  "required": [
+    "schema_version",
+    "runbook_id",
+    "runbook_kind",
+    "created_at",
+    "repo_path",
+    "mode",
+    "source_refs",
+    "boundary"
+  ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": {"type": "string", "const": "runbook-plan.v1"},
-    "runbook_id": {"type": "string", "minLength": 1},
-    "runbook_kind": {"type": "string", "enum": ["repo-sync-gate", "dns-gate"]},
-    "created_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
-    "repo_path": {"type": "string", "minLength": 1},
-    "mode": {"type": "string", "enum": ["read_only"]},
-    "source_refs": {"type": "array", "items": {"type": "string"}},
+    "schema_version": {
+      "type": "string",
+      "const": "runbook-plan.v1"
+    },
+    "runbook_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runbook_kind": {
+      "type": "string",
+      "enum": [
+        "repo-sync-gate",
+        "dns-gate",
+        "ssh-gate",
+        "tailscale-preflight"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "repo_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read_only"
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "dns_checks": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["check_id", "hostname", "record_type", "expected_values", "required"],
+        "required": [
+          "check_id",
+          "hostname",
+          "record_type",
+          "expected_values",
+          "required"
+        ],
         "properties": {
-          "check_id": {"type": "string", "minLength": 1},
-          "hostname": {"type": "string", "minLength": 1},
-          "record_type": {"type": "string", "enum": ["A", "AAAA"]},
+          "check_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hostname": {
+            "type": "string",
+            "minLength": 1
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA"
+            ]
+          },
           "expected_values": {
             "type": "array",
             "minItems": 1,
-            "items": {"type": "string", "minLength": 1}
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": {"type": "boolean"}
+          "required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ssh_checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "host",
+          "port",
+          "timeout_seconds",
+          "required"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 30
+          },
+          "required": {
+            "type": "boolean"
+          }
         }
       }
     },
     "boundary": {
       "type": "object",
-      "required": ["does_not_execute_mutating_actions", "does_not_mutate", "does_not_authorise_actions", "read_only_or_dry_run_only"],
+      "required": [
+        "does_not_execute_mutating_actions",
+        "does_not_mutate",
+        "does_not_authorise_actions",
+        "read_only_or_dry_run_only"
+      ],
       "additionalProperties": false,
       "properties": {
-        "does_not_execute_mutating_actions": {"type": "boolean", "const": true},
-        "does_not_mutate": {"type": "boolean", "const": true},
-        "does_not_authorise_actions": {"type": "boolean", "const": true},
-        "read_only_or_dry_run_only": {"type": "boolean", "const": true}
+        "does_not_execute_mutating_actions": {
+          "type": "boolean",
+          "const": true
+        },
+        "does_not_mutate": {
+          "type": "boolean",
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "type": "boolean",
+          "const": true
+        },
+        "read_only_or_dry_run_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "tailscale_checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "host",
+          "required"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_ip_prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected_ip_values": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 30
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },
   "allOf": [
     {
       "if": {
-        "properties": {"runbook_kind": {"const": "dns-gate"}},
-        "required": ["runbook_kind"]
+        "properties": {
+          "runbook_kind": {
+            "const": "dns-gate"
+          }
+        },
+        "required": [
+          "runbook_kind"
+        ]
       },
-      "then": {"required": ["dns_checks"]},
-      "else": {"not": {"required": ["dns_checks"]}}
+      "then": {
+        "required": [
+          "dns_checks"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "dns_checks"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runbook_kind": {
+            "const": "ssh-gate"
+          }
+        },
+        "required": [
+          "runbook_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "ssh_checks"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "ssh_checks"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runbook_kind": {
+            "const": "tailscale-preflight"
+          }
+        },
+        "required": [
+          "runbook_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "tailscale_checks"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "tailscale_checks"
+          ]
+        }
+      }
     }
   ]
 }
