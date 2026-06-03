@@ -1295,6 +1295,25 @@ class TestTailscalePreflight:
         assert "reason_code=tailscale_invalid_expected_ip_values" in result["steps"][0]["label"]
         assert "100.64.0.x" in result["steps"][0]["label"]
 
+
+    def test_tailscale_preflight_inconclusive_on_invalid_prefix_early(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["tailscale_checks"][0]["expected_ip_values"] = []
+        plan["tailscale_checks"][0]["expected_ip_prefixes"] = ["100.64.0.0/10", "not-a-prefix"]
+        result_out = tmp_path / "tailscale-result.json"
+        trace_out = tmp_path / "tailscale-trace.jsonl"
+
+        def _should_not_resolve(_host: str) -> tuple[str, list[str], str | None]:
+            raise AssertionError("resolver should not run for invalid expected_ip_prefixes")
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", _should_not_resolve)
+
+        result = run_runbook(plan, result_out=str(result_out), command_trace_out=str(trace_out))
+
+        assert result["status"] == "inconclusive"
+        assert "reason_code=tailscale_invalid_prefix" in result["steps"][0]["label"]
+        assert "not-a-prefix" in result["steps"][0]["label"]
+
     def test_tailscale_preflight_no_checks_inconclusive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
         plan["tailscale_checks"] = []
