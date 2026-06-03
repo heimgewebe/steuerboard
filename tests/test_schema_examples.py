@@ -599,3 +599,18 @@ def test_action_approval_schema_rejects_whitespace_padded_identifiers():
     invalid_plan_ref["plan_ref"] = " plan-git-pull-ff-only-2026-05-23-001 "
     with pytest.raises(ValidationError):
         validate_instance(invalid_plan_ref, _action_approval_schema(), EXAMPLES_DIR / "invalid-action-approval-whitespace-plan-ref.json")
+
+
+def test_runtime_schema_validation_rejects_exclusive_minimum_boundary():
+    from steuerboard.schema_validation import SchemaValidationError, validate_instance
+    with pytest.raises(SchemaValidationError):
+        validate_instance(0, {"type": "number", "exclusiveMinimum": 0}, "$.timeout_seconds")
+
+def test_runtime_schema_validation_allows_value_above_exclusive_minimum():
+    from steuerboard.schema_validation import validate_instance
+    validate_instance(0.1, {"type": "number", "exclusiveMinimum": 0}, "$.timeout_seconds")
+
+def test_runtime_schema_validation_rejects_exclusive_maximum_boundary():
+    from steuerboard.schema_validation import SchemaValidationError, validate_instance
+    with pytest.raises(SchemaValidationError):
+        validate_instance(30, {"type": "number", "exclusiveMaximum": 30}, "$.timeout_seconds")
