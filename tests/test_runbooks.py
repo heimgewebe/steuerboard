@@ -1495,6 +1495,34 @@ class TestOutputSafety:
         assert not result_out.exists()
         assert not trace_out.exists()
 
+
+    def test_tailscale_preflight_subdirectory_context_uses_repository_worktree_root(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        repo_root = tmp_path / "repo"
+        docs_dir = repo_root / "docs"
+        docs_dir.mkdir(parents=True)
+        (repo_root / ".git").mkdir()
+
+        plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+        plan["repo_path"] = str(docs_dir)
+
+        # Result out is at repo_root / "result.json", which is INSIDE the repository root.
+        # It must be rejected.
+        result_out = repo_root / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        monkeypatch.setattr(runbooks, "_resolve_host_for_tailscale", lambda host: ("ok", ["100.100.100.10"], None))
+        monkeypatch.setattr(runbooks, "_check_tcp_connectivity", lambda host, port, timeout_seconds: ("ok", None))
+
+        with pytest.raises(ValueError, match="outside repository worktree"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        assert not result_out.exists()
+        assert not trace_out.exists()
+
     def test_no_partial_outputs_on_second_replace_failure(self, tmp_path, monkeypatch):
         """If os.replace succeeds for trace but fails for result, neither file exists.
 
