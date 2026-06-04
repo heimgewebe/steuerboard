@@ -131,7 +131,9 @@
             "type": "boolean"
           }
         }
-      }
+      },
+      "maxItems": 8,
+      "description": "TCP probes are network-observable diagnostics and may create connection logs on the target. They are read-only with respect to steuerboard artifacts, but not side-effect-free on the network."
     },
     "boundary": {
       "type": "object",
@@ -208,8 +210,22 @@
           "required": {
             "type": "boolean"
           }
-        }
-      }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "expected_ip_prefixes"
+            ]
+          },
+          {
+            "required": [
+              "expected_ip_values"
+            ]
+          }
+        ]
+      },
+      "maxItems": 8,
+      "description": "TCP probes are network-observable diagnostics and may create connection logs on the target. They are read-only with respect to steuerboard artifacts, but not side-effect-free on the network."
     }
   },
   "allOf": [

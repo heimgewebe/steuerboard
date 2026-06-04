@@ -1129,6 +1129,25 @@ class TestCLIAndRunner:
 # ---------------------------------------------------------------------------
 
 class TestCheckTcpConnectivity:
+    def test_check_tcp_connectivity_gaierror_noname_is_blocked(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def _mock_socket_connect_gaierror(*args, **kwargs) -> None:
+            raise socket.gaierror(socket.EAI_NONAME, "name not known")
+
+        monkeypatch.setattr(socket, "create_connection", _mock_socket_connect_gaierror)
+
+        status, error_note = runbooks._check_tcp_connectivity("nonexistent.local", 22, 1.0)
+        assert status == "blocked"
+        assert "EAI_NONAME" in str(error_note) or "name not known" in str(error_note)
+
+    def test_check_tcp_connectivity_gaierror_other_is_inconclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        error_code = getattr(socket, "EAI_AGAIN", 9999)
+        def _mock_socket_connect_gaierror(*args, **kwargs) -> None:
+            raise socket.gaierror(error_code, "try again")
+
+        monkeypatch.setattr(socket, "create_connection", _mock_socket_connect_gaierror)
+
+        status, error_note = runbooks._check_tcp_connectivity("flaky.local", 22, 1.0)
+        assert status == "inconclusive"
     """Unit tests for _check_tcp_connectivity using mocked sockets."""
 
     def test_ok_on_successful_connection(self, monkeypatch):

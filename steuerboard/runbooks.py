@@ -680,6 +680,11 @@ def _check_tcp_connectivity(host: str, port: int, timeout_seconds: float) -> tup
         return "blocked", _redact_network_error(exc)
     except socket.timeout as exc:
         return "blocked", _redact_network_error(exc)
+    except socket.gaierror as exc:
+        code = exc.args[0] if exc.args else None
+        if code in {socket.EAI_NONAME, getattr(socket, "EAI_NODATA", None)}:
+            return "blocked", _redact_network_error(exc)
+        return "inconclusive", _redact_network_error(exc)
     except OSError as exc:
         return _classify_tcp_os_error(exc)
 
