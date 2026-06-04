@@ -1,5 +1,19 @@
 import pytest
 
+import json
+
+
+def _runbook_plan_schema() -> dict:
+    with open("schemas/runbook-plan.v1.schema.json") as f:
+        return json.load(f)
+
+def _valid_runbook_plan(runbook_kind: str) -> dict:
+    if runbook_kind == "tailscale-preflight":
+        with open("examples/runbooks/tailscale-preflight.json") as f:
+            return json.load(f)
+    raise ValueError(f"Unknown kind {runbook_kind}")
+
+
 from scripts.validate_examples import (
     EXAMPLES_DIR,
     SCHEMAS_DIR,
@@ -614,3 +628,47 @@ def test_runtime_schema_validation_rejects_exclusive_maximum_boundary():
     from steuerboard.schema_validation import SchemaValidationError, validate_instance
     with pytest.raises(SchemaValidationError):
         validate_instance(30, {"type": "number", "exclusiveMaximum": 30}, "$.timeout_seconds")
+
+
+def test_tailscale_preflight_schema_rejects_empty_expected_ip_prefixes():
+    from steuerboard.schema_validation import validate_instance, SchemaValidationError
+    valid_plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    valid_plan["tailscale_checks"][0]["expected_ip_values"] = []
+    if "expected_ip_values" in valid_plan["tailscale_checks"][0]:
+        del valid_plan["tailscale_checks"][0]["expected_ip_values"]
+    valid_plan["tailscale_checks"][0]["expected_ip_prefixes"] = []
+
+    with pytest.raises(SchemaValidationError):
+        validate_instance(valid_plan, _runbook_plan_schema())
+
+def test_tailscale_preflight_schema_rejects_empty_expected_ip_values():
+    from steuerboard.schema_validation import validate_instance, SchemaValidationError
+    valid_plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    valid_plan["tailscale_checks"][0]["expected_ip_prefixes"] = []
+    if "expected_ip_prefixes" in valid_plan["tailscale_checks"][0]:
+        del valid_plan["tailscale_checks"][0]["expected_ip_prefixes"]
+    valid_plan["tailscale_checks"][0]["expected_ip_values"] = []
+
+    with pytest.raises(SchemaValidationError):
+        validate_instance(valid_plan, _runbook_plan_schema())
+
+def test_tailscale_preflight_schema_rejects_missing_both_overlay_expectations():
+    from steuerboard.schema_validation import validate_instance, SchemaValidationError
+    valid_plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    if "expected_ip_prefixes" in valid_plan["tailscale_checks"][0]:
+        del valid_plan["tailscale_checks"][0]["expected_ip_prefixes"]
+    if "expected_ip_values" in valid_plan["tailscale_checks"][0]:
+        del valid_plan["tailscale_checks"][0]["expected_ip_values"]
+
+    with pytest.raises(SchemaValidationError):
+        validate_instance(valid_plan, _runbook_plan_schema())
+
+def test_tailscale_preflight_schema_accepts_valid_expected_ip_values():
+    from steuerboard.schema_validation import validate_instance
+    valid_plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
+    if "expected_ip_prefixes" in valid_plan["tailscale_checks"][0]:
+        del valid_plan["tailscale_checks"][0]["expected_ip_prefixes"]
+    valid_plan["tailscale_checks"][0]["expected_ip_values"] = ["100.100.10.20"]
+
+    # Should pass without raising
+    validate_instance(valid_plan, _runbook_plan_schema())

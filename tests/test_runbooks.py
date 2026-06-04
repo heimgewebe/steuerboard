@@ -1299,7 +1299,8 @@ class TestTailscalePreflight:
     def test_tailscale_preflight_inconclusive_on_invalid_expected_ip_values(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
         plan["tailscale_checks"][0]["expected_ip_values"] = ["100.64.0.x"]
-        plan["tailscale_checks"][0]["expected_ip_prefixes"] = []
+        if "expected_ip_prefixes" in plan["tailscale_checks"][0]:
+            del plan["tailscale_checks"][0]["expected_ip_prefixes"]
         result_out = tmp_path / "tailscale-result.json"
         trace_out = tmp_path / "tailscale-trace.jsonl"
 
@@ -1317,7 +1318,8 @@ class TestTailscalePreflight:
 
     def test_tailscale_preflight_inconclusive_on_invalid_prefix_early(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         plan = _valid_runbook_plan(runbook_kind="tailscale-preflight")
-        plan["tailscale_checks"][0]["expected_ip_values"] = []
+        if "expected_ip_values" in plan["tailscale_checks"][0]:
+            del plan["tailscale_checks"][0]["expected_ip_values"]
         plan["tailscale_checks"][0]["expected_ip_prefixes"] = ["100.64.0.0/10", "not-a-prefix"]
         result_out = tmp_path / "tailscale-result.json"
         trace_out = tmp_path / "tailscale-trace.jsonl"
