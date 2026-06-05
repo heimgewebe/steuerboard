@@ -200,18 +200,18 @@ class TestSchemaAndExamples:
         ]:
             result_path = EXAMPLES_DIR / "runbook-results" / result_name
             result = load_json(result_path)
-            
+
             # Build result step status map
             result_step_status_by_id = {
                 step["step_id"]: step["status"]
                 for step in result.get("steps", [])
             }
             assert len(result_step_status_by_id) > 0, f"{result_name} must have steps"
-            
+
             # Collect trace entries by step_id from referenced evidence files
             evidence_paths = result.get("evidence_paths", [])
             assert len(evidence_paths) > 0, f"{result_name} must have evidence_paths"
-            
+
             trace_status_by_step_id = {}
             for evidence_path in evidence_paths:
                 full_path = ROOT / evidence_path
@@ -223,7 +223,7 @@ class TestSchemaAndExamples:
                     status = entry.get("status")
                     if step_id:
                         trace_status_by_step_id[step_id] = status
-            
+
             # Verify each result step has matching trace entry
             for step_id, result_status in result_step_status_by_id.items():
                 trace_status = trace_status_by_step_id.get(step_id)
