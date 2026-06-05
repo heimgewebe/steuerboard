@@ -1,8 +1,10 @@
-"""Phase 11B — Read-only Runbook Runner.
+"""Phase 11D — Read-only Runbook Runner.
 
 Implements read-only runbook kinds:
 - repo-sync-gate
 - dns-gate
+- ssh-gate
+- tailscale-preflight
 
 Architecture rule (Observation != Derivation != Decision != Action):
 - A runbook sequences observations and derivations only.
@@ -50,8 +52,8 @@ _RUNBOOK_PLAN_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
 
-# Allowed runbook kinds in Phase 11B.
-SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate"})
+# Allowed runbook kinds in Phase 11D.
+SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
 
 
 def _load_schema(name: str) -> dict[str, Any]:
@@ -623,6 +625,533 @@ def _run_dns_gate(
     return steps, step_traces, overall_status, short_assessment
 
 
+# ---------------------------------------------------------------------------
+# SSH-gate TCP check (read_only — no ssh, no subprocess, no shell)
+# ---------------------------------------------------------------------------
+
+def _redact_network_error(exc: BaseException) -> str:
+    message = str(exc).strip()
+    compact = message.replace("\n", " ")
+    if len(compact) > 120:
+        compact = compact[:117] + "..."
+    if compact:
+        return f"{exc.__class__.__name__}: {compact}"
+    return exc.__class__.__name__
+
+
+def _classify_tcp_os_error(exc: OSError) -> tuple[str, str]:
+    """Classify an OSError from socket.create_connection into blocked or inconclusive.
+
+    Known network-unreachability errno codes map to blocked.
+    Ambiguous or local-socket errors map to inconclusive.
+    """
+    import errno as _errno
+
+    BLOCKED_ERRNOS = {
+        getattr(_errno, "ECONNREFUSED", None),
+        getattr(_errno, "ETIMEDOUT", None),
+        getattr(_errno, "ENETUNREACH", None),
+        getattr(_errno, "EHOSTUNREACH", None),
+        getattr(_errno, "ENETDOWN", None),
+        getattr(_errno, "EHOSTDOWN", None),
+    }
+    BLOCKED_ERRNOS.discard(None)
+
+    code = exc.errno
+    if code is not None and code in BLOCKED_ERRNOS:
+        return "blocked", _redact_network_error(exc)
+    return "inconclusive", _redact_network_error(exc)
+
+
+def _check_tcp_connectivity(host: str, port: int, timeout_seconds: float) -> tuple[str, str | None]:
+    """Attempt a TCP connection to (host, port) and return (status, error_note).
+
+    Status values:
+    - "ok"           — connection established and closed cleanly
+    - "blocked"      — connection refused, timed out, or host/network unreachable
+    - "inconclusive" — local socket error that cannot be classified as reachability failure
+    """
+    try:
+        with socket.create_connection((host, port), timeout=timeout_seconds):
+            return "ok", None
+    except TimeoutError as exc:
+        return "blocked", _redact_network_error(exc)
+    except ConnectionRefusedError as exc:
+        return "blocked", _redact_network_error(exc)
+    except socket.timeout as exc:
+        return "blocked", _redact_network_error(exc)
+    except socket.gaierror as exc:
+        code = exc.args[0] if exc.args else None
+        if code in {socket.EAI_NONAME, getattr(socket, "EAI_NODATA", None)}:
+            return "blocked", _redact_network_error(exc)
+        return "inconclusive", _redact_network_error(exc)
+    except OSError as exc:
+        return _classify_tcp_os_error(exc)
+
+
+def _ip_matches_expected_prefixes(ip: str, prefixes: list[str]) -> tuple[bool, str | None]:
+    """Check whether an IP matches any configured CIDR prefix."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False, None
+    for prefix in prefixes:
+        try:
+            network = ipaddress.ip_network(prefix, strict=False)
+        except ValueError:
+            return False, prefix
+        if addr in network:
+            return True, None
+    return False, None
+
+
+def _resolve_host_for_tailscale(host: str) -> tuple[str, list[str], str | None]:
+    """Resolve a host for tailscale-preflight checks."""
+    try:
+        addrinfo = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        error_code = exc.args[0] if exc.args else None
+        not_found_codes = {socket.EAI_NONAME}
+        nodata = getattr(socket, "EAI_NODATA", None)
+        if nodata is not None:
+            not_found_codes.add(nodata)
+        if error_code in not_found_codes:
+            return "not_found", [], None
+        return "error", [], _redact_dns_error(exc)
+    except OSError as exc:
+        return "error", [], _redact_dns_error(exc)
+
+    observed: list[str] = []
+    for entry in addrinfo:
+        sockaddr = entry[4]
+        if not isinstance(sockaddr, tuple) or not sockaddr:
+            continue
+        ip_raw = sockaddr[0]
+        if isinstance(ip_raw, str):
+            observed.append(ip_raw)
+    deduped = _normalize_ip_values(observed)
+    if not deduped:
+        return "not_found", [], None
+    return "ok", deduped, None
+
+
+def _run_tailscale_preflight(
+    runbook_plan: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    """Evaluate tailscale_checks via local overlay resolution and optional TCP probes."""
+    checks_raw = runbook_plan.get("tailscale_checks")
+    runbook_id = runbook_plan["runbook_id"]
+    source_ref = "local overlay reachability"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+
+    if not isinstance(checks_raw, list) or len(checks_raw) == 0:
+        step_id = "step-tailscale-no-checks"
+        t0 = _utc_now()
+        t1 = _utc_now()
+        label = "Tailscale-preflight check set is missing or empty (reason_code=tailscale_no_checks)."
+        steps.append({"step_id": step_id, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_tailscale_preflight",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Tailscale-preflight inconclusive. No tailscale_checks were available for evaluation. "
+            "No mutation and no action authorisation occurred."
+        )
+        return steps, step_traces, "inconclusive", short
+
+    required_statuses: list[str] = []
+    blocked_required_ids: list[str] = []
+    inconclusive_required_ids: list[str] = []
+    passed_required_ids: list[str] = []
+
+    for index, check in enumerate(checks_raw):
+        step_id = f"step-tailscale-check-{index + 1:03d}"
+        t0 = _utc_now()
+        status = "inconclusive"
+        reason_code = "tailscale_invalid_check"
+        check_id = f"tailscale-check-{index + 1}"
+        host = ""
+        required_flag = False
+        error_note: str | None = None
+        observed_ips: list[str] = []
+
+        if not isinstance(check, dict):
+            label = (
+                f"Tailscale-preflight check {check_id!r}: invalid check entry (not a dict), "
+                f"reason_code={reason_code}"
+            )
+            t1 = _utc_now()
+            steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+            step_traces.append({
+                "schema_version": "runbook-step-trace.v1",
+                "trace_id": _trace_id(step_id),
+                "runbook_ref": runbook_id,
+                "step_id": step_id,
+                "operation": "steuerboard.runbooks._run_tailscale_preflight",
+                "capability_class": "read_only",
+                "started_at": t0,
+                "finished_at": t1,
+                "status": status,
+                "redaction_verified": True,
+            })
+            continue
+
+        check_id_raw = check.get("check_id")
+        if isinstance(check_id_raw, str) and check_id_raw.strip():
+            check_id = check_id_raw.strip()
+        host_raw = check.get("host")
+        if isinstance(host_raw, str):
+            host = host_raw.strip()
+        required_flag = bool(check.get("required") is True)
+        expected_prefixes_raw = check.get("expected_ip_prefixes")
+        expected_prefixes: list[str] = []
+        invalid_expected_prefixes: list[str] = []
+        if isinstance(expected_prefixes_raw, list):
+            for p in expected_prefixes_raw:
+                if not isinstance(p, str):
+                    invalid_expected_prefixes.append(repr(p))
+                    continue
+                stripped = p.strip()
+                if not stripped:
+                    invalid_expected_prefixes.append(repr(p))
+                    continue
+                try:
+                    ipaddress.ip_network(stripped, strict=False)
+                    expected_prefixes.append(stripped)
+                except ValueError:
+                    invalid_expected_prefixes.append(stripped)
+        expected_values_raw = check.get("expected_ip_values")
+        expected_values_norm: list[str] = []
+        invalid_expected_values: list[str] = []
+        if isinstance(expected_values_raw, list):
+            for value in expected_values_raw:
+                if not isinstance(value, str):
+                    invalid_expected_values.append(repr(value))
+                    continue
+                stripped = value.strip()
+                if not stripped:
+                    invalid_expected_values.append(repr(value))
+                    continue
+                try:
+                    expected_values_norm.append(str(ipaddress.ip_address(stripped)))
+                except ValueError:
+                    invalid_expected_values.append(stripped)
+            expected_values_norm = sorted(set(expected_values_norm))
+        port_raw = check.get("port")
+        port: int | None = None
+        if isinstance(port_raw, int) and 1 <= port_raw <= 65535:
+            port = port_raw
+        timeout_seconds = 2.0
+        timeout_raw = check.get("timeout_seconds")
+        if isinstance(timeout_raw, (int, float)):
+            timeout_seconds = float(timeout_raw)
+
+        if invalid_expected_prefixes:
+            status = "inconclusive"
+            reason_code = "tailscale_invalid_prefix"
+            error_note = f"invalid expected_ip_prefixes: {sorted(set(invalid_expected_prefixes))!r}"
+        elif invalid_expected_values:
+            status = "inconclusive"
+            reason_code = "tailscale_invalid_expected_ip_values"
+            error_note = f"invalid expected_ip_values: {sorted(set(invalid_expected_values))!r}"
+        elif not host:
+            status = "inconclusive"
+            reason_code = "tailscale_invalid_check"
+        else:
+            resolve_status, observed_ips, error_note = _resolve_host_for_tailscale(host)
+            if resolve_status == "not_found":
+                status = "blocked"
+                reason_code = "tailscale_resolution_failed"
+            elif resolve_status == "error":
+                status = "inconclusive"
+                reason_code = "tailscale_resolution_failed"
+            else:
+                status = "passed"
+                reason_code = "tailscale_resolution_succeeded"
+
+                if expected_values_norm:
+                    observed_norm = _normalize_ip_values(observed_ips)
+                    matched_values = [ip for ip in observed_norm if ip in expected_values_norm]
+                    if matched_values:
+                        status = "passed"
+                        reason_code = "tailscale_expected_ip_matched"
+                    else:
+                        status = "blocked"
+                        reason_code = "tailscale_expected_ip_mismatch"
+
+                if expected_prefixes and status != "blocked":
+                    observed_norm = _normalize_ip_values(observed_ips)
+                    prefix_match = False
+                    invalid_prefix = None
+                    for ip in observed_norm:
+                        matched, bad_prefix = _ip_matches_expected_prefixes(ip, expected_prefixes)
+                        if bad_prefix is not None:
+                            invalid_prefix = bad_prefix
+                            break
+                        if matched:
+                            prefix_match = True
+                            break
+                    if invalid_prefix is not None:
+                        status = "inconclusive"
+                        reason_code = "tailscale_invalid_prefix"
+                        error_note = f"invalid prefix: {invalid_prefix!r}"
+                    elif prefix_match:
+                        status = "passed"
+                        reason_code = "tailscale_expected_prefix_matched"
+                    else:
+                        status = "blocked"
+                        reason_code = "tailscale_expected_prefix_mismatch"
+
+                if port is not None and status == "passed":
+                    tcp_status, tcp_error = _check_tcp_connectivity(host, port, timeout_seconds)
+                    if tcp_status == "ok":
+                        status = "passed"
+                        reason_code = "tailscale_tcp_connect_succeeded"
+                    elif tcp_status == "blocked":
+                        status = "blocked"
+                        reason_code = "tailscale_tcp_connect_failed"
+                        error_note = tcp_error
+                    else:
+                        status = "inconclusive"
+                        reason_code = "tailscale_tcp_connect_inconclusive"
+                        error_note = tcp_error
+
+        label = (
+            f"Tailscale-preflight check {check_id!r}: host={host!r}, "
+            f"observed_ips={observed_ips!r}, expected_ip_prefixes={expected_prefixes!r}, "
+            f"expected_ip_values={expected_values_norm!r}, port={port!r}, timeout_seconds={timeout_seconds!r}, "
+            f"required={required_flag!r}, reason_code={reason_code}"
+        )
+        if error_note:
+            label = f"{label}, error={error_note!r}"
+
+        t1 = _utc_now()
+        steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_tailscale_preflight",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": status,
+            "redaction_verified": True,
+        })
+
+        if required_flag:
+            required_statuses.append(status)
+            if status == "passed":
+                passed_required_ids.append(check_id)
+            elif status == "blocked":
+                blocked_required_ids.append(check_id)
+            else:
+                inconclusive_required_ids.append(check_id)
+
+    if not required_statuses:
+        overall_status = "inconclusive"
+    elif "inconclusive" in required_statuses:
+        overall_status = "inconclusive"
+    elif "blocked" in required_statuses:
+        overall_status = "blocked"
+    else:
+        overall_status = "passed"
+
+    if overall_status == "passed":
+        short_assessment = (
+            f"Tailscale-preflight passed. Required checks passed={passed_required_ids!r}. "
+            "This is local overlay reachability at check time, not proof that Tailscale is correctly authenticated or configured."
+        )
+    elif overall_status == "blocked":
+        short_assessment = (
+            f"Tailscale-preflight blocked. Required checks blocked={blocked_required_ids!r}. "
+            "One or more configured overlay targets were not locally reachable or resolvable."
+        )
+    else:
+        short_assessment = (
+            f"Tailscale-preflight inconclusive. Required checks inconclusive={inconclusive_required_ids!r}. "
+            "Local overlay reachability evidence was incomplete or indeterminate."
+        )
+
+    return steps, step_traces, overall_status, short_assessment
+
+
+def _run_ssh_gate(
+    runbook_plan: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    """Evaluate ssh_checks from the runbook plan via TCP-only reachability probes.
+
+    No SSH subprocess, no authentication, no remote commands, no key access.
+    """
+    checks_raw = runbook_plan.get("ssh_checks")
+    runbook_id = runbook_plan["runbook_id"]
+    source_ref = "local TCP reachability"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+
+    if not isinstance(checks_raw, list) or len(checks_raw) == 0:
+        step_id = "step-ssh-no-checks"
+        t0 = _utc_now()
+        t1 = _utc_now()
+        label = "SSH check set is missing or empty (reason_code=ssh_no_checks)."
+        steps.append({"step_id": step_id, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._run_ssh_gate",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "SSH-gate inconclusive. No ssh_checks were available for evaluation. "
+            "No mutation and no action authorisation occurred."
+        )
+        return steps, step_traces, "inconclusive", short
+
+    required_statuses: list[str] = []
+    blocked_required_ids: list[str] = []
+    inconclusive_required_ids: list[str] = []
+    passed_required_ids: list[str] = []
+
+    for index, check in enumerate(checks_raw):
+        step_id = f"step-ssh-check-{index + 1:03d}"
+        t0 = _utc_now()
+        status = "inconclusive"
+        reason_code = "ssh_invalid_check"
+        check_id = f"ssh-check-{index + 1}"
+        host = ""
+        port = 0
+        timeout_seconds = 2.0
+        required_flag = False
+        error_note: str | None = None
+
+        if not isinstance(check, dict):
+            label = (
+                f"SSH check {check_id!r}: invalid check entry (not a dict), "
+                f"reason_code={reason_code}"
+            )
+            t1 = _utc_now()
+            steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+            step_traces.append({
+                "schema_version": "runbook-step-trace.v1",
+                "trace_id": _trace_id(step_id),
+                "runbook_ref": runbook_id,
+                "step_id": step_id,
+                "operation": "steuerboard.runbooks._check_tcp_connectivity",
+                "capability_class": "read_only",
+                "started_at": t0,
+                "finished_at": t1,
+                "status": status,
+                "redaction_verified": True,
+            })
+            # Non-dict checks never count as required — treat as inconclusive non-required
+            continue
+
+        check_id_raw = check.get("check_id")
+        if isinstance(check_id_raw, str) and check_id_raw.strip():
+            check_id = check_id_raw.strip()
+        host_raw = check.get("host")
+        if isinstance(host_raw, str):
+            host = host_raw.strip()
+        port_raw = check.get("port")
+        if isinstance(port_raw, int):
+            port = port_raw
+        timeout_raw = check.get("timeout_seconds")
+        if isinstance(timeout_raw, (int, float)):
+            timeout_seconds = float(timeout_raw)
+        required_flag = bool(check.get("required") is True)
+
+        if not host or not isinstance(port_raw, int) or port < 1 or port > 65535:
+            status = "inconclusive"
+            reason_code = "ssh_invalid_check"
+        else:
+            tcp_status, error_note = _check_tcp_connectivity(host, port, timeout_seconds)
+            if tcp_status == "ok":
+                status = "passed"
+                reason_code = "ssh_tcp_connect_succeeded"
+            elif tcp_status == "blocked":
+                status = "blocked"
+                reason_code = "ssh_tcp_connect_failed"
+            else:
+                status = "inconclusive"
+                reason_code = "ssh_tcp_connect_inconclusive"
+
+        label = (
+            f"SSH check {check_id!r}: host={host!r}, port={port!r}, "
+            f"timeout_seconds={timeout_seconds!r}, required={required_flag!r}, "
+            f"reason_code={reason_code}"
+        )
+        if error_note:
+            label = f"{label}, error={error_note!r}"
+
+        t1 = _utc_now()
+        steps.append({"step_id": step_id, "label": label, "status": status, "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id),
+            "runbook_ref": runbook_id,
+            "step_id": step_id,
+            "operation": "steuerboard.runbooks._check_tcp_connectivity",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": status,
+            "redaction_verified": True,
+        })
+
+        if required_flag:
+            required_statuses.append(status)
+            if status == "passed":
+                passed_required_ids.append(check_id)
+            elif status == "blocked":
+                blocked_required_ids.append(check_id)
+            else:
+                inconclusive_required_ids.append(check_id)
+
+    if not required_statuses:
+        overall_status = "inconclusive"
+    elif "inconclusive" in required_statuses:
+        overall_status = "inconclusive"
+    elif "blocked" in required_statuses:
+        overall_status = "blocked"
+    else:
+        overall_status = "passed"
+
+    if overall_status == "passed":
+        short_assessment = (
+            f"SSH-gate passed. Required checks passed={passed_required_ids!r}. "
+            "This is local TCP reachability at check time, not proof of SSH login success."
+        )
+    elif overall_status == "blocked":
+        short_assessment = (
+            f"SSH-gate blocked. Required checks blocked={blocked_required_ids!r}. "
+            "One or more configured SSH endpoints were not reachable."
+        )
+    else:
+        short_assessment = (
+            f"SSH-gate inconclusive. Required checks inconclusive={inconclusive_required_ids!r}. "
+            "TCP reachability evidence was incomplete or locally indeterminate."
+        )
+
+    return steps, step_traces, overall_status, short_assessment
+
+
 def run_runbook(
     runbook_plan: dict[str, Any],
     result_out: str,
@@ -881,6 +1410,22 @@ def run_runbook(
         all_source_refs = _merge_source_refs(
             runbook_plan.get("source_refs", []),
             ["local DNS truth"],
+        )
+    elif runbook_kind == "ssh-gate":
+        steps, step_traces, overall_status, short_assessment = _run_ssh_gate(
+            runbook_plan=runbook_plan,
+        )
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["local TCP reachability"],
+        )
+    elif runbook_kind == "tailscale-preflight":
+        steps, step_traces, overall_status, short_assessment = _run_tailscale_preflight(
+            runbook_plan=runbook_plan,
+        )
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["local overlay reachability"],
         )
     else:  # pragma: no cover - schema/preconditions already guard this path
         raise ValueError(f"unsupported runbook_kind {runbook_kind!r}")

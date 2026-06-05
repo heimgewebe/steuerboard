@@ -1,0 +1,30 @@
+{
+  "schema_version": "runbook-plan.v1",
+  "runbook_id": "runbook-tailscale-preflight-20260601-001",
+  "runbook_kind": "tailscale-preflight",
+  "created_at": "2026-06-01T10:00:00Z",
+  "repo_path": "/home/alex/repos/steuerboard",
+  "mode": "read_only",
+  "tailscale_checks": [
+    {
+      "check_id": "tailscale-heimserver-ssh",
+      "host": "heimserver.tailnet.example.invalid",
+      "expected_ip_prefixes": [
+        "100.64.0.0/10"
+      ],
+      "port": 22,
+      "timeout_seconds": 2.0,
+      "required": true
+    }
+  ],
+  "source_refs": [
+    "runbook-model.v1",
+    "local overlay reachability"
+  ],
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

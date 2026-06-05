@@ -123,9 +123,17 @@ def _validate(instance: Any, schema: dict[str, Any], path: str = "$") -> None:
             raise SchemaValidationError(
                 f"{path}: {instance!r} is less than minimum {schema['minimum']!r}"
             )
+        if "exclusiveMinimum" in schema and instance <= schema["exclusiveMinimum"]:
+            raise SchemaValidationError(
+                f"{path}: {instance!r} is less than or equal to exclusiveMinimum {schema['exclusiveMinimum']!r}"
+            )
         if "maximum" in schema and instance > schema["maximum"]:
             raise SchemaValidationError(
                 f"{path}: {instance!r} is greater than maximum {schema['maximum']!r}"
+            )
+        if "exclusiveMaximum" in schema and instance >= schema["exclusiveMaximum"]:
+            raise SchemaValidationError(
+                f"{path}: {instance!r} is greater than or equal to exclusiveMaximum {schema['exclusiveMaximum']!r}"
             )
 
     if isinstance(instance, dict):
