@@ -1,0 +1,40 @@
+{
+  "schema_version": "runbook-result.v1",
+  "result_id": "rbresult-server-facts-20260606-passed-001",
+  "runbook_ref": "runbook-server-facts-001",
+  "runbook_kind": "server-facts-snapshot",
+  "status": "passed",
+  "started_at": "2026-06-06T06:00:01Z",
+  "finished_at": "2026-06-06T06:00:01Z",
+  "repo_path": "/home/user/projects/steuerboard",
+  "short_assessment": "Server-facts snapshot generated: server-facts.json is schema-valid, 0 warnings.",
+  "steps": [
+    {
+      "step_id": "step-server-facts-collect",
+      "label": "Collect host and runtime facts",
+      "status": "passed",
+      "source_ref": "server-facts.v1"
+    },
+    {
+      "step_id": "step-server-facts-write",
+      "label": "Write server-facts.json artefact",
+      "status": "passed",
+      "evidence_path": "examples/server-facts/server-facts.json"
+    }
+  ],
+  "evidence_paths": [
+    "examples/runbook-traces/server-facts-snapshot-passed-trace.jsonl",
+    "examples/server-facts/minimal-linux.json"
+  ],
+  "source_refs": [
+    "runbook-model.v1",
+    "server-facts.v1"
+  ],
+  "redaction_verified": true,
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

@@ -28,6 +28,8 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import platform as _platform
+import sys as _sys
 import os
 import socket
 import subprocess
@@ -51,9 +53,12 @@ _SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas"
 _RUNBOOK_PLAN_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
+_SERVER_FACTS_SCHEMA: dict[str, Any] | None = None
 
-# Allowed runbook kinds in Phase 11D.
-SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
+# Allowed runbook kinds in Phase 11E.
+SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({
+    "repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight", "server-facts-snapshot",
+})
 
 
 def _load_schema(name: str) -> dict[str, Any]:
@@ -81,6 +86,13 @@ def _get_runbook_step_trace_schema() -> dict[str, Any]:
     if _RUNBOOK_STEP_TRACE_SCHEMA is None:
         _RUNBOOK_STEP_TRACE_SCHEMA = _load_schema("runbook-step-trace.v1")
     return _RUNBOOK_STEP_TRACE_SCHEMA
+
+
+def _get_server_facts_schema() -> dict[str, Any]:
+    global _SERVER_FACTS_SCHEMA
+    if _SERVER_FACTS_SCHEMA is None:
+        _SERVER_FACTS_SCHEMA = _load_schema("server-facts.v1")
+    return _SERVER_FACTS_SCHEMA
 
 
 def _utc_now() -> str:
@@ -1152,6 +1164,282 @@ def _run_ssh_gate(
     return steps, step_traces, overall_status, short_assessment
 
 
+# ---------------------------------------------------------------------------
+# Server-facts Snapshot (read_only — no subprocess, no shell, no network)
+# ---------------------------------------------------------------------------
+
+
+
+def _facts_id() -> str:
+    now = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S%fZ")
+    entropy = time_ns()
+    digest = hashlib.sha256(f"server-facts:{now}:{entropy}".encode("utf-8")).hexdigest()[:12]
+    return f"server-facts-{now}-{digest}"
+
+
+def _collect_server_facts(options: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Collect read-only host and runtime facts.
+
+    All data is obtained via Python stdlib only — no subprocess, no shell,
+    no network probes, no service manager interaction.
+    """
+    if options is None:
+        options = {}
+    include_fqdn = options.get("include_fqdn", False)
+    include_process_context = options.get("include_process_context", True)
+
+    hostname_raw = _platform.node()
+    fqdn: str | None = None
+    if include_fqdn:
+        try:
+            fqdn = socket.getfqdn()
+        except Exception:  # noqa: BLE001
+            fqdn = None
+
+    try:
+        uid = os.getuid()
+    except AttributeError:
+        uid = None
+    try:
+        gid = os.getgid()
+    except AttributeError:
+        gid = None
+
+    return {
+        "schema_version": "server-facts.v1",
+        "facts_id": _facts_id(),
+        "generated_at": _utc_now(),
+        "collector": {
+            "name": "steuerboard.server_facts",
+            "version": "1.0.0",
+        },
+        "host": {
+            "hostname": hostname_raw,
+            "fqdn": fqdn,
+            "platform_system": _platform.system(),
+            "platform_release": _platform.release(),
+            "platform_version": _platform.version(),
+            "machine": _platform.machine(),
+            "processor": _platform.processor(),
+        },
+        "runtime": {
+            "python_version": _sys.version,
+            "executable_basename": os.path.basename(_sys.executable) if _sys.executable else None,
+        },
+        "process_context": {
+            "cwd_basename": os.path.basename(os.getcwd()) if include_process_context else None,
+            "uid": uid if include_process_context else None,
+            "gid": gid if include_process_context else None,
+            "is_root": (uid == 0) if (include_process_context and uid is not None) else False,
+        },
+        "boundaries": {
+            "read_only": True,
+            "used_subprocess": False,
+            "used_shell": False,
+            "used_network_probe": False,
+            "used_service_manager": False,
+            "included_environment": False,
+            "included_secrets": False,
+        },
+        "warnings": [],
+        "notes": ["server-facts v1 snapshot — read-only host and runtime observation"],
+    }
+
+
+def _run_server_facts_snapshot(
+    runbook_plan: dict[str, Any],
+    server_facts_out: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str, Path | None]:
+    """Execute a server-facts-snapshot runbook and return steps, traces, status, assessment, and facts_path.
+
+    Parameters
+    ----------
+    runbook_plan:
+        Parsed runbook-plan.v1 dict.
+    server_facts_out:
+        Output path for server-facts.v1 JSON. Must not exist. Parent must exist.
+
+    Returns
+    -------
+    tuple of (steps, step_traces, overall_status, short_assessment, facts_path_or_None)
+    """
+    runbook_id = runbook_plan["runbook_id"]
+    source_ref = "server-facts.v1"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+    options = runbook_plan.get("server_facts_options")
+
+    # Step 1: Collect facts
+    step_id_collect = "step-server-facts-collect"
+    t0 = _utc_now()
+    facts: dict[str, Any] = {}
+    collect_status = "passed"
+    collect_reason = "server_facts_snapshot_written"
+    try:
+        facts = _collect_server_facts(options)
+    except Exception as exc:  # noqa: BLE001
+        collect_status = "inconclusive"
+        collect_reason = "server_facts_snapshot_inconclusive"
+        label = f"Server-facts collection failed: {exc!r}, reason_code={collect_reason}"
+        t1 = _utc_now()
+        steps.append({"step_id": step_id_collect, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_collect),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_collect,
+            "operation": "steuerboard.runbooks._collect_server_facts",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Server-facts snapshot inconclusive. Facts collection failed. "
+            "Result written with inconclusive status."
+        )
+        return steps, step_traces, "inconclusive", short, None
+
+    t1 = _utc_now()
+    steps.append({"step_id": step_id_collect, "label": "Collect host and runtime facts", "status": "passed", "source_ref": source_ref})
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_collect),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_collect,
+        "operation": "steuerboard.runbooks._collect_server_facts",
+        "capability_class": "read_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": "passed",
+        "redaction_verified": True,
+    })
+
+    # Step 2: Write server-facts.json
+    step_id_write = "step-server-facts-write"
+    t0 = _utc_now()
+    write_status = "passed"
+    write_reason = "server_facts_snapshot_written"
+    tmp_path: Path | None = None
+    try:
+        # Validate facts against schema
+        jsonschema_validate(facts, _get_server_facts_schema())
+    except (SchemaValidationError, Exception) as exc:
+        write_status = "inconclusive"
+        write_reason = "server_facts_schema_invalid"
+        label = f"Server-facts schema invalid: {exc!r}, reason_code={write_reason}"
+        t1 = _utc_now()
+        steps.append({"step_id": step_id_write, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_write),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_write,
+            "operation": "steuerboard.runbooks._run_server_facts_snapshot",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            f"Server-facts snapshot inconclusive. "
+            f"Schema validation failed (reason_code={write_reason}). "
+        )
+        return steps, step_traces, "inconclusive", short, None
+
+    try:
+
+        # Atomic write to server_facts_out
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=".json.tmp",
+            dir=server_facts_out.parent,
+            delete=False,
+        ) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp.write(json.dumps(facts, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
+        os.replace(tmp_path, server_facts_out)
+        tmp_path = None
+    except Exception as exc:  # noqa: BLE001
+        write_status = "inconclusive"
+        write_reason = "server_facts_write_failed"
+        label = f"Server-facts write failed: {exc!r}, reason_code={write_reason}"
+        t1 = _utc_now()
+        steps.append({"step_id": step_id_write, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_write),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_write,
+            "operation": "steuerboard.runbooks._run_server_facts_snapshot",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        # Clean up tmp if leftover
+        if tmp_path is not None and tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+        overall_status = _derive_overall_status(steps)
+        warnings_count = len(facts.get("warnings", [])) if facts else 0
+        short = (
+            f"Server-facts snapshot inconclusive. "
+            f"Schema validation or write failed (reason_code={write_reason}). "
+            f"Warnings: {warnings_count}."
+        )
+        return steps, step_traces, overall_status, short, None
+
+    t1 = _utc_now()
+    steps.append({"step_id": step_id_write, "label": "Write server-facts.json artefact", "status": "passed", "source_ref": source_ref})
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_write),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_write,
+        "operation": "steuerboard.runbooks._run_server_facts_snapshot",
+        "capability_class": "read_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": "passed",
+        "redaction_verified": True,
+    })
+
+    # Step 3: Result
+    step_id_result = "step-server-facts-result"
+    t0 = _utc_now()
+    t1 = _utc_now()
+    steps.append({"step_id": step_id_result, "label": "Derive runbook result", "status": "passed", "source_ref": source_ref})
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_result),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_result,
+        "operation": "steuerboard.runbooks.run_runbook",
+        "capability_class": "read_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": "passed",
+        "redaction_verified": True,
+    })
+
+    overall_status = _derive_overall_status(steps)
+    warnings_count = len(facts.get("warnings", [])) if facts else 0
+    short = (
+        f"Server-facts snapshot generated: {server_facts_out.name} is schema-valid, "
+        f"{warnings_count} warnings."
+    )
+
+    return steps, step_traces, overall_status, short, server_facts_out
+
+
 def run_runbook(
     runbook_plan: dict[str, Any],
     result_out: str,
@@ -1198,6 +1486,7 @@ def run_runbook(
     started_at = _utc_now()
     steps: list[dict[str, Any]] = []
     step_traces: list[dict[str, Any]] = []
+    facts_path: Path | None = None
 
     BOUNDARY = {
         "does_not_execute_mutating_actions": True,
@@ -1427,12 +1716,25 @@ def run_runbook(
             runbook_plan.get("source_refs", []),
             ["local overlay reachability"],
         )
+    elif runbook_kind == "server-facts-snapshot":
+        server_facts_out = trace_path.parent / "server-facts.json"
+        steps, step_traces, overall_status, short_assessment, facts_path = _run_server_facts_snapshot(
+            runbook_plan=runbook_plan,
+            server_facts_out=server_facts_out,
+        )
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["server-facts.v1"],
+        )
     else:  # pragma: no cover - schema/preconditions already guard this path
         raise ValueError(f"unsupported runbook_kind {runbook_kind!r}")
 
     finished_at = _utc_now()
 
     # --- Build runbook-result.v1 ---
+    evidence_paths: list[str] = [str(trace_path)]
+    if runbook_kind == "server-facts-snapshot" and facts_path is not None:
+        evidence_paths.append(str(facts_path))
     result: dict[str, Any] = {
         "schema_version": "runbook-result.v1",
         "result_id": _result_id(),
@@ -1444,7 +1746,7 @@ def run_runbook(
         "repo_path": repo_path_str,
         "short_assessment": short_assessment,
         "steps": steps,
-        "evidence_paths": [str(trace_path)],
+        "evidence_paths": evidence_paths,
         "source_refs": all_source_refs,
         "redaction_verified": True,
         "boundary": BOUNDARY,

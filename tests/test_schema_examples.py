@@ -11,6 +11,9 @@ def _valid_runbook_plan(runbook_kind: str) -> dict:
     if runbook_kind == "tailscale-preflight":
         with open("examples/runbooks/tailscale-preflight.json") as f:
             return json.load(f)
+    if runbook_kind == "server-facts-snapshot":
+        with open("examples/runbooks/server-facts-snapshot.json") as f:
+            return json.load(f)
     raise ValueError(f"Unknown kind {runbook_kind}")
 
 
@@ -672,3 +675,24 @@ def test_tailscale_preflight_schema_accepts_valid_expected_ip_values():
 
     # Should pass without raising
     validate_instance(valid_plan, _runbook_plan_schema())
+
+def test_server_facts_snapshot_schema_rejects_dns_checks():
+    from steuerboard.schema_validation import validate_instance, SchemaValidationError
+    valid_plan = _valid_runbook_plan(runbook_kind="server-facts-snapshot")
+    valid_plan["dns_checks"] = [{"check_id": "test", "host": "example.com"}]
+    with pytest.raises(SchemaValidationError):
+        validate_instance(valid_plan, _runbook_plan_schema())
+
+def test_server_facts_snapshot_schema_rejects_ssh_checks():
+    from steuerboard.schema_validation import validate_instance, SchemaValidationError
+    valid_plan = _valid_runbook_plan(runbook_kind="server-facts-snapshot")
+    valid_plan["ssh_checks"] = [{"check_id": "test", "host": "example.com", "port": 22}]
+    with pytest.raises(SchemaValidationError):
+        validate_instance(valid_plan, _runbook_plan_schema())
+
+def test_server_facts_snapshot_schema_rejects_tailscale_checks():
+    from steuerboard.schema_validation import validate_instance, SchemaValidationError
+    valid_plan = _valid_runbook_plan(runbook_kind="server-facts-snapshot")
+    valid_plan["tailscale_checks"] = [{"check_id": "test", "host": "example", "expected_ip_prefixes": ["100."]},]
+    with pytest.raises(SchemaValidationError):
+        validate_instance(valid_plan, _runbook_plan_schema())
