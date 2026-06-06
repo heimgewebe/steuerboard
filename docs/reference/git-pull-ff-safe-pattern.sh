@@ -16,6 +16,10 @@ cd "$REPO"
 
 echo "== Vorher =="
 git status --short
+if [ -n "$(git status --porcelain=v1)" ]; then
+  echo "ERROR: dirty worktree; aborting before fetch/pull" >&2
+  exit 2
+fi
 git branch --show-current
 git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "WARN: kein Upstream gesetzt"
 
@@ -34,4 +38,4 @@ git pull --ff-only
 echo
 echo "== Nachher =="
 git status -sb
-git log --oneline -5
+git log --oneline -5\n
