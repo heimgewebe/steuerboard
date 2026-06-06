@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/server-facts.v1.schema.json",
+  "title": "server-facts.v1",
+  "description": "Read-only host and runtime snapshot artefact. Observation only — no evaluation, no service management, no network probes, no subprocess.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "facts_id",
+    "generated_at",
+    "collector",
+    "host",
+    "runtime",
+    "process_context",
+    "boundaries",
+    "warnings",
+    "notes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "server-facts.v1"
+    },
+    "facts_id": {
+      "type": "string",
+      "pattern": "^server-facts-[A-Za-z0-9_-]+$"
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "collector": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "steuerboard.server_facts"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "required": [
+        "hostname",
+        "platform_system",
+        "platform_release",
+        "platform_version",
+        "machine",
+        "processor"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fqdn": {
+          "type": ["string", "null"]
+        },
+        "platform_system": {
+          "type": "string"
+        },
+        "platform_release": {
+          "type": "string"
+        },
+        "platform_version": {
+          "type": "string"
+        },
+        "machine": {
+          "type": "string"
+        },
+        "processor": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "python_version",
+        "executable_basename"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "python_version": {
+          "type": "string"
+        },
+        "executable_basename": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "process_context": {
+      "type": "object",
+      "required": [
+        "cwd_basename",
+        "uid",
+        "gid",
+        "is_root"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cwd_basename": {
+          "type": ["string", "null"]
+        },
+        "uid": {
+          "type": ["integer", "null"]
+        },
+        "gid": {
+          "type": ["integer", "null"]
+        },
+        "is_root": {
+          "type": "boolean"
+        }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "required": [
+        "read_only",
+        "used_subprocess",
+        "used_shell",
+        "used_network_probe",
+        "used_service_manager",
+        "included_environment",
+        "included_secrets"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "read_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "used_subprocess": {
+          "type": "boolean",
+          "const": false
+        },
+        "used_shell": {
+          "type": "boolean",
+          "const": false
+        },
+        "used_network_probe": {
+          "type": "boolean",
+          "const": false
+        },
+        "used_service_manager": {
+          "type": "boolean",
+          "const": false
+        },
+        "included_environment": {
+          "type": "boolean",
+          "const": false
+        },
+        "included_secrets": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

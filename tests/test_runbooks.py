@@ -149,6 +149,16 @@ class TestSchemaAndExamples:
         example = load_json(EXAMPLES_DIR / "runbooks/tailscale-preflight.json")
         validate_instance(example, schema, EXAMPLES_DIR / "runbooks/tailscale-preflight.json")
 
+    def test_server_facts_snapshot_plan_example_validates(self):
+        schema = _runbook_plan_schema()
+        example = load_json(EXAMPLES_DIR / "runbooks/server-facts-snapshot.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "runbooks/server-facts-snapshot.json")
+
+    def test_server_facts_minimal_linux_example_validates(self):
+        schema = load_json(SCHEMAS_DIR / "server-facts.v1.schema.json")
+        example = load_json(EXAMPLES_DIR / "server-facts/minimal-linux.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "server-facts/minimal-linux.json")
+
     def test_runbook_result_examples_validate(self):
         schema = _runbook_result_schema()
         for name in [
@@ -981,8 +991,10 @@ class TestCLIAndRunner:
         result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
         assert result["status"] == "passed"
 
-    def test_supported_runbook_kinds_exactly_four(self):
-        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
+    def test_supported_runbook_kinds_exactly_five(self):
+        assert SUPPORTED_RUNBOOK_KINDS == frozenset({
+            "repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight", "server-facts-snapshot",
+        })
 
     def test_stage_d_still_exactly_two_mutating_executors(self):
         surface_path = ROOT / "scripts" / "docmeta" / "cli_surface.json"
