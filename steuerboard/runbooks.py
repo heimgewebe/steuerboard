@@ -29,8 +29,10 @@ import hashlib
 import ipaddress
 import json
 import os
+import platform
 import socket
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path

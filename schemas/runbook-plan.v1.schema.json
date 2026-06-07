@@ -329,10 +329,10 @@
       },
       "then": {
         "not": {
-          "required": [
-            "dns_checks",
-            "ssh_checks",
-            "tailscale_checks"
+          "anyOf": [
+            { "required": ["dns_checks"] },
+            { "required": ["ssh_checks"] },
+            { "required": ["tailscale_checks"] }
           ]
         }
       }

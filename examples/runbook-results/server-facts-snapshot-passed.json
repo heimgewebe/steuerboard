@@ -19,12 +19,12 @@
       "step_id": "step-server-facts-write",
       "label": "Write server-facts.json artefact",
       "status": "passed",
-      "evidence_path": "examples/server-facts/server-facts.json"
+      "evidence_path": "examples/server-facts/minimal-linux.json"
     }
   ],
   "evidence_paths": [
     "examples/runbook-traces/server-facts-snapshot-passed-trace.jsonl",
-    "examples/server-facts/server-facts.json"
+    "examples/server-facts/minimal-linux.json"
   ],
   "source_refs": [
     "runbook-model.v1",
