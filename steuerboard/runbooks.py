@@ -1272,12 +1272,10 @@ def _run_server_facts_snapshot(
     step_id_collect = "step-server-facts-collect"
     t0 = _utc_now()
     facts: dict[str, Any] = {}
-    collect_status = "passed"
     collect_reason = "server_facts_snapshot_written"
     try:
         facts = _collect_server_facts(options)
     except Exception as exc:  # noqa: BLE001
-        collect_status = "inconclusive"
         collect_reason = "server_facts_snapshot_inconclusive"
         label = f"Server-facts collection failed: {exc!r}, reason_code={collect_reason}"
         t1 = _utc_now()
@@ -1295,8 +1293,8 @@ def _run_server_facts_snapshot(
             "redaction_verified": True,
         })
         short = (
-            "Server-facts snapshot inconclusive. Facts collection failed. "
-            "Result written with inconclusive status."
+            "Server-facts snapshot inconclusive. "
+            f"reason_code={collect_reason}. No facts file written."
         )
         return steps, step_traces, "inconclusive", short, None
 
@@ -1320,12 +1318,10 @@ def _run_server_facts_snapshot(
     # exception handler as a write failure).
     step_id_validate = "step-server-facts-validate"
     t0 = _utc_now()
-    schema_status = "passed"
     schema_reason = "server_facts_snapshot_written"
     try:
         jsonschema_validate(facts, _get_server_facts_schema())
     except Exception as exc:  # noqa: BLE001
-        schema_status = "inconclusive"
         schema_reason = "server_facts_schema_invalid"
         label = f"Server-facts schema validation failed: {exc!r}, reason_code={schema_reason}"
         t1 = _utc_now()
@@ -1431,7 +1427,7 @@ def _run_server_facts_snapshot(
         "redaction_verified": True,
     })
 
-    # Step 3: Result
+    # Step 4: Result
     step_id_result = "step-server-facts-result"
     t0 = _utc_now()
     t1 = _utc_now()

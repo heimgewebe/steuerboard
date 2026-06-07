@@ -2226,11 +2226,19 @@ class TestServerFactsSnapshotReasonCodes:
     def test_server_facts_snapshot_write_failure_reason_code(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Make os.replace raise so the atomic write step fails after a valid collect/validate.
-        def _boom_replace(_src: Any, _dst: Any) -> None:
-            raise OSError("disk-explosion")
+        # Make os.replace raise only when writing server-facts.json, so
+        # the atomic write step fails after a valid collect/validate.
+        # The trace+result writes in run_runbook must not be affected.
+        import os as _real_os
 
-        monkeypatch.setattr(runbooks.os, "replace", _boom_replace)
+        _original_replace = runbooks.os.replace
+
+        def _boom_facts_replace(src: Any, dst: Any) -> None:
+            if str(dst).endswith("server-facts.json"):
+                raise OSError("disk-explosion")
+            return _original_replace(src, dst)
+
+        monkeypatch.setattr(runbooks.os, "replace", _boom_facts_replace)
         plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
         result_path = tmp_path / "result.json"
         trace_path = tmp_path / "trace.jsonl"

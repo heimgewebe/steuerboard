@@ -16,10 +16,22 @@
       "source_ref": "server-facts.v1"
     },
     {
+      "step_id": "step-server-facts-validate",
+      "label": "Validate server-facts against schema",
+      "status": "passed",
+      "source_ref": "server-facts.v1"
+    },
+    {
       "step_id": "step-server-facts-write",
       "label": "Write server-facts.json artefact",
       "status": "passed",
-      "evidence_path": "examples/server-facts/minimal-linux.json"
+      "source_ref": "server-facts.v1"
+    },
+    {
+      "step_id": "step-server-facts-result",
+      "label": "Derive runbook result",
+      "status": "passed",
+      "source_ref": "server-facts.v1"
     }
   ],
   "evidence_paths": [
