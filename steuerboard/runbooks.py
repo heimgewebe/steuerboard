@@ -1168,9 +1168,6 @@ def _run_ssh_gate(
 # Server-facts Snapshot (read_only — no subprocess, no shell, no network)
 # ---------------------------------------------------------------------------
 
-import platform as _platform
-import sys as _sys
-
 
 def _facts_id() -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S%fZ")
@@ -1187,10 +1184,10 @@ def _collect_server_facts(options: dict[str, Any] | None = None) -> dict[str, An
     """
     if options is None:
         options = {}
-    include_fqdn = options.get("include_fqdn", True)
+    include_fqdn = options.get("include_fqdn", False)
     include_process_context = options.get("include_process_context", True)
 
-    hostname_raw = _platform.node()
+    hostname_raw = platform.node()
     fqdn: str | None = None
     if include_fqdn:
         try:
@@ -1218,15 +1215,15 @@ def _collect_server_facts(options: dict[str, Any] | None = None) -> dict[str, An
         "host": {
             "hostname": hostname_raw,
             "fqdn": fqdn,
-            "platform_system": _platform.system(),
-            "platform_release": _platform.release(),
-            "platform_version": _platform.version(),
-            "machine": _platform.machine(),
-            "processor": _platform.processor(),
+            "platform_system": platform.system(),
+            "platform_release": platform.release(),
+            "platform_version": platform.version(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
         },
         "runtime": {
-            "python_version": _sys.version,
-            "executable_basename": os.path.basename(_sys.executable) if _sys.executable else None,
+            "python_version": sys.version,
+            "executable_basename": os.path.basename(sys.executable) if sys.executable else None,
         },
         "process_context": {
             "cwd_basename": os.path.basename(os.getcwd()) if include_process_context else None,
@@ -1318,21 +1315,63 @@ def _run_server_facts_snapshot(
         "redaction_verified": True,
     })
 
-    # Step 2: Write server-facts.json
+    # Step 2: Validate facts against schema (separate try/except so a
+    # schema failure cannot be overwritten by the write step's generic
+    # exception handler as a write failure).
+    step_id_validate = "step-server-facts-validate"
+    t0 = _utc_now()
+    schema_status = "passed"
+    schema_reason = "server_facts_snapshot_written"
+    try:
+        jsonschema_validate(facts, _get_server_facts_schema())
+    except Exception as exc:  # noqa: BLE001
+        schema_status = "inconclusive"
+        schema_reason = "server_facts_schema_invalid"
+        label = f"Server-facts schema validation failed: {exc!r}, reason_code={schema_reason}"
+        t1 = _utc_now()
+        steps.append({"step_id": step_id_validate, "label": label, "status": "inconclusive", "source_ref": source_ref})
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_validate),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_validate,
+            "operation": "steuerboard.runbooks._run_server_facts_snapshot",
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        overall_status = _derive_overall_status(steps)
+        short = (
+            f"Server-facts snapshot inconclusive. "
+            f"reason_code={schema_reason}. No facts file written."
+        )
+        return steps, step_traces, overall_status, short, None
+
+    t1 = _utc_now()
+    steps.append({"step_id": step_id_validate, "label": "Validate server-facts against schema", "status": "passed", "source_ref": source_ref})
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_validate),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_validate,
+        "operation": "steuerboard.runbooks._run_server_facts_snapshot",
+        "capability_class": "read_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": "passed",
+        "redaction_verified": True,
+    })
+
+    # Step 3: Write server-facts.json (separate try/except so a write
+    # failure is reported with reason_code=server_facts_write_failed, never
+    # confused with a schema failure).
     step_id_write = "step-server-facts-write"
     t0 = _utc_now()
-    write_status = "passed"
     write_reason = "server_facts_snapshot_written"
     tmp_path: Path | None = None
     try:
-        # Validate facts against schema
-        try:
-            jsonschema_validate(facts, _get_server_facts_schema())
-        except (SchemaValidationError, Exception) as exc:
-            write_status = "inconclusive"
-            write_reason = "server_facts_schema_invalid"
-            raise ValueError(f"server-facts schema validation failed: {exc}") from exc
-
         # Atomic write to server_facts_out
         with tempfile.NamedTemporaryFile(
             mode="w",
@@ -1346,7 +1385,6 @@ def _run_server_facts_snapshot(
         os.replace(tmp_path, server_facts_out)
         tmp_path = None
     except Exception as exc:  # noqa: BLE001
-        write_status = "inconclusive"
         write_reason = "server_facts_write_failed"
         label = f"Server-facts write failed: {exc!r}, reason_code={write_reason}"
         t1 = _utc_now()
@@ -1374,8 +1412,7 @@ def _run_server_facts_snapshot(
         warnings_count = len(facts.get("warnings", [])) if facts else 0
         short = (
             f"Server-facts snapshot inconclusive. "
-            f"Schema validation or write failed (reason_code={write_reason}). "
-            f"Warnings: {warnings_count}."
+            f"reason_code={write_reason}. Warnings: {warnings_count}."
         )
         return steps, step_traces, overall_status, short, None
 
