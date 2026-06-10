@@ -7,7 +7,6 @@
   "mode": "read_only",
   "source_refs": ["runbook-model.v1"],
   "server_facts_options": {
-    "include_fqdn": false,
     "include_process_context": true
   },
   "boundary": {

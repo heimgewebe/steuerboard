@@ -168,9 +168,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "include_fqdn": {
-          "type": "boolean"
-        },
         "include_process_context": {
           "type": "boolean"
         }

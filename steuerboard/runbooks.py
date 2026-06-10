@@ -1184,16 +1184,10 @@ def _collect_server_facts(options: dict[str, Any] | None = None) -> dict[str, An
     """
     if options is None:
         options = {}
-    include_fqdn = options.get("include_fqdn", False)
     include_process_context = options.get("include_process_context", True)
 
     hostname_raw = platform.node()
-    fqdn: str | None = None
-    if include_fqdn:
-        try:
-            fqdn = socket.getfqdn()
-        except Exception:  # noqa: BLE001
-            fqdn = None
+    fqdn: str | None = None  # v1: always null — no network probe
 
     try:
         uid = os.getuid()
@@ -1733,6 +1727,23 @@ def run_runbook(
         )
     elif runbook_kind == "server-facts-snapshot":
         server_facts_out = trace_path.parent / "server-facts.json"
+        # P1: Validate that server_facts_out does not collide with
+        # result_path or trace_path, and does not already exist.
+        sf_resolved = server_facts_out.resolve()
+        rp_resolved = result_path.resolve()
+        tp_resolved = trace_path.resolve()
+        if sf_resolved == rp_resolved:
+            raise ValueError(
+                "server_facts_out must not collide with result_out"
+            )
+        if sf_resolved == tp_resolved:
+            raise ValueError(
+                "server_facts_out must not collide with command_trace_out"
+            )
+        if sf_resolved.exists():
+            raise ValueError(
+                f"server_facts_out must not already exist: {sf_resolved}"
+            )
         steps, step_traces, overall_status, short_assessment, facts_path = _run_server_facts_snapshot(
             runbook_plan=runbook_plan,
             server_facts_out=server_facts_out,
@@ -1766,6 +1777,12 @@ def run_runbook(
         "redaction_verified": True,
         "boundary": BOUNDARY,
     }
+
+    # --- P2: Track facts path for rollback if a later step fails ---
+    # server_facts_out is only assigned in the server-facts-snapshot branch;
+    # initialise here so the except-block can reference it unconditionally.
+    server_facts_out = trace_path.parent / "server-facts.json"
+    facts_committed = facts_path is not None and facts_path.exists()
 
     # --- Atomic write: temp files -> os.replace ---
     trace_tmp_path: Path | None = None
@@ -1823,6 +1840,13 @@ def run_runbook(
         for target in committed_targets:
             try:
                 os.unlink(target)
+            except OSError:
+                pass
+        # P2: Clean up facts artefact if it was committed before a later
+        # failure — a partial output set must not leave facts behind.
+        if facts_committed and server_facts_out.exists():
+            try:
+                os.unlink(server_facts_out)
             except OSError:
                 pass
         raise

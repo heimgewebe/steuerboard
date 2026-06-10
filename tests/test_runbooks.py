@@ -1951,7 +1951,6 @@ def test_validate_plan_preconditions_rejects_result_path_inside_repo_for_tailsca
 def _valid_server_facts_plan(
     tmp_path: Path,
     repo_path: str | None = None,
-    include_fqdn: bool | None = None,
     include_process_context: bool | None = None,
 ) -> dict:
     """Build a server-facts-snapshot plan that points repo_path inside tmp_path
@@ -1964,8 +1963,6 @@ def _valid_server_facts_plan(
         runbook_kind="server-facts-snapshot",
     )
     options: dict[str, Any] = {}
-    if include_fqdn is not None:
-        options["include_fqdn"] = include_fqdn
     if include_process_context is not None:
         options["include_process_context"] = include_process_context
     if options:
@@ -2021,23 +2018,30 @@ class TestServerFactsSnapshotFQDNBoundary:
         )
         assert facts["host"]["fqdn"] is None
 
-    def test_server_facts_snapshot_include_fqdn_true_collects_fqdn(
+    def test_server_facts_snapshot_include_fqdn_true_still_does_not_call_getfqdn(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def _fake() -> str:
-            return "host.example.test"
+        """v1: include_fqdn is ignored — socket.getfqdn() must never be called."""
+        called = {"n": 0}
 
-        monkeypatch.setattr(socket, "getfqdn", _fake)
+        def _spy() -> str:
+            called["n"] += 1
+            return "should-not-be-called.example"
+
+        monkeypatch.setattr(socket, "getfqdn", _spy)
         facts = runbooks._collect_server_facts({"include_fqdn": True})
-        assert facts["host"]["fqdn"] == "host.example.test"
-        assert facts["boundaries"]["used_network_probe"] is False
+        assert called["n"] == 0, (
+            f"socket.getfqdn() must not be called in v1 even when "
+            f"include_fqdn=True; called {called['n']} times"
+        )
+        assert facts["host"]["fqdn"] is None
 
 
 class TestServerFactsSnapshotRunnerEvidence:
     def test_server_facts_snapshot_run_writes_schema_valid_facts(
         self, tmp_path: Path
     ) -> None:
-        plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
+        plan = _valid_server_facts_plan(tmp_path)
         result_path = tmp_path / "result.json"
         trace_path = tmp_path / "trace.jsonl"
         result = run_runbook(
@@ -2079,7 +2083,7 @@ class TestServerFactsSnapshotRunnerEvidence:
 
 class TestServerFactsSnapshotPlanStrictness:
     def _build_strict_plan(self, tmp_path: Path) -> dict:
-        plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
+        plan = _valid_server_facts_plan(tmp_path)
         plan.pop("server_facts_options", None)
         return plan
 
@@ -2141,7 +2145,7 @@ class TestServerFactsSnapshotReasonCodes:
             raise RuntimeError("collect-explosion")
 
         monkeypatch.setattr(runbooks, "_collect_server_facts", _boom)
-        plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
+        plan = _valid_server_facts_plan(tmp_path)
         result_path = tmp_path / "result.json"
         trace_path = tmp_path / "trace.jsonl"
         result = run_runbook(
@@ -2199,7 +2203,7 @@ class TestServerFactsSnapshotReasonCodes:
             return bad_facts
 
         monkeypatch.setattr(runbooks, "_collect_server_facts", _bad_collect)
-        plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
+        plan = _valid_server_facts_plan(tmp_path)
         result_path = tmp_path / "result.json"
         trace_path = tmp_path / "trace.jsonl"
         result = run_runbook(
@@ -2239,7 +2243,7 @@ class TestServerFactsSnapshotReasonCodes:
             return _original_replace(src, dst)
 
         monkeypatch.setattr(runbooks.os, "replace", _boom_facts_replace)
-        plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
+        plan = _valid_server_facts_plan(tmp_path)
         result_path = tmp_path / "result.json"
         trace_path = tmp_path / "trace.jsonl"
         result = run_runbook(
@@ -2278,7 +2282,7 @@ class TestServerFactsSnapshotBoundary:
 
         monkeypatch.setattr(runbooks.subprocess, "run", _subprocess_fail)
         monkeypatch.setattr(runbooks.os, "system", _os_system_fail)
-        plan = _valid_server_facts_plan(tmp_path, include_fqdn=False)
+        plan = _valid_server_facts_plan(tmp_path)
         result_path = tmp_path / "result.json"
         trace_path = tmp_path / "trace.jsonl"
         result = run_runbook(
@@ -2301,4 +2305,103 @@ class TestServerFactsSnapshotBoundary:
                 assert word not in blob, (
                     f"forbidden word {word!r} found in {label} document"
                 )
+
+
+class TestServerFactsSnapshotPathCollision:
+    """P1: server_facts.json must not collide with result_out or command_trace_out."""
+
+    def test_result_out_collides_with_facts_path(self, tmp_path: Path) -> None:
+        """result_out=server-facts.json must be rejected before execution."""
+        plan = _valid_server_facts_plan(tmp_path)
+        # result_out points to the same file _run_server_facts_snapshot would write
+        facts_target = tmp_path / "server-facts.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError, match="must not collide with result_out"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(facts_target),
+                command_trace_out=str(trace_out),
+            )
+
+        # No files written
+        assert not facts_target.exists()
+        assert not trace_out.exists()
+
+    def test_command_trace_out_collides_with_facts_path(self, tmp_path: Path) -> None:
+        """command_trace_out=server-facts.json must be rejected before execution."""
+        plan = _valid_server_facts_plan(tmp_path)
+        result_out = tmp_path / "result.json"
+        facts_target = tmp_path / "server-facts.json"
+
+        with pytest.raises(ValueError, match="must not collide with command_trace_out"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(facts_target),
+            )
+
+        # No files written
+        assert not facts_target.exists()
+        assert not result_out.exists()
+
+    def test_pre_existing_server_facts_json_is_rejected(self, tmp_path: Path) -> None:
+        """A pre-existing server-facts.json must not be silently overwritten."""
+        plan = _valid_server_facts_plan(tmp_path)
+        # server_facts_out is derived from trace_path.parent, which is tmp_path
+        sentinel = tmp_path / "server-facts.json"
+        sentinel.write_text('{"sentinel": true}', encoding="utf-8")
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError, match="must not already exist"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        # Sentinel content preserved
+        assert sentinel.exists()
+        assert json.loads(sentinel.read_text(encoding="utf-8")) == {"sentinel": True}
+
+
+class TestServerFactsSnapshotRollback:
+    """P2: Later failure after facts write must not leave server-facts.json behind."""
+
+    def test_later_result_write_failure_removes_facts(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If result write fails after facts is committed, facts is cleaned up."""
+        import steuerboard.runbooks as _runbooks_mod
+
+        _original_replace = _runbooks_mod.os.replace
+        call_count = [0]
+
+        def _failing_replace(src: Any, dst: Any) -> Any:
+            call_count[0] += 1
+            if call_count[0] <= 1:
+                # Allow first os.replace (server-facts.json write)
+                return _original_replace(src, dst)
+            # Fail on second os.replace (trace write)
+            raise OSError("simulated failure on trace replace")
+
+        monkeypatch.setattr(_runbooks_mod.os, "replace", _failing_replace)
+
+        plan = _valid_server_facts_plan(tmp_path)
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(OSError):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        # server-facts.json must NOT remain after the failure
+        facts_path = trace_out.parent / "server-facts.json"
+        assert not facts_path.exists(), (
+            "server-facts.json must be cleaned up when later write fails"
+        )
+        assert not result_out.exists()
+        assert not trace_out.exists()
 
