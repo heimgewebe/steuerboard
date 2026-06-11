@@ -173,11 +173,12 @@ Additional runbook kinds beyond `server-facts-snapshot` remain future-gated.
 The runbook answers:
 "What are the read-only host/runtime facts of this machine at check time?"
 
-The runbook collects a snapshot of host-level attributes using Python stdlib only:
-- hostname (`os.uname().nodename`, `platform.uname()`)
-- OS type, release, version, architecture (`platform.uname()`)
-- CPU count (`os.cpu_count()`)
-- Python implementation and version (`platform.python_implementation()`, `sys.version`)
+The runbook collects a snapshot of host/runtime attributes using Python stdlib metadata access:
+- hostname via `platform.node()`
+- platform system, release, version, machine, and processor via `platform`
+- Python version via `sys.version`
+- Python executable basename via `sys.executable`
+- optional process context: current working-directory basename, uid, gid, and root flag where available
 - FQDN: **not collected** — no `socket.getfqdn()` call, no DNS reverse lookup
 
 Output:
@@ -191,7 +192,7 @@ Status rules:
 - `inconclusive`: facts collection itself failed with an unexpected error, the collected facts failed schema validation, or the facts artifact could not be written.
 
 Reason codes:
-- `server_facts_inconclusive`: `_collect_server_facts` raised an unexpected error.
+- `server_facts_snapshot_inconclusive`: `_collect_server_facts` raised an unexpected error.
 - `server_facts_schema_invalid`: the collected facts dict failed `server-facts.v1` schema validation.
 - `server_facts_write_failed`: the schema-valid facts could not be atomically written to `server-facts.json`.
 
@@ -200,7 +201,7 @@ Boundary:
 - no shell (`shell=False` is enforced)
 - no `os.system`
 - no network probe
-- no `socket.getfqdn()` — FQDN is explicitly not collected; the `include_fqdn` option is rejected
+- no `socket.getfqdn()` — FQDN is explicitly not collected; the schema only accepts `include_process_context`, no `include_fqdn` option
 - no SSH
 - no Tailscale
 - no `systemctl`
@@ -211,7 +212,7 @@ Boundary:
 - no Stage-D executor call
 - no action authorisation
 
-Output collision protection (P1):
+Output collision protection:
 - `server-facts.json` must not collide with `result_out` — rejected if paths resolve identically
 - `server-facts.json` must not collide with `command_trace_out` — rejected if paths resolve identically
 - `server-facts.json` must not already exist — rejected to prevent overwriting pre-existing facts artifacts
