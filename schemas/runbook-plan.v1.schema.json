@@ -29,7 +29,8 @@
         "repo-sync-gate",
         "dns-gate",
         "ssh-gate",
-        "tailscale-preflight"
+        "tailscale-preflight",
+        "server-facts-snapshot"
       ]
     },
     "created_at": {
@@ -160,6 +161,15 @@
         "read_only_or_dry_run_only": {
           "type": "boolean",
           "const": true
+        }
+      }
+    },
+    "server_facts_options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "include_process_context": {
+          "type": "boolean"
         }
       }
     },
@@ -299,6 +309,27 @@
         "not": {
           "required": [
             "tailscale_checks"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runbook_kind": {
+            "const": "server-facts-snapshot"
+          }
+        },
+        "required": [
+          "runbook_kind"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["dns_checks"] },
+            { "required": ["ssh_checks"] },
+            { "required": ["tailscale_checks"] }
           ]
         }
       }

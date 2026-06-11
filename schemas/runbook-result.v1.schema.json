@@ -39,7 +39,8 @@
         "repo-sync-gate",
         "dns-gate",
         "ssh-gate",
-        "tailscale-preflight"
+        "tailscale-preflight",
+        "server-facts-snapshot"
       ]
     },
     "status": {

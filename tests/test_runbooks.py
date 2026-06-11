@@ -149,6 +149,16 @@ class TestSchemaAndExamples:
         example = load_json(EXAMPLES_DIR / "runbooks/tailscale-preflight.json")
         validate_instance(example, schema, EXAMPLES_DIR / "runbooks/tailscale-preflight.json")
 
+    def test_server_facts_snapshot_plan_example_validates(self):
+        schema = _runbook_plan_schema()
+        example = load_json(EXAMPLES_DIR / "runbooks/server-facts-snapshot.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "runbooks/server-facts-snapshot.json")
+
+    def test_server_facts_minimal_linux_example_validates(self):
+        schema = load_json(SCHEMAS_DIR / "server-facts.v1.schema.json")
+        example = load_json(EXAMPLES_DIR / "server-facts/minimal-linux.json")
+        validate_instance(example, schema, EXAMPLES_DIR / "server-facts/minimal-linux.json")
+
     def test_runbook_result_examples_validate(self):
         schema = _runbook_result_schema()
         for name in [
@@ -981,8 +991,10 @@ class TestCLIAndRunner:
         result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
         assert result["status"] == "passed"
 
-    def test_supported_runbook_kinds_exactly_four(self):
-        assert SUPPORTED_RUNBOOK_KINDS == frozenset({"repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight"})
+    def test_supported_runbook_kinds_exactly_five(self):
+        assert SUPPORTED_RUNBOOK_KINDS == frozenset({
+            "repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight", "server-facts-snapshot",
+        })
 
     def test_stage_d_still_exactly_two_mutating_executors(self):
         surface_path = ROOT / "scripts" / "docmeta" / "cli_surface.json"
@@ -1930,3 +1942,476 @@ def test_validate_plan_preconditions_rejects_result_path_inside_repo_for_tailsca
             result_out=str((repo_root / "result.json").resolve()),
             command_trace_out=str((tmp_path / "trace.jsonl").resolve()),
         )
+
+# ---------------------------------------------------------------------------
+# E. Server-facts snapshot hardening (Phase 11E)
+# ---------------------------------------------------------------------------
+
+
+def _valid_server_facts_plan(
+    tmp_path: Path,
+    repo_path: str | None = None,
+    include_process_context: bool | None = None,
+) -> dict:
+    """Build a server-facts-snapshot plan that points repo_path inside tmp_path
+    so output-inside-worktree precondition is satisfied."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(exist_ok=True)
+    (repo_root / ".git").mkdir(exist_ok=True)
+    plan = _valid_runbook_plan(
+        repo_path=str(repo_root) if repo_path is None else repo_path,
+        runbook_kind="server-facts-snapshot",
+    )
+    options: dict[str, Any] = {}
+    if include_process_context is not None:
+        options["include_process_context"] = include_process_context
+    if options:
+        plan["server_facts_options"] = options
+    return plan
+
+
+def _read_command_trace(trace_path: Path) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    with trace_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            entries.append(json.loads(line))
+    return entries
+
+
+class TestServerFactsSnapshotFQDNBoundary:
+    """FQDN-Default and include_fqdn=False must NOT call socket.getfqdn()."""
+
+    def test_server_facts_snapshot_default_does_not_call_getfqdn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        called = {"n": 0}
+
+        def _spy() -> str:
+            called["n"] += 1
+            return "should-not-be-called.example"
+
+        monkeypatch.setattr(socket, "getfqdn", _spy)
+        facts = runbooks._collect_server_facts(None)
+        assert called["n"] == 0, (
+            f"socket.getfqdn() must not be called when no server_facts_options "
+            f"are provided; called {called['n']} times"
+        )
+        assert facts["host"]["fqdn"] is None
+
+    def test_server_facts_snapshot_include_fqdn_false_does_not_call_getfqdn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        called = {"n": 0}
+
+        def _spy() -> str:
+            called["n"] += 1
+            return "should-not-be-called.example"
+
+        monkeypatch.setattr(socket, "getfqdn", _spy)
+        facts = runbooks._collect_server_facts({"include_fqdn": False})
+        assert called["n"] == 0, (
+            f"socket.getfqdn() must not be called when include_fqdn=False; "
+            f"called {called['n']} times"
+        )
+        assert facts["host"]["fqdn"] is None
+
+    def test_server_facts_snapshot_include_fqdn_true_still_does_not_call_getfqdn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """v1: include_fqdn is ignored — socket.getfqdn() must never be called."""
+        called = {"n": 0}
+
+        def _spy() -> str:
+            called["n"] += 1
+            return "should-not-be-called.example"
+
+        monkeypatch.setattr(socket, "getfqdn", _spy)
+        facts = runbooks._collect_server_facts({"include_fqdn": True})
+        assert called["n"] == 0, (
+            f"socket.getfqdn() must not be called in v1 even when "
+            f"include_fqdn=True; called {called['n']} times"
+        )
+        assert facts["host"]["fqdn"] is None
+
+
+class TestServerFactsSnapshotRunnerEvidence:
+    def test_server_facts_snapshot_run_writes_schema_valid_facts(
+        self, tmp_path: Path
+    ) -> None:
+        plan = _valid_server_facts_plan(tmp_path)
+        result_path = tmp_path / "result.json"
+        trace_path = tmp_path / "trace.jsonl"
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=str(result_path),
+            command_trace_out=str(trace_path),
+        )
+        assert result["status"] == "passed"
+        assert result["runbook_kind"] == "server-facts-snapshot"
+
+        # server-facts.json must exist next to the trace
+        facts_path = trace_path.parent / "server-facts.json"
+        assert facts_path.exists()
+        assert any(str(facts_path) == p for p in result["evidence_paths"])
+
+        # server-facts.json must validate against the schema
+        facts_schema = load_json(SCHEMAS_DIR / "server-facts.v1.schema.json")
+        with facts_path.open("r", encoding="utf-8") as fh:
+            facts_doc = json.load(fh)
+        validate_instance(facts_doc, facts_schema, facts_path)
+
+        # command-trace.jsonl must exist and be non-empty
+        assert trace_path.exists()
+        trace_entries = _read_command_trace(trace_path)
+        assert trace_entries, "command-trace.jsonl must not be empty"
+        for entry in trace_entries:
+            validate_instance(
+                entry,
+                load_json(SCHEMAS_DIR / "runbook-step-trace.v1.schema.json"),
+                trace_path,
+            )
+
+        # Result itself must validate
+        result_schema = load_json(SCHEMAS_DIR / "runbook-result.v1.schema.json")
+        with result_path.open("r", encoding="utf-8") as fh:
+            result_doc = json.load(fh)
+        validate_instance(result_doc, result_schema, result_path)
+
+
+class TestServerFactsSnapshotPlanStrictness:
+    def _build_strict_plan(self, tmp_path: Path) -> dict:
+        plan = _valid_server_facts_plan(tmp_path)
+        plan.pop("server_facts_options", None)
+        return plan
+
+    def test_server_facts_snapshot_plan_rejects_dns_checks(
+        self, tmp_path: Path
+    ) -> None:
+        plan = self._build_strict_plan(tmp_path)
+        plan["dns_checks"] = [
+            {
+                "check_id": "dns-strict",
+                "hostname": "example.invalid",
+                "record_type": "A",
+                "expected_values": ["192.0.2.1"],
+                "required": False,
+            }
+        ]
+        with pytest.raises(ValidationError):
+            validate_instance(plan, _runbook_plan_schema(), plan.get("runbook_id", "<plan>"))
+
+    def test_server_facts_snapshot_plan_rejects_ssh_checks(
+        self, tmp_path: Path
+    ) -> None:
+        plan = self._build_strict_plan(tmp_path)
+        plan["ssh_checks"] = [
+            {
+                "check_id": "ssh-strict",
+                "host": "example.invalid",
+                "port": 22,
+                "timeout_seconds": 1.0,
+                "required": False,
+            }
+        ]
+        with pytest.raises(ValidationError):
+            validate_instance(plan, _runbook_plan_schema(), plan.get("runbook_id", "<plan>"))
+
+    def test_server_facts_snapshot_plan_rejects_tailscale_checks(
+        self, tmp_path: Path
+    ) -> None:
+        plan = self._build_strict_plan(tmp_path)
+        plan["tailscale_checks"] = [
+            {
+                "check_id": "tailscale-strict",
+                "host": "example.invalid",
+                "expected_ip_prefixes": ["100.64.0.0/10"],
+                "required": False,
+            }
+        ]
+        with pytest.raises(ValidationError):
+            validate_instance(plan, _runbook_plan_schema(), plan.get("runbook_id", "<plan>"))
+
+    def test_server_facts_snapshot_plan_rejects_include_fqdn(
+        self, tmp_path: Path
+    ) -> None:
+        """include_fqdn was removed from server_facts_options — a plan
+        carrying it must be rejected by additionalProperties:false."""
+        plan = _valid_server_facts_plan(tmp_path)
+        plan["server_facts_options"] = {"include_fqdn": True}
+        with pytest.raises(ValidationError):
+            validate_instance(plan, _runbook_plan_schema(), plan.get("runbook_id", "<plan>"))
+
+
+class TestServerFactsSnapshotReasonCodes:
+    """Collect / schema / write failures must each yield their distinct reason code."""
+
+    def test_server_facts_snapshot_collect_failure_reason_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _boom(_options: Any) -> dict:
+            raise RuntimeError("collect-explosion")
+
+        monkeypatch.setattr(runbooks, "_collect_server_facts", _boom)
+        plan = _valid_server_facts_plan(tmp_path)
+        result_path = tmp_path / "result.json"
+        trace_path = tmp_path / "trace.jsonl"
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=str(result_path),
+            command_trace_out=str(trace_path),
+        )
+        assert result["status"] == "inconclusive"
+        assert "server_facts_snapshot_inconclusive" in result["short_assessment"]
+        # No facts path in evidence_paths
+        assert all(
+            not p.endswith("server-facts.json") for p in result["evidence_paths"]
+        ), f"collect-failure must not include server-facts.json in evidence_paths: {result['evidence_paths']!r}"
+        # No server-facts.json on disk
+        assert not (trace_path.parent / "server-facts.json").exists()
+        # Trace must record the collect step
+        entries = _read_command_trace(trace_path)
+        assert any(
+            e["step_id"] == "step-server-facts-collect" and e["status"] == "inconclusive"
+            for e in entries
+        ), "expected a collect step in inconclusive status"
+
+    def test_server_facts_snapshot_schema_invalid_reason_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Provide a facts dict that *fails* server-facts.v1 schema validation
+        # (missing required 'host' field, but keeping top-level shape stable).
+        bad_facts = {
+            "schema_version": "server-facts.v1",
+            "facts_id": "server-facts-bad",
+            "generated_at": "2026-06-06T00:00:00Z",
+            "collector": {"name": "steuerboard.server_facts", "version": "1.0.0"},
+            # 'host' is missing on purpose
+            "runtime": {"python_version": "x", "executable_basename": "x"},
+            "process_context": {
+                "cwd_basename": None,
+                "uid": None,
+                "gid": None,
+                "is_root": False,
+            },
+            "boundaries": {
+                "read_only": True,
+                "used_subprocess": False,
+                "used_shell": False,
+                "used_network_probe": False,
+                "used_service_manager": False,
+                "included_environment": False,
+                "included_secrets": False,
+            },
+            "warnings": [],
+            "notes": ["bad"],
+        }
+
+        def _bad_collect(_options: Any) -> dict:
+            return bad_facts
+
+        monkeypatch.setattr(runbooks, "_collect_server_facts", _bad_collect)
+        plan = _valid_server_facts_plan(tmp_path)
+        result_path = tmp_path / "result.json"
+        trace_path = tmp_path / "trace.jsonl"
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=str(result_path),
+            command_trace_out=str(trace_path),
+        )
+        assert result["status"] == "inconclusive"
+        assert "server_facts_schema_invalid" in result["short_assessment"]
+        assert "server_facts_write_failed" not in result["short_assessment"]
+        # No facts path in evidence_paths
+        assert all(
+            not p.endswith("server-facts.json") for p in result["evidence_paths"]
+        ), f"schema-failure must not include server-facts.json in evidence_paths: {result['evidence_paths']!r}"
+        # No server-facts.json on disk
+        assert not (trace_path.parent / "server-facts.json").exists()
+        # Trace must record the validate step as inconclusive
+        entries = _read_command_trace(trace_path)
+        assert any(
+            e["step_id"] == "step-server-facts-validate" and e["status"] == "inconclusive"
+            for e in entries
+        ), "expected a validate step in inconclusive status"
+
+    def test_server_facts_snapshot_write_failure_reason_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Make os.replace raise only when writing server-facts.json, so
+        # the atomic write step fails after a valid collect/validate.
+        # The trace+result writes in run_runbook must not be affected.
+        import os as _real_os
+
+        _original_replace = runbooks.os.replace
+
+        def _boom_facts_replace(src: Any, dst: Any) -> None:
+            if str(dst).endswith("server-facts.json"):
+                raise OSError("disk-explosion")
+            return _original_replace(src, dst)
+
+        monkeypatch.setattr(runbooks.os, "replace", _boom_facts_replace)
+        plan = _valid_server_facts_plan(tmp_path)
+        result_path = tmp_path / "result.json"
+        trace_path = tmp_path / "trace.jsonl"
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=str(result_path),
+            command_trace_out=str(trace_path),
+        )
+        assert result["status"] == "inconclusive"
+        assert "server_facts_write_failed" in result["short_assessment"]
+        assert "server_facts_schema_invalid" not in result["short_assessment"]
+        # No facts path in evidence_paths
+        assert all(
+            not p.endswith("server-facts.json") for p in result["evidence_paths"]
+        ), f"write-failure must not include server-facts.json in evidence_paths: {result['evidence_paths']!r}"
+        # No server-facts.json on disk
+        assert not (trace_path.parent / "server-facts.json").exists()
+        # Trace must record the write step as inconclusive
+        entries = _read_command_trace(trace_path)
+        assert any(
+            e["step_id"] == "step-server-facts-write" and e["status"] == "inconclusive"
+            for e in entries
+        ), "expected a write step in inconclusive status"
+
+
+class TestServerFactsSnapshotBoundary:
+    FORBIDDEN_WORDS = ("healthy", "ready", "server_ok", "server_ready")
+
+    def test_server_facts_snapshot_does_not_use_subprocess_or_os_system(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _subprocess_fail(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("subprocess.run must not be called by server-facts-snapshot")
+
+        def _os_system_fail(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("os.system must not be called by server-facts-snapshot")
+
+        monkeypatch.setattr(runbooks.subprocess, "run", _subprocess_fail)
+        monkeypatch.setattr(runbooks.os, "system", _os_system_fail)
+        plan = _valid_server_facts_plan(tmp_path)
+        result_path = tmp_path / "result.json"
+        trace_path = tmp_path / "trace.jsonl"
+        result = run_runbook(
+            runbook_plan=plan,
+            result_out=str(result_path),
+            command_trace_out=str(trace_path),
+        )
+        assert result["status"] == "passed"
+
+        # Serialize result+facts and assert no forbidden words appear.
+        facts_path = trace_path.parent / "server-facts.json"
+        assert facts_path.exists()
+        with facts_path.open("r", encoding="utf-8") as fh:
+            facts_doc = json.load(fh)
+        with result_path.open("r", encoding="utf-8") as fh:
+            result_doc = json.load(fh)
+        for label, doc in (("facts", facts_doc), ("result", result_doc)):
+            blob = json.dumps(doc, ensure_ascii=False, sort_keys=True)
+            for word in self.FORBIDDEN_WORDS:
+                assert word not in blob, (
+                    f"forbidden word {word!r} found in {label} document"
+                )
+
+
+class TestServerFactsSnapshotPathCollision:
+    """P1: server_facts.json must not collide with result_out or command_trace_out."""
+
+    def test_result_out_collides_with_facts_path(self, tmp_path: Path) -> None:
+        """result_out=server-facts.json must be rejected before execution."""
+        plan = _valid_server_facts_plan(tmp_path)
+        # result_out points to the same file _run_server_facts_snapshot would write
+        facts_target = tmp_path / "server-facts.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError, match="must not collide with result_out"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(facts_target),
+                command_trace_out=str(trace_out),
+            )
+
+        # No files written
+        assert not facts_target.exists()
+        assert not trace_out.exists()
+
+    def test_command_trace_out_collides_with_facts_path(self, tmp_path: Path) -> None:
+        """command_trace_out=server-facts.json must be rejected before execution."""
+        plan = _valid_server_facts_plan(tmp_path)
+        result_out = tmp_path / "result.json"
+        facts_target = tmp_path / "server-facts.json"
+
+        with pytest.raises(ValueError, match="must not collide with command_trace_out"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(facts_target),
+            )
+
+        # No files written
+        assert not facts_target.exists()
+        assert not result_out.exists()
+
+    def test_pre_existing_server_facts_json_is_rejected(self, tmp_path: Path) -> None:
+        """A pre-existing server-facts.json must not be silently overwritten."""
+        plan = _valid_server_facts_plan(tmp_path)
+        # server_facts_out is derived from trace_path.parent, which is tmp_path
+        sentinel = tmp_path / "server-facts.json"
+        sentinel.write_text('{"sentinel": true}', encoding="utf-8")
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(ValueError, match="must not already exist"):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        # Sentinel content preserved
+        assert sentinel.exists()
+        assert json.loads(sentinel.read_text(encoding="utf-8")) == {"sentinel": True}
+
+
+class TestServerFactsSnapshotRollback:
+    """P2: Later failure after facts write must not leave server-facts.json behind."""
+
+    def test_later_trace_write_failure_removes_facts(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If trace write fails after facts is committed, facts is cleaned up."""
+        import steuerboard.runbooks as _runbooks_mod
+
+        _original_replace = _runbooks_mod.os.replace
+        call_count = [0]
+
+        def _failing_replace(src: Any, dst: Any) -> Any:
+            call_count[0] += 1
+            if call_count[0] <= 1:
+                # Allow first os.replace (server-facts.json write)
+                return _original_replace(src, dst)
+            # Fail on second os.replace (trace write)
+            raise OSError("simulated failure on trace replace")
+
+        monkeypatch.setattr(_runbooks_mod.os, "replace", _failing_replace)
+
+        plan = _valid_server_facts_plan(tmp_path)
+        result_out = tmp_path / "result.json"
+        trace_out = tmp_path / "trace.jsonl"
+
+        with pytest.raises(OSError):
+            run_runbook(
+                runbook_plan=plan,
+                result_out=str(result_out),
+                command_trace_out=str(trace_out),
+            )
+
+        # server-facts.json must NOT remain after the failure
+        facts_path = trace_out.parent / "server-facts.json"
+        assert not facts_path.exists(), (
+            "server-facts.json must be cleaned up when later write fails"
+        )
+        assert not result_out.exists()
+        assert not trace_out.exists()
+

@@ -1,0 +1,39 @@
+{
+  "schema_version": "server-facts.v1",
+  "facts_id": "server-facts-linux-test-001",
+  "generated_at": "2026-06-06T06:00:00Z",
+  "collector": {
+    "name": "steuerboard.server_facts",
+    "version": "1.0.0"
+  },
+  "host": {
+    "hostname": "heimserver-example",
+    "fqdn": null,
+    "platform_system": "Linux",
+    "platform_release": "6.8.0-52-generic",
+    "platform_version": "#53-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 12 16:00:00 UTC 2025",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "runtime": {
+    "python_version": "3.12.3 (main, Apr 10 2025, 14:00:00) [GCC 13.3.0]",
+    "executable_basename": "python3"
+  },
+  "process_context": {
+    "cwd_basename": "steuerboard",
+    "uid": 1000,
+    "gid": 1000,
+    "is_root": false
+  },
+  "boundaries": {
+    "read_only": true,
+    "used_subprocess": false,
+    "used_shell": false,
+    "used_network_probe": false,
+    "used_service_manager": false,
+    "included_environment": false,
+    "included_secrets": false
+  },
+  "warnings": [],
+  "notes": ["server-facts v1 snapshot — read-only host and runtime observation"]
+}
