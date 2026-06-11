@@ -2134,6 +2134,16 @@ class TestServerFactsSnapshotPlanStrictness:
         with pytest.raises(ValidationError):
             validate_instance(plan, _runbook_plan_schema(), plan.get("runbook_id", "<plan>"))
 
+    def test_server_facts_snapshot_plan_rejects_include_fqdn(
+        self, tmp_path: Path
+    ) -> None:
+        """include_fqdn was removed from server_facts_options — a plan
+        carrying it must be rejected by additionalProperties:false."""
+        plan = _valid_server_facts_plan(tmp_path)
+        plan["server_facts_options"] = {"include_fqdn": True}
+        with pytest.raises(ValidationError):
+            validate_instance(plan, _runbook_plan_schema(), plan.get("runbook_id", "<plan>"))
+
 
 class TestServerFactsSnapshotReasonCodes:
     """Collect / schema / write failures must each yield their distinct reason code."""
@@ -2369,8 +2379,8 @@ class TestServerFactsSnapshotPathCollision:
 class TestServerFactsSnapshotRollback:
     """P2: Later failure after facts write must not leave server-facts.json behind."""
 
-    def test_later_result_write_failure_removes_facts(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """If result write fails after facts is committed, facts is cleaned up."""
+    def test_later_trace_write_failure_removes_facts(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If trace write fails after facts is committed, facts is cleaned up."""
         import steuerboard.runbooks as _runbooks_mod
 
         _original_replace = _runbooks_mod.os.replace
