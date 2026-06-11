@@ -198,7 +198,7 @@ Reason codes:
 
 Boundary:
 - no subprocess execution
-- no shell (`shell=False` is enforced)
+- no shell invocation
 - no `os.system`
 - no network probe
 - no `socket.getfqdn()` — FQDN is explicitly not collected; the schema only accepts `include_process_context`, no `include_fqdn` option
