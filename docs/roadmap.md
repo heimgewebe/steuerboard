@@ -1137,6 +1137,45 @@ Stage D remains exactly two mutating executors:
 - action run-git-pull-ff-only
 - action run-switch-main
 
+## Phase 11E — Read-only Runbook Starter: server-facts-snapshot
+
+Status: implemented.
+
+Scope:
+- add server-facts-snapshot as fifth runbook kind in runbook-plan.v1 and runbook-result.v1
+- add server_facts_options contract for server-facts-snapshot inputs
+- implement read-only host/runtime facts snapshot via Python stdlib only (`os.uname`, `platform`, `os.cpu_count`, `sys.version`)
+- emit runbook-result.v1, runbook-step-trace.v1 JSONL, and `server-facts.v1` artifact via `server-facts.json`
+- add passed / inconclusive examples and deterministic tests with mocked facts
+- keep `python -m steuerboard runbook run ...` as the only runbook CLI entrypoint (no new CLI command)
+
+Boundary:
+- no subprocess execution
+- no shell=True or generic command runner
+- no network probe
+- no `socket.getfqdn()` — FQDN is explicitly not collected
+- no SSH
+- no Tailscale
+- no `systemctl`
+- no daemon/service management
+- no service evaluation
+- no service gate
+- no Stage-D executor call
+- no Git mutation
+- no fetch/pull/switch/reset/clean/merge/rebase/push
+- no backend/server/UI trigger
+
+Output collision protection (P1):
+- `server-facts.json` must not collide with `result_out` or `command_trace_out`
+- `server-facts.json` must not already exist
+
+Rollback:
+- `server-facts.json` is removed on subsequent failure to prevent orphaned incomplete output sets
+
+Stage D remains exactly two mutating executors:
+- action run-git-pull-ff-only
+- action run-switch-main
+
 ## Phase 11C — Read-only Runbook Starter: ssh-gate
 
 Status: implemented.

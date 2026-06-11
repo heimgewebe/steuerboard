@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 11A/11B/11C/11D introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
+Phase 11A/11B/11C/11D/11E introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
 
 A runbook is an operational checklist, not an action executor.
 
@@ -34,11 +34,15 @@ Phase 11C status: implemented.
 Phase 11D status: implemented.
 - tailscale-preflight
 
+Phase 11E status: implemented.
+- server-facts-snapshot
+
 Implemented runbook kinds:
 - repo-sync-gate
 - dns-gate
 - ssh-gate
 - tailscale-preflight
+- server-facts-snapshot
 
 Allowed:
 - observe repository state read-only
@@ -48,6 +52,7 @@ Allowed:
 - emit runbook-result.v1
 - emit runbook-step-trace.v1 JSONL
 - include evidence paths and short assessment
+- collect a read-only host/runtime snapshot and write `server-facts.json` alongside result and trace (server-facts-snapshot only)
 
 Forbidden:
 - git switch
@@ -159,9 +164,60 @@ Do not soften blocked or inconclusive into permissive language.
 
 ## Phase 11 vs future phases
 
-Future runbooks may cover server-facts Snapshot and Heimserver-Service-Gate.
-dns-gate is the second, ssh-gate is the third, and tailscale-preflight is the fourth concrete read-only runbook kind.
-Additional runbook kinds beyond tailscale-preflight remain future-gated.
+`server-facts-snapshot` is the fifth concrete read-only runbook kind (Phase 11E), implemented.
+Heimserver-Service-Gate remains future-gated — it is not yet designed, specified, or implemented.
+Additional runbook kinds beyond `server-facts-snapshot` remain future-gated.
+
+## server-facts-snapshot semantics
+
+The runbook answers:
+"What are the read-only host/runtime facts of this machine at check time?"
+
+The runbook collects a snapshot of host-level attributes using Python stdlib only:
+- hostname (`os.uname().nodename`, `platform.uname()`)
+- OS type, release, version, architecture (`platform.uname()`)
+- CPU count (`os.cpu_count()`)
+- Python implementation and version (`platform.python_implementation()`, `sys.version`)
+- FQDN: **not collected** — no `socket.getfqdn()` call, no DNS reverse lookup
+
+Output:
+- `runbook-result.v1` — standard result artifact
+- `runbook-step-trace.v1` JSONL — standard trace artifact
+- `server-facts.v1` — the collected facts artifact, written to `server-facts.json` in the same trace output directory
+
+Status rules:
+- `passed`: facts were collected, schema-validated, and written successfully.
+- `blocked`: preconditions failed (invalid plan, unsupported options).
+- `inconclusive`: facts collection itself failed with an unexpected error, the collected facts failed schema validation, or the facts artifact could not be written.
+
+Reason codes:
+- `server_facts_inconclusive`: `_collect_server_facts` raised an unexpected error.
+- `server_facts_schema_invalid`: the collected facts dict failed `server-facts.v1` schema validation.
+- `server_facts_write_failed`: the schema-valid facts could not be atomically written to `server-facts.json`.
+
+Boundary:
+- no subprocess execution
+- no shell (`shell=False` is enforced)
+- no `os.system`
+- no network probe
+- no `socket.getfqdn()` — FQDN is explicitly not collected; the `include_fqdn` option is rejected
+- no SSH
+- no Tailscale
+- no `systemctl`
+- no daemon/service management
+- no service evaluation
+- no service gate
+- no Stage-D action
+- no Stage-D executor call
+- no action authorisation
+
+Output collision protection (P1):
+- `server-facts.json` must not collide with `result_out` — rejected if paths resolve identically
+- `server-facts.json` must not collide with `command_trace_out` — rejected if paths resolve identically
+- `server-facts.json` must not already exist — rejected to prevent overwriting pre-existing facts artifacts
+
+Rollback:
+- If facts are committed to `server-facts.json` but a subsequent step fails (e.g. result or trace write), the `server-facts.json` artifact is removed to prevent orphaned incomplete output sets.
 
 ## tailscale-preflight semantics
 
