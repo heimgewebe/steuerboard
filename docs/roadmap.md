@@ -1226,3 +1226,20 @@ Rollback:
 Stage D remains exactly two mutating executors:
 - action run-git-pull-ff-only
 - action run-switch-main
+
+## Phase 11F-A — Heimserver-Service-Gate design contract
+
+Status: design-only / future-gated.
+
+Scope:
+- document the future Heimserver-Service-Gate boundary
+- distinguish it from implemented `server-facts-snapshot`
+- define open decision: artifact-derived gate vs bounded local live check
+- list prerequisites before any implementation
+
+Non-goals:
+- no runtime implementation
+- no schema enum addition
+- no CLI
+- no service checks
+- no Stage-D action
