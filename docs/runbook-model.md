@@ -165,7 +165,12 @@ Do not soften blocked or inconclusive into permissive language.
 ## Phase 11 vs future phases
 
 `server-facts-snapshot` is the fifth concrete read-only runbook kind (Phase 11E), implemented.
-Heimserver-Service-Gate remains future-gated — it is not yet designed, specified, or implemented.
+
+Heimserver-Service-Gate remains future-gated and design-only.
+See `docs/heimserver-service-gate-model.md`.
+
+It must not be confused with `server-facts-snapshot`: server-facts observes host/runtime facts; a future service gate would evaluate service readiness under a separately approved contract.
+
 Additional runbook kinds beyond `server-facts-snapshot` remain future-gated.
 
 ## server-facts-snapshot semantics
