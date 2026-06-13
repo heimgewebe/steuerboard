@@ -48,6 +48,7 @@ SCHEMA_MAP = {
     "switch-main-readiness": SCHEMAS_DIR / "switch-main-readiness.v1.schema.json",
     "ui-view-models": SCHEMAS_DIR / "ui-view-model.v1.schema.json",
     "runbooks": SCHEMAS_DIR / "runbook-plan.v1.schema.json",
+    "heimserver-service-gate-assessments": SCHEMAS_DIR / "heimserver-service-gate-assessment.v1.schema.json",
     "runbook-results": SCHEMAS_DIR / "runbook-result.v1.schema.json",
 }
 
