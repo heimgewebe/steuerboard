@@ -941,6 +941,7 @@ Phase 11C extends the same read-only model with ssh-gate as a third concrete run
 Phase 11D extends the same read-only model with tailscale-preflight as a fourth concrete runbook kind for local overlay reachability diagnostics (resolver + optional TCP checks) using Python stdlib sockets only. It does not invoke the tailscale CLI, does not access Tailscale APIs/auth/key/state material, and does not authorise actions.
 Phase 11E extends the same read-only model with server-facts-snapshot as a fifth concrete runbook kind for read-only host/runtime facts snapshot. It uses Python stdlib metadata access only (`platform`, `sys`, and bounded `os` process-context calls). It does not use subprocess, shell, network probes, `socket.getfqdn()`, SSH, Tailscale, `systemctl`, or any service evaluation. It writes a `server-facts.v1` artifact to `server-facts.json` alongside the standard result and trace, with collision protection and rollback cleanup for the facts artifact. No Stage-D actions, backend, server, or UI trigger.
 All five phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
+Phase 11F-A is design-only: Heimserver-Service-Gate remains future-gated. The task documents boundaries and open decisions before any implementation.
 
 #### Ziel
 
