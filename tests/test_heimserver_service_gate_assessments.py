@@ -155,3 +155,26 @@ def test_passed_with_blocked_evaluated_service_rejected():
     instance = load_json(PASSED_EXAMPLE)
     instance["evaluated_services"][0]["status"] = "blocked"
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_minimal_validate_supports_allof_and_if_then():
+    schema = {
+        "allOf": [
+            {
+                "if": {"properties": {"status": {"const": "passed"}}},
+                "then": {"properties": {"freshness": {"const": "fresh"}}}
+            }
+        ]
+    }
+
+    # 1. Valid instance should pass
+    valid_instance = {"status": "passed", "freshness": "fresh"}
+    minimal_validate(valid_instance, schema, "test")
+
+    # 2. Invalid instance should fail due to 'then' constraint
+    invalid_instance = {"status": "passed", "freshness": "stale"}
+    with pytest.raises(ValidationError):
+        minimal_validate(invalid_instance, schema, "test")
+
+    # 3. Non-matching 'if' condition falls through (should pass)
+    ignored_instance = {"status": "blocked", "freshness": "stale"}
+    minimal_validate(ignored_instance, schema, "test")
