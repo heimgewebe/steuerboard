@@ -27,7 +27,6 @@ Should a future Heimserver-Service-Gate evaluate only existing artifacts, or may
 
 - `evidence` in v1 is a textual artifact-derived evidence summary.
 - `passed` does not prove `live_service_running`.
-- Option B remains future-gated.
 
 - uses only existing artifacts
 - no live execution

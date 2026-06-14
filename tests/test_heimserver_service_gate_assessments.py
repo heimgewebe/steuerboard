@@ -1,6 +1,14 @@
 from pathlib import Path
+
 import pytest
-from scripts.validate_examples import SCHEMA_MAP, load_json, validate_instance
+
+from scripts.validate_examples import (
+    SCHEMA_MAP,
+    ValidationError,
+    load_json,
+    minimal_validate,
+    validate_instance,
+)
 
 EXAMPLES_DIR = Path("examples/heimserver-service-gate-assessments")
 PASSED_EXAMPLE = EXAMPLES_DIR / "passed.json"
@@ -108,3 +116,12 @@ def test_empty_evidence_rejected():
     instance = load_json(PASSED_EXAMPLE)
     instance["evidence"] = []
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_minimal_validate_supports_contains():
+    schema = {"type": "array", "contains": {"const": "live_service_running"}}
+    minimal_validate(["service_reachable", "live_service_running"], schema, "test")
+
+def test_minimal_validate_rejects_missing_contains_match():
+    schema = {"type": "array", "contains": {"const": "live_service_running"}}
+    with pytest.raises(ValidationError):
+        minimal_validate(["service_reachable"], schema, "test")
