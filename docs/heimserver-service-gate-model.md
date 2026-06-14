@@ -2,7 +2,7 @@
 
 Status: Phase 11F-B contract implemented. Runtime and Runbook integration remain future-gated.
 
-This document does not implement a runbook kind, schema, CLI command, action, service probe, or Stage-D executor.
+Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
 ## Purpose
 
@@ -28,7 +28,6 @@ Should a future Heimserver-Service-Gate evaluate only existing artifacts, or may
 - `evidence` in v1 is a textual artifact-derived evidence summary.
 - `passed` does not prove `live_service_running`.
 - Option B remains future-gated.
-
 
 - uses only existing artifacts
 - no live execution

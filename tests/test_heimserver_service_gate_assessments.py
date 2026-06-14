@@ -1,6 +1,6 @@
-import pytest
 from pathlib import Path
-from scripts.validate_examples import load_json, validate_instance, SCHEMA_MAP
+import pytest
+from scripts.validate_examples import SCHEMA_MAP, load_json, validate_instance
 
 EXAMPLES_DIR = Path("examples/heimserver-service-gate-assessments")
 PASSED_EXAMPLE = EXAMPLES_DIR / "passed.json"
