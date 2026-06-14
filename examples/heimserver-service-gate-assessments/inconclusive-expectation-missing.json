@@ -12,8 +12,8 @@
       "sha256": "8512d826401aa6b3eb31b3ed22036db5ca5034880966e15f96cefc64b337eee2"
     },
     "expectation_ref": {
-      "path": "examples/local-configs/heim-pc.json",
-      "sha256": "98fb347e707ee1ea6b33be77b7ab4d5d1087f119b99acc391f3786aa43dfdc04"
+      "path": "examples/heimserver-service-expectations/minimal-tailscale.json",
+      "sha256": "4de2f02efbfcad075c7509141e3eda6e822c6c1c3175f88274c8b58898cecb50"
     }
   },
   "expected_services": [],

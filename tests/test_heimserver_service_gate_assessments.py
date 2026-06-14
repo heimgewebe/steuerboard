@@ -125,3 +125,33 @@ def test_minimal_validate_rejects_non_array_for_min_items():
     schema = {"minItems": 1}
     with pytest.raises(ValidationError, match="expected array for array validation keywords"):
         minimal_validate("not-an-array", schema, "test")
+
+def test_passed_with_empty_expected_services_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["expected_services"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_empty_evaluated_services_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_stale_freshness_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["freshness"]["status"] = "stale"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_blocked_reason_code_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["reason_codes"] = ["service_gate_artifacts_missing"]
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_blocked_evaluated_service_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"][0]["status"] = "blocked"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))

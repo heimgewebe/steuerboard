@@ -233,5 +233,108 @@
       },
       "minItems": 1
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "passed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "freshness": {
+            "properties": {
+              "status": {
+                "const": "fresh"
+              }
+            }
+          },
+          "expected_services": {
+            "minItems": 1
+          },
+          "evaluated_services": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "passed"
+                },
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_gate_artifact_only_scope"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "service_gate_artifact_only_scope"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "blocked"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "service_gate_artifacts_missing",
+                "service_gate_service_evidence_mismatch"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "inconclusive"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "service_gate_artifacts_stale",
+                "service_gate_expectation_missing",
+                "service_gate_input_schema_invalid",
+                "service_gate_no_service_evidence",
+                "service_gate_subject_unknown"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
 }
