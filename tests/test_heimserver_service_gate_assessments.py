@@ -19,16 +19,6 @@ def assert_invalid(instance: dict, schema: dict, source: str = "test") -> None:
     with pytest.raises(Exception):
         validate_instance(instance, schema, source)
 
-def assert_contains_live_service_running_enforced(instance: dict, schema: dict) -> None:
-    try:
-        validate_instance(instance, schema, "test")
-    except Exception:
-        return
-    if "live_service_running" not in instance.get("does_not_prove", []):
-        pytest.fail("live_service_running missing from does_not_prove but validator did not reject it")
-    pytest.fail("expected does_not_prove without live_service_running to be rejected")
-
-
 @pytest.mark.parametrize("example_file", EXAMPLE_FILES, ids=lambda path: path.name)
 def test_heimserver_service_gate_assessment_schema_validates_examples(example_file):
     """All existing examples must validate against the schema."""
@@ -125,3 +115,13 @@ def test_minimal_validate_rejects_missing_contains_match():
     schema = {"type": "array", "contains": {"const": "live_service_running"}}
     with pytest.raises(ValidationError):
         minimal_validate(["service_reachable"], schema, "test")
+
+def test_minimal_validate_rejects_non_array_for_contains():
+    schema = {"contains": {"const": "live_service_running"}}
+    with pytest.raises(ValidationError, match="expected array for array validation keywords"):
+        minimal_validate("not-an-array", schema, "test")
+
+def test_minimal_validate_rejects_non_array_for_min_items():
+    schema = {"minItems": 1}
+    with pytest.raises(ValidationError, match="expected array for array validation keywords"):
+        minimal_validate("not-an-array", schema, "test")
