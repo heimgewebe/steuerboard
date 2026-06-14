@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B implemented. Artifact-derived contract only. Runtime and Runbook integration remain future-gated.
+Status: Phase 11F-B contract implemented. Runtime and Runbook integration remain future-gated.
 
 This document does not implement a runbook kind, schema, CLI command, action, service probe, or Stage-D executor.
 
@@ -24,6 +24,11 @@ Open question:
 Should a future Heimserver-Service-Gate evaluate only existing artifacts, or may it perform bounded local live checks?
 
 ### Option A — artifact-derived gate
+
+- `evidence` in v1 is a textual artifact-derived evidence summary.
+- `passed` does not prove `live_service_running`.
+- Option B remains future-gated.
+
 
 - uses only existing artifacts
 - no live execution

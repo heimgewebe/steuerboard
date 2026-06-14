@@ -74,7 +74,7 @@
             },
             "sha256": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^[0-9a-f]{64}$"
             }
           }
         },
@@ -92,7 +92,7 @@
             },
             "sha256": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^[0-9a-f]{64}$"
             }
           }
         }
@@ -162,13 +162,15 @@
                 "service_gate_service_evidence_mismatch",
                 "service_gate_subject_unknown"
               ]
-            }
+            },
+            "minItems": 1
           },
           "evidence": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "A textual artifact-derived evidence summary for this evaluated service."
           }
         }
       }
@@ -187,13 +189,15 @@
           "service_gate_service_evidence_mismatch",
           "service_gate_subject_unknown"
         ]
-      }
+      },
+      "minItems": 1
     },
     "evidence": {
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "A textual artifact-derived evidence summary. This is not a live probe and not a structured SourceRef."
     },
     "freshness": {
       "type": "object",
@@ -224,7 +228,8 @@
       },
       "contains": {
         "const": "live_service_running"
-      }
+      },
+      "minItems": 1
     }
   }
 }

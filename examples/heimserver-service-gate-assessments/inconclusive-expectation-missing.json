@@ -9,17 +9,21 @@
   "inputs": {
     "server_facts_ref": {
       "path": "examples/server-facts/minimal-linux.json",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "sha256": "8512d826401aa6b3eb31b3ed22036db5ca5034880966e15f96cefc64b337eee2"
     },
     "expectation_ref": {
       "path": "examples/local-configs/heim-pc.json",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "sha256": "98fb347e707ee1ea6b33be77b7ab4d5d1087f119b99acc391f3786aa43dfdc04"
     }
   },
   "expected_services": [],
   "evaluated_services": [],
-  "reason_codes": ["service_gate_expectation_missing"],
-  "evidence": [],
+  "reason_codes": [
+    "service_gate_expectation_missing"
+  ],
+  "evidence": [
+    "No textual evidence provided."
+  ],
   "freshness": {
     "status": "unknown",
     "observed_at": "2026-06-13T00:00:00Z"
