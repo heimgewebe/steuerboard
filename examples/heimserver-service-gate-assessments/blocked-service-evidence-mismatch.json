@@ -1,0 +1,53 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "blocked",
+  "subject": {
+    "host": "heimserver",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/minimal-linux.json",
+      "sha256": "8512d826401aa6b3eb31b3ed22036db5ca5034880966e15f96cefc64b337eee2"
+    },
+    "expectation_ref": {
+      "path": "examples/local-configs/heim-pc.json",
+      "sha256": "98fb347e707ee1ea6b33be77b7ab4d5d1087f119b99acc391f3786aa43dfdc04"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "overlay-network-admin"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "overlay-network-admin",
+      "status": "blocked",
+      "reason_codes": [
+        "service_gate_service_evidence_mismatch"
+      ],
+      "evidence": [
+        "assessment fixture records an artifact-derived service evidence mismatch; this does not prove live service state"
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_service_evidence_mismatch"
+  ],
+  "evidence": [
+    "assessment fixture records an artifact-derived service evidence mismatch; this does not prove live service state"
+  ],
+  "freshness": {
+    "status": "fresh",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness"
+  ]
+}
