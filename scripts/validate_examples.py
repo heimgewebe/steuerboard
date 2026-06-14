@@ -236,22 +236,25 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
                 if marker in seen:
                     raise ValidationError(f"{path}: array items are not unique")
                 seen.add(marker)
-        if "items" in schema:
-            for index, item in enumerate(instance):
-                minimal_validate(item, schema["items"], f"{path}[{index}]")
-        if "contains" in schema:
-            matched = False
-            for index, item in enumerate(instance):
-                try:
-                    minimal_validate(item, schema["contains"], f"{path}[{index}]")
-                    matched = True
-                    break
-                except ValidationError:
-                    pass
-            if not matched:
-                raise ValidationError(f"{path}: instance does not contain a match for contains schema")
-        if "minItems" in schema and len(instance) < schema["minItems"]:
-            raise ValidationError(f"{path}: array length {len(instance)} is less than minItems {schema['minItems']}")
+        if any(key in schema for key in ("items", "contains", "minItems")):
+            if not isinstance(instance, list):
+                raise ValidationError(f"{path}: expected array for array validation keywords")
+            if "items" in schema:
+                for index, item in enumerate(instance):
+                    minimal_validate(item, schema["items"], f"{path}[{index}]")
+            if "contains" in schema:
+                matched = False
+                for index, item in enumerate(instance):
+                    try:
+                        minimal_validate(item, schema["contains"], f"{path}[{index}]")
+                        matched = True
+                        break
+                    except ValidationError:
+                        pass
+                if not matched:
+                    raise ValidationError(f"{path}: instance does not contain a match for contains schema")
+            if "minItems" in schema and len(instance) < schema["minItems"]:
+                raise ValidationError(f"{path}: array length {len(instance)} is less than minItems {schema['minItems']}")
 
 def validate_schema(schema: dict[str, Any], schema_path: Path) -> None:
     if not _is_jsonschema_available():

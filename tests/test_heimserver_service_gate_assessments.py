@@ -61,7 +61,7 @@ def test_does_not_prove_contains_live_service_running():
     instance = load_json(PASSED_EXAMPLE)
     instance["does_not_prove"] = ["service_reachable"]
 
-    assert_contains_live_service_running_enforced(instance, schema)
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
 def test_kind_must_be_correct():
     """The kind must be exactly 'heimserver-service-gate-assessment'."""
