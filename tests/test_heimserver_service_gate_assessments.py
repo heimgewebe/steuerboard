@@ -12,17 +12,13 @@ def assert_invalid(instance: dict, schema: dict, source: str = "test") -> None:
         validate_instance(instance, schema, source)
 
 def assert_contains_live_service_running_enforced(instance: dict, schema: dict) -> None:
-    from scripts.validate_examples import _is_jsonschema_available
     try:
         validate_instance(instance, schema, "test")
     except Exception:
         return
-
     if "live_service_running" not in instance.get("does_not_prove", []):
-        if not _is_jsonschema_available():
-            # minimal_validate does not support 'contains'. This is expected.
-            return
         pytest.fail("live_service_running missing from does_not_prove but validator did not reject it")
+    pytest.fail("expected does_not_prove without live_service_running to be rejected")
 
 
 @pytest.mark.parametrize("example_file", EXAMPLE_FILES, ids=lambda path: path.name)
@@ -87,3 +83,28 @@ def test_no_runbook_kind_added():
     runbook_result_schema = load_json(Path("schemas/runbook-result.v1.schema.json"))
     result_kinds = runbook_result_schema["properties"]["runbook_kind"]["enum"]
     assert "heimserver-service-gate" not in result_kinds
+
+
+def test_invalid_sha256_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["inputs"]["server_facts_ref"]["sha256"] = "abc"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_empty_reason_codes_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["reason_codes"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_empty_service_reason_codes_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"][0]["reason_codes"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_empty_evidence_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evidence"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))

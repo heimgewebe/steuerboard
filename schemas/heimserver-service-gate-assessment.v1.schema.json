@@ -170,7 +170,8 @@
             "items": {
               "type": "string"
             },
-            "description": "A textual artifact-derived evidence summary for this evaluated service."
+            "description": "A textual artifact-derived evidence summary for this evaluated service.",
+            "minItems": 1
           }
         }
       }
@@ -197,7 +198,8 @@
       "items": {
         "type": "string"
       },
-      "description": "A textual artifact-derived evidence summary. This is not a live probe and not a structured SourceRef."
+      "description": "A textual artifact-derived evidence summary. This is not a live probe and not a structured SourceRef.",
+      "minItems": 1
     },
     "freshness": {
       "type": "object",

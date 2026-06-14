@@ -45,8 +45,7 @@ Should a future Heimserver-Service-Gate evaluate only existing artifacts, or may
 - higher risk
 
 Recommendation for next steps:
-For the first implementation (Phase 11F-B), Option A (artifact-derived) is the preferred path and its contract is now explicitly defined. There is no runbook kind, no runtime execution, and no Stage-D action involved yet. Option B (bounded local live check) remains future-gated.
-Option B remains future and requires explicit design approval.
+For the first implementation (Phase 11F-B), Option A (artifact-derived) is the selected path and its contract is now explicitly defined. There is no runbook kind, no runtime execution, and no Stage-D action involved yet. Option B (bounded local live check) remains future-gated and requires explicit design approval.
 
 ## Forbidden in current state
 
