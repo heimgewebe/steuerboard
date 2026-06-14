@@ -27,7 +27,7 @@
     "service_gate_artifacts_stale"
   ],
   "evidence": [
-    "No textual evidence provided."
+    "artifact-derived evidence is stale in this assessment fixture"
   ],
   "freshness": {
     "status": "stale",

@@ -31,7 +31,7 @@
         "service_gate_service_evidence_mismatch"
       ],
       "evidence": [
-        "artifact shows service is disabled"
+        "assessment fixture records an artifact-derived service evidence mismatch; this does not prove live service state"
       ]
     }
   ],
@@ -39,7 +39,7 @@
     "service_gate_service_evidence_mismatch"
   ],
   "evidence": [
-    "artifact shows service is disabled"
+    "assessment fixture records an artifact-derived service evidence mismatch; this does not prove live service state"
   ],
   "freshness": {
     "status": "fresh",

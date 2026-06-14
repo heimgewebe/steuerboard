@@ -22,7 +22,7 @@
     "service_gate_expectation_missing"
   ],
   "evidence": [
-    "No textual evidence provided."
+    "service expectation is missing in this assessment fixture"
   ],
   "freshness": {
     "status": "unknown",

@@ -31,7 +31,7 @@
         "service_gate_artifact_only_scope"
       ],
       "evidence": [
-        "No textual evidence provided."
+        "assessment fixture records artifact-derived scope only; this does not prove live service state"
       ]
     }
   ],
@@ -39,7 +39,7 @@
     "service_gate_artifact_only_scope"
   ],
   "evidence": [
-    "No textual evidence provided."
+    "assessment fixture records artifact-derived scope only; this does not prove live service state"
   ],
   "freshness": {
     "status": "fresh",
