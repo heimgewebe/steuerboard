@@ -185,32 +185,38 @@ def test_passed_with_blocked_evaluated_service_reason_code_rejected():
     instance["evaluated_services"][0]["reason_codes"] = ["service_gate_service_evidence_mismatch"]
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
-def test_passed_with_blocked_evaluated_service_rejected():
-    schema = load_json(SCHEMA_PATH)
-    instance = load_json(PASSED_EXAMPLE)
-    instance["evaluated_services"][0]["status"] = "blocked"
-    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
-def test_passed_with_blocked_reason_code_rejected():
-    schema = load_json(SCHEMA_PATH)
-    instance = load_json(PASSED_EXAMPLE)
-    instance["reason_codes"] = ["service_gate_artifacts_missing"]
-    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
-def test_passed_with_empty_evaluated_services_rejected():
-    schema = load_json(SCHEMA_PATH)
-    instance = load_json(PASSED_EXAMPLE)
-    instance["evaluated_services"] = []
-    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+def assert_minimal_invalid(instance: dict, schema: dict, source: str = "test") -> None:
+    with pytest.raises(ValidationError):
+        minimal_validate(instance, schema, source)
 
-def test_passed_with_empty_expected_services_rejected():
-    schema = load_json(SCHEMA_PATH)
-    instance = load_json(PASSED_EXAMPLE)
-    instance["expected_services"] = []
-    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
-
-def test_passed_with_stale_freshness_rejected():
+def test_minimal_validate_rejects_passed_with_stale_freshness_via_conditionals():
     schema = load_json(SCHEMA_PATH)
     instance = load_json(PASSED_EXAMPLE)
     instance["freshness"]["status"] = "stale"
-    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+    assert_minimal_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_minimal_validate_rejects_passed_with_blocked_reason_code_via_conditionals():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["reason_codes"] = ["service_gate_artifacts_missing"]
+    assert_minimal_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_minimal_validate_rejects_passed_with_empty_expected_services_via_conditionals():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["expected_services"] = []
+    assert_minimal_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_minimal_validate_rejects_passed_with_blocked_evaluated_service_via_conditionals():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"][0]["status"] = "blocked"
+    assert_minimal_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_minimal_validate_rejects_passed_with_blocked_evaluated_service_reason_code_via_conditionals():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"][0]["reason_codes"] = ["service_gate_service_evidence_mismatch"]
+    assert_minimal_invalid(instance, schema, str(PASSED_EXAMPLE))
