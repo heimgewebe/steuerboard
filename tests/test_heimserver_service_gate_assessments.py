@@ -178,3 +178,39 @@ def test_minimal_validate_supports_allof_and_if_then():
     # 3. Non-matching 'if' condition falls through (should pass)
     ignored_instance = {"status": "blocked", "freshness": "stale"}
     minimal_validate(ignored_instance, schema, "test")
+
+def test_passed_with_blocked_evaluated_service_reason_code_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"][0]["reason_codes"] = ["service_gate_service_evidence_mismatch"]
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_blocked_evaluated_service_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"][0]["status"] = "blocked"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_blocked_reason_code_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["reason_codes"] = ["service_gate_artifacts_missing"]
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_empty_evaluated_services_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["evaluated_services"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_empty_expected_services_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["expected_services"] = []
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_passed_with_stale_freshness_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["freshness"]["status"] = "stale"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
