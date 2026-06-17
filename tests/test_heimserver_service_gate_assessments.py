@@ -160,24 +160,45 @@ def test_minimal_validate_supports_allof_and_if_then():
     schema = {
         "allOf": [
             {
-                "if": {"properties": {"status": {"const": "passed"}}},
-                "then": {"properties": {"freshness": {"const": "fresh"}}}
+                "if": {
+                    "properties": {
+                        "status": {"const": "passed"}
+                    },
+                    "required": ["status"]
+                },
+                "then": {
+                    "properties": {
+                        "freshness": {
+                            "properties": {
+                                "status": {"const": "fresh"}
+                            },
+                            "required": ["status"]
+                        }
+                    },
+                    "required": ["freshness"]
+                },
             }
         ]
     }
 
-    # 1. Valid instance should pass
-    valid_instance = {"status": "passed", "freshness": "fresh"}
-    minimal_validate(valid_instance, schema, "test")
+    minimal_validate(
+        {"status": "passed", "freshness": {"status": "fresh"}},
+        schema,
+        "test",
+    )
 
-    # 2. Invalid instance should fail due to 'then' constraint
-    invalid_instance = {"status": "passed", "freshness": "stale"}
     with pytest.raises(ValidationError):
-        minimal_validate(invalid_instance, schema, "test")
+        minimal_validate(
+            {"status": "passed", "freshness": {"status": "stale"}},
+            schema,
+            "test",
+        )
 
-    # 3. Non-matching 'if' condition falls through (should pass)
-    ignored_instance = {"status": "blocked", "freshness": "stale"}
-    minimal_validate(ignored_instance, schema, "test")
+    minimal_validate(
+        {"status": "blocked", "freshness": {"status": "stale"}},
+        schema,
+        "test",
+    )
 
 def test_passed_with_blocked_evaluated_service_reason_code_rejected():
     schema = load_json(SCHEMA_PATH)
