@@ -226,7 +226,12 @@
     "does_not_prove": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "live_service_running",
+          "service_reachable",
+          "runtime_correctness"
+        ]
       },
       "contains": {
         "const": "live_service_running"

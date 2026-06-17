@@ -241,3 +241,9 @@ def test_minimal_validate_rejects_passed_with_blocked_evaluated_service_reason_c
     instance = load_json(PASSED_EXAMPLE)
     instance["evaluated_services"][0]["reason_codes"] = ["service_gate_service_evidence_mismatch"]
     assert_minimal_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_invalid_does_not_prove_value_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["does_not_prove"].append("bananen")
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
