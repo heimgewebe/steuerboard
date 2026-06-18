@@ -247,3 +247,14 @@ def test_invalid_does_not_prove_value_rejected():
     instance = load_json(PASSED_EXAMPLE)
     instance["does_not_prove"].append("bananen")
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+import hashlib
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def test_passed_example_input_hashes_match_referenced_artifacts():
+    instance = load_json(PASSED_EXAMPLE)
+    for ref_name in ("server_facts_ref", "expectation_ref"):
+        ref = instance["inputs"][ref_name]
+        assert sha256_file(Path(ref["path"])) == ref["sha256"]
