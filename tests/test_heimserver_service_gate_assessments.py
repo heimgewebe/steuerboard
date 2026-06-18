@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,10 @@ EXAMPLE_FILES = sorted(EXAMPLES_DIR.glob("*.json"))
 def assert_invalid(instance: dict, schema: dict, source: str = "test") -> None:
     with pytest.raises(Exception):
         validate_instance(instance, schema, source)
+
+def assert_minimal_invalid(instance: dict, schema: dict, source: str = "test") -> None:
+    with pytest.raises(ValidationError):
+        minimal_validate(instance, schema, source)
 
 @pytest.mark.parametrize("example_file", EXAMPLE_FILES, ids=lambda path: path.name)
 def test_heimserver_service_gate_assessment_schema_validates_examples(example_file):
@@ -205,14 +210,6 @@ def test_passed_with_blocked_evaluated_service_reason_code_rejected():
     instance = load_json(PASSED_EXAMPLE)
     instance["evaluated_services"][0]["reason_codes"] = ["service_gate_service_evidence_mismatch"]
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
-
-
-
-def assert_minimal_invalid(instance: dict, schema: dict, source: str = "test") -> None:
-    with pytest.raises(ValidationError):
-        minimal_validate(instance, schema, source)
-
-def test_minimal_validate_rejects_passed_with_stale_freshness_via_conditionals():
     schema = load_json(SCHEMA_PATH)
     instance = load_json(PASSED_EXAMPLE)
     instance["freshness"]["status"] = "stale"
@@ -248,7 +245,6 @@ def test_invalid_does_not_prove_value_rejected():
     instance["does_not_prove"].append("bananen")
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
-import hashlib
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
