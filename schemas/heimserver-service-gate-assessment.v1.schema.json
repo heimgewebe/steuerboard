@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/heimserver-service-gate-assessment.v1.schema.json",
+  "title": "heimserver-service-gate-assessment.v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "status",
+    "subject",
+    "inputs",
+    "expected_services",
+    "evaluated_services",
+    "reason_codes",
+    "evidence",
+    "freshness",
+    "does_not_prove"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "heimserver-service-gate-assessment"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "blocked",
+        "inconclusive"
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "required": [
+        "host",
+        "scope"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "const": "artifact-derived"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "required": [
+        "server_facts_ref",
+        "expectation_ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "server_facts_ref": {
+          "type": "object",
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "expectation_ref": {
+          "type": "object",
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "expected_services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "service_name",
+          "expected_role"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "service_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_role": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "evaluated_services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "service_name",
+          "expected_role",
+          "status",
+          "reason_codes",
+          "evidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "service_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "blocked",
+              "inconclusive"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "service_gate_artifact_only_scope",
+                "service_gate_artifacts_missing",
+                "service_gate_artifacts_stale",
+                "service_gate_expectation_missing",
+                "service_gate_input_schema_invalid",
+                "service_gate_no_service_evidence",
+                "service_gate_service_evidence_mismatch",
+                "service_gate_subject_unknown"
+              ]
+            },
+            "minItems": 1
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "A textual artifact-derived evidence summary for this evaluated service.",
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "service_gate_artifact_only_scope",
+          "service_gate_artifacts_missing",
+          "service_gate_artifacts_stale",
+          "service_gate_expectation_missing",
+          "service_gate_input_schema_invalid",
+          "service_gate_no_service_evidence",
+          "service_gate_service_evidence_mismatch",
+          "service_gate_subject_unknown"
+        ]
+      },
+      "minItems": 1
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "A textual artifact-derived evidence summary. This is not a live probe and not a structured SourceRef.",
+      "minItems": 1
+    },
+    "freshness": {
+      "type": "object",
+      "required": [
+        "status",
+        "observed_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "unknown"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        }
+      }
+    },
+    "does_not_prove": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "live_service_running",
+          "service_reachable",
+          "runtime_correctness"
+        ]
+      },
+      "contains": {
+        "const": "live_service_running"
+      },
+      "minItems": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "passed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "freshness": {
+            "properties": {
+              "status": {
+                "const": "fresh"
+              }
+            }
+          },
+          "expected_services": {
+            "minItems": 1
+          },
+          "evaluated_services": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "passed"
+                },
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_gate_artifact_only_scope"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "service_gate_artifact_only_scope"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "blocked"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "service_gate_artifacts_missing",
+                "service_gate_service_evidence_mismatch"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "inconclusive"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "service_gate_artifacts_stale",
+                "service_gate_expectation_missing",
+                "service_gate_input_schema_invalid",
+                "service_gate_no_service_evidence",
+                "service_gate_subject_unknown"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

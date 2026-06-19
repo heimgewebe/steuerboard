@@ -1,0 +1,36 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "inconclusive",
+  "subject": {
+    "host": "heimserver",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/minimal-linux.json",
+      "sha256": "8512d826401aa6b3eb31b3ed22036db5ca5034880966e15f96cefc64b337eee2"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/minimal-tailscale.json",
+      "sha256": "4de2f02efbfcad075c7509141e3eda6e822c6c1c3175f88274c8b58898cecb50"
+    }
+  },
+  "expected_services": [],
+  "evaluated_services": [],
+  "reason_codes": [
+    "service_gate_expectation_missing"
+  ],
+  "evidence": [
+    "service expectation is missing in this assessment fixture"
+  ],
+  "freshness": {
+    "status": "unknown",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness"
+  ]
+}

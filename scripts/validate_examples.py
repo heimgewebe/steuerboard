@@ -48,6 +48,7 @@ SCHEMA_MAP = {
     "switch-main-readiness": SCHEMAS_DIR / "switch-main-readiness.v1.schema.json",
     "ui-view-models": SCHEMAS_DIR / "ui-view-model.v1.schema.json",
     "runbooks": SCHEMAS_DIR / "runbook-plan.v1.schema.json",
+    "heimserver-service-gate-assessments": SCHEMAS_DIR / "heimserver-service-gate-assessment.v1.schema.json",
     "runbook-results": SCHEMAS_DIR / "runbook-result.v1.schema.json",
 }
 
@@ -223,6 +224,10 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
             if extra:
                 raise ValidationError(f"{path}: unexpected additional properties {sorted(extra)!r}")
 
+    if any(key in schema for key in ("items", "contains", "minItems", "maxItems", "uniqueItems")):
+        if not isinstance(instance, list):
+            raise ValidationError(f"{path}: expected array for array validation keywords")
+
     if isinstance(instance, list):
         if "minItems" in schema and len(instance) < schema["minItems"]:
             raise ValidationError(f"{path}: array has fewer than minItems {schema['minItems']!r}")
@@ -238,6 +243,17 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
         if "items" in schema:
             for index, item in enumerate(instance):
                 minimal_validate(item, schema["items"], f"{path}[{index}]")
+        if "contains" in schema:
+            matched = False
+            for index, item in enumerate(instance):
+                try:
+                    minimal_validate(item, schema["contains"], f"{path}[{index}]")
+                    matched = True
+                    break
+                except ValidationError:
+                    pass
+            if not matched:
+                raise ValidationError(f"{path}: instance does not contain a match for contains schema")
 
 def validate_schema(schema: dict[str, Any], schema_path: Path) -> None:
     if not _is_jsonschema_available():

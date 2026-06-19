@@ -1243,3 +1243,13 @@ Non-goals:
 - no CLI
 - no service checks
 - no Stage-D action
+
+## Phase 11F-B — Heimserver-Service-Gate artifact-derived contract
+
+Status: done.
+
+- added `heimserver-service-gate-assessment.v1.schema.json`
+- added passed, blocked, and inconclusive examples
+- added boundary tests to ensure no runtime/runbook leaks
+- option A (artifact-derived) is fixed for this phase
+- option B (live check) and runbook/runtime integration remain future-gated
