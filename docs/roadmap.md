@@ -1253,3 +1253,22 @@ Status: done.
 - added boundary tests to ensure no runtime/runbook leaks
 - option A (artifact-derived) is fixed for this phase
 - option B (live check) and runbook/runtime integration remain future-gated
+
+## Phase 11F-C — Producer Preimage Boundary
+
+Status: design/decision-prep / future-gated.
+
+Scope:
+- define the producer preimage / field-lineage contract for `heimserver-service-gate-assessment.v1`
+- document which assessment fields must be derivable from which input artifacts (`server_facts_ref`, `expectation_ref`) or fixed contract rules
+- document which fields must not claim to prove live truth (`does_not_prove`)
+- add a documentation/schema guard test for the boundary
+- record the missing `heimserver-service-expectation.v1` schema as an explicit open gap
+
+Non-goals:
+- no runtime producer
+- no runbook kind
+- no CLI
+- no service checks
+- no Stage-D action
+- no live network / SSH / Tailscale / systemctl / subprocess

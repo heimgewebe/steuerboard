@@ -942,6 +942,7 @@ Phase 11D extends the same read-only model with tailscale-preflight as a fourth 
 Phase 11E extends the same read-only model with server-facts-snapshot as a fifth concrete runbook kind for read-only host/runtime facts snapshot. It uses Python stdlib metadata access only (`platform`, `sys`, and bounded `os` process-context calls). It does not use subprocess, shell, network probes, `socket.getfqdn()`, SSH, Tailscale, `systemctl`, or any service evaluation. It writes a `server-facts.v1` artifact to `server-facts.json` alongside the standard result and trace, with collision protection and rollback cleanup for the facts artifact. No Stage-D actions, backend, server, or UI trigger.
 All five phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
 Phase 11F-B adds an artifact-derived contract for the Heimserver-Service-Gate. Runtime execution and runbook kinds remain future-gated. The task fixes the contract boundary before any runtime, runbook, CLI, or Stage-D implementation.
+Phase 11F-C fixes the producer *preimage* and field lineage before any later implementation: it documents how a future artifact-derived producer may derive a `heimserver-service-gate-assessment.v1` from `server_facts_ref` and `expectation_ref` (and fixed contract rules), and which fields must never claim live truth — without introducing a runtime producer, runbook kind, CLI, Stage-D action, or any live check. It remains design/decision-prep (documentation and guard tests only).
 
 #### Ziel
 

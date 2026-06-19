@@ -15,6 +15,7 @@ EXAMPLES_DIR = Path("examples/heimserver-service-gate-assessments")
 PASSED_EXAMPLE = EXAMPLES_DIR / "passed.json"
 SCHEMA_PATH = SCHEMA_MAP["heimserver-service-gate-assessments"]
 EXAMPLE_FILES = sorted(EXAMPLES_DIR.glob("*.json"))
+MODEL_DOC = Path("docs/heimserver-service-gate-model.md")
 
 def assert_invalid(instance: dict, schema: dict, source: str = "test") -> None:
     with pytest.raises(Exception):
@@ -86,6 +87,35 @@ def test_no_runbook_kind_added():
     runbook_result_schema = load_json(Path("schemas/runbook-result.v1.schema.json"))
     result_kinds = runbook_result_schema["properties"]["runbook_kind"]["enum"]
     assert "heimserver-service-gate" not in result_kinds
+
+
+def test_doc_preserves_producer_preimage_boundary():
+    """Guard the documented Phase 11F-C producer-preimage boundary.
+
+    test_no_runbook_kind_added already locks the code/schema side (no runbook kind in
+    SUPPORTED_RUNBOOK_KINDS, runbook-plan.v1, or runbook-result.v1). This test locks the
+    documentation side: the model doc must keep naming both declared inputs, keep stating
+    what `passed` does not prove, and keep listing the forbidden live-runtime mechanisms,
+    so the contract fence cannot be silently eroded by a doc edit.
+    """
+    doc = MODEL_DOC.read_text(encoding="utf-8")
+
+    # The Phase 11F-C boundary section and its artifact-derived framing must be present.
+    assert "Phase 11F-C" in doc
+    assert "Producer Preimage Boundary" in doc
+    assert "artifact-derived" in doc
+
+    # The field lineage must name both declared inputs.
+    for declared_input in ("server_facts_ref", "expectation_ref"):
+        assert declared_input in doc, f"lineage missing declared input: {declared_input}"
+
+    # `passed` must keep disclaiming the three live-truth properties.
+    for protection in ("live_service_running", "service_reachable", "runtime_correctness"):
+        assert protection in doc, f"does_not_prove protection missing from doc: {protection}"
+
+    # The forbidden live-runtime mechanisms must remain documented.
+    for forbidden in ("systemctl", "SSH", "Tailscale", "subprocess", "network probe", "Stage-D", "CLI"):
+        assert forbidden in doc, f"forbidden-list entry missing from doc: {forbidden}"
 
 
 def test_reason_code_subsets_partition_master_enum():
