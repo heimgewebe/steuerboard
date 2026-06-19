@@ -88,6 +88,43 @@ def test_no_runbook_kind_added():
     assert "heimserver-service-gate" not in result_kinds
 
 
+def test_reason_code_subsets_partition_master_enum():
+    """The per-status reason-code subsets must form a complete, disjoint partition of
+    the master enum, and the evaluated-service enum must mirror the master enum.
+
+    This locks the contract's core design (every status owns a distinct set of reason
+    codes) and guards the two inlined reason-code enum copies against silent drift.
+    """
+    schema = load_json(SCHEMA_PATH)
+    master = set(schema["properties"]["reason_codes"]["items"]["enum"])
+
+    subsets: dict[str, set] = {}
+    for clause in schema["allOf"]:
+        status = clause["if"]["properties"]["status"]["const"]
+        subsets[status] = set(clause["then"]["properties"]["reason_codes"]["items"]["enum"])
+
+    # Every declared status owns a reason-code subset.
+    assert set(subsets) == set(schema["properties"]["status"]["enum"])
+
+    # Subsets are pairwise disjoint.
+    seen: set = set()
+    for codes in subsets.values():
+        overlap = codes & seen
+        assert not overlap, f"reason codes shared across statuses: {sorted(overlap)}"
+        seen |= codes
+
+    # The subsets exactly cover the master enum (no orphan or stray codes).
+    assert seen == master, f"partition mismatch: {sorted(master ^ seen)}"
+
+    # The evaluated-service reason-code enum must stay identical to the master enum.
+    evaluated_enum = set(
+        schema["properties"]["evaluated_services"]["items"]["properties"]["reason_codes"][
+            "items"
+        ]["enum"]
+    )
+    assert evaluated_enum == master
+
+
 def test_invalid_sha256_rejected():
     schema = load_json(SCHEMA_PATH)
     instance = load_json(PASSED_EXAMPLE)
@@ -251,8 +288,16 @@ def test_invalid_does_not_prove_value_rejected():
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-def test_passed_example_input_hashes_match_referenced_artifacts():
-    instance = load_json(PASSED_EXAMPLE)
+@pytest.mark.parametrize("example_file", EXAMPLE_FILES, ids=lambda path: path.name)
+def test_example_input_hashes_match_referenced_artifacts(example_file):
+    """Every example's declared input hashes must match the referenced artifacts on disk.
+
+    All examples reference the same server-facts and expectation artifacts, so an
+    artifact edit that updates only one example's hash would otherwise go unnoticed.
+    """
+    instance = load_json(example_file)
     for ref_name in ("server_facts_ref", "expectation_ref"):
         ref = instance["inputs"][ref_name]
-        assert sha256_file(Path(ref["path"])) == ref["sha256"]
+        assert sha256_file(Path(ref["path"])) == ref["sha256"], (
+            f"{example_file.name}: {ref_name} sha256 does not match {ref['path']}"
+        )
