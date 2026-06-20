@@ -943,6 +943,7 @@ Phase 11E extends the same read-only model with server-facts-snapshot as a fifth
 All five phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
 Phase 11F-B adds an artifact-derived contract for the Heimserver-Service-Gate. Runtime execution and runbook kinds remain future-gated. The task fixes the contract boundary before any runtime, runbook, CLI, or Stage-D implementation.
 Phase 11F-C fixes the producer *preimage* and field lineage before any later implementation: it documents how a future artifact-derived producer may derive a `heimserver-service-gate-assessment.v1` from `server_facts_ref` and `expectation_ref` (and fixed contract rules), and which fields must never claim live truth — without introducing a runtime producer, runbook kind, CLI, Stage-D action, or any live check. It remains design/decision-prep (documentation and guard tests only).
+Phase 11F-D closes the asymmetry 11F-C surfaced by contracting the expectation *input*: it adds `heimserver-service-expectation.v1` (schema + validator wiring + tests), so both producer inputs (`server-facts.v1` and the expectation) are reproducibly typed. Decision: a `schema_version`-only envelope without a top-level `kind`, consistent with the co-input `server-facts.v1`. Contract only — still no producer, runbook kind, CLI, Stage-D, or live check.
 
 #### Ziel
 

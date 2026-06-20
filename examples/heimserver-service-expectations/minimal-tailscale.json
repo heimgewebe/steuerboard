@@ -1,4 +1,5 @@
 {
+  "schema_version": "heimserver-service-expectation.v1",
   "host": "heimserver",
   "scope": "artifact-derived",
   "expected_services": [

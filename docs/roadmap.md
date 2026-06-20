@@ -1272,3 +1272,26 @@ Non-goals:
 - no service checks
 - no Stage-D action
 - no live network / SSH / Tailscale / systemctl / subprocess
+
+## Phase 11F-D — Heimserver-Service-Expectation Contract
+
+Status: done (contract only).
+
+Closes the asymmetry surfaced by 11F-C: the assessment output was contracted, the expectation input was not.
+
+Scope:
+- add `schemas/heimserver-service-expectation.v1.schema.json` (the `expectation_ref` input contract)
+- wire it into the validator (`SCHEMA_MAP`) so the example validates
+- migrate `examples/heimserver-service-expectations/minimal-tailscale.json` (add `schema_version`) and re-hash `inputs.expectation_ref.sha256` in all five assessment fixtures
+- add expectation contract tests (validation, required fields, `scope` const, no additional properties, hash consistency)
+
+Design decision: Variant A′ — `schema_version` (universal repo convention) but no top-level `kind` (which only the assessment carries; the co-input `server-facts.v1` omits it).
+
+Non-goals:
+- no runtime producer
+- no runbook kind
+- no CLI
+- no service checks
+- no Stage-D action
+- no live network / SSH / Tailscale / systemctl / subprocess / socket
+- no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`

@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep only: documentation and guard tests, no producer. Runtime and Runbook integration remain future-gated.
+Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract (schema only, no producer/runtime). Runtime and Runbook integration remain future-gated.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -124,15 +124,13 @@ How each assessment field must be derivable. "Input" means a declared, hashed in
 
 The crucial preimage rule is for `evaluated_services`. The current input set — a `server-facts.v1` snapshot plus a service-expectation artifact — contains **no admissible per-service runtime evidence**. Therefore, until such an evidence artifact is contracted, a conformant producer must not populate `evaluated_services` with a `passed` live claim purely from these inputs; the honest derivations are `inconclusive` (`service_gate_no_service_evidence`) or `blocked` (`service_gate_service_evidence_mismatch`). The `passed` example fixture remains a *contract* fixture, not a proof that any service is running.
 
-### Open gap — expectation input schema
+### Open gap — expectation input schema (resolved in Phase 11F-D)
 
-- The expectation input artifact exists as an example: `examples/heimserver-service-expectations/minimal-tailscale.json`.
-- A schema for it does **not** exist: there is no `schemas/heimserver-service-expectation.v1.schema.json`, and `scripts/validate_examples.py` has no `SCHEMA_MAP` entry for `heimserver-service-expectations`. The example is therefore currently unvalidated.
-- Open gap: **`heimserver-service-expectation.v1.schema.json` is missing and is required for a reproducible producer preimage.** Without it, `inputs.expectation_ref` points at an artifact whose own shape is uncontracted, so `expected_services` cannot be derived reproducibly.
-- It is intentionally **not** added in 11F-C, because it needs a decision first, not just a transcription:
-  - Repo convention gives every artifact a `schema_version` and `kind`. The current expectation example has neither. Adding them changes the file's bytes, which would break the `sha256` values referenced by every assessment example (`inputs.expectation_ref.sha256`) and the `test_example_input_hashes_match_referenced_artifacts` guard — a coordinated re-hash across all fixtures.
-  - The alternative — a schema that omits `schema_version`/`kind` to match the example as-is — silently diverges from the repo's artifact convention.
-  - Either path is a contract decision, so it belongs to its own change, not to this boundary-only phase.
+> **Update (Phase 11F-D):** Closed. The expectation input now has its own contract, `schemas/heimserver-service-expectation.v1.schema.json`, wired into the validator. See [Phase 11F-D](#phase-11f-d--heimserver-service-expectation-contract) for the design decision.
+
+The gap that 11F-C surfaced: the expectation input artifact `examples/heimserver-service-expectations/minimal-tailscale.json` existed without a schema while the assessment was already contracted — an asymmetric producer chain. The example carried no `SCHEMA_MAP` entry and was therefore unvalidated.
+
+The deferral reason recorded by 11F-C: closing it needs a contract decision, not just a transcription. The example carried no `schema_version`, so adding one changes its bytes and forces a coordinated re-hash of every assessment fixture's `inputs.expectation_ref.sha256` (and the hash guard). Phase 11F-D made that decision (a `schema_version`-only envelope; no `kind`) and performed the migration.
 
 ### Forbidden in 11F-C
 
@@ -146,3 +144,38 @@ The 11F-B fence, restated for the producer preimage:
 - no service start/stop/restart/reload, no mutation, no action authorization
 - no rename of `passed`
 - no loosening of the strict UTC `Z` timestamp pattern to `format: date-time`
+
+## Phase 11F-D — Heimserver-Service-Expectation Contract
+
+Status: implemented (contract only). No runtime, producer, runbook kind, CLI, executor, Stage-D action, service probe, or live check is added.
+
+11F-C surfaced an asymmetry: the assessment **output** was contracted, but the expectation **input** was not. 11F-D closes it by giving the expectation input its own schema, so the producer preimage is reproducibly typed on both inputs (`server-facts.v1` + `heimserver-service-expectation.v1`).
+
+### Design decision — Variant A′ (`schema_version`, no `kind`)
+
+Decided against both the maximal Variant A (`schema_version` + `kind` + …) and the bare Variant B (no envelope), in favour of a hybrid, on repo evidence:
+
+- `schema_version` is **required** — it is universal across all 33 schemas (e.g. `server-facts.v1`, `source-ref.v1`). The const follows the dominant `"<name>.v1"` form: `heimserver-service-expectation.v1`. (The sibling assessment's `schema_version: "1"` is the repo's lone outlier and is intentionally not propagated; harmonising it is a separate follow-up.)
+- `kind` is **omitted** — 31/33 schemas have no top-level `kind`; `scope-explanation.v1` uses `kind` only as a nested domain enum; only `heimserver-service-gate-assessment.v1` carries a top-level `kind`. Decisively, the co-input `server-facts.v1` has `schema_version` and no `kind`. Adding `kind` would over-specify and break symmetry with the other producer input. Artifact type is already discriminated by directory + `SCHEMA_MAP` + the `schema_version` const.
+
+Contracts-first here means consistency with the organism, not maximal field count.
+
+### Contract shape
+
+| Field | Rule |
+| --- | --- |
+| `schema_version` | const `heimserver-service-expectation.v1` |
+| `host` | string, `minLength` 1 |
+| `scope` | const `artifact-derived` |
+| `expected_services[]` | objects of `service_name` + `expected_role` (both `minLength` 1), `additionalProperties: false` |
+
+`additionalProperties: false` at every level. No runtime fields, no live evidence, no freshness, no result fields — the expectation is a static input, not a verdict.
+
+### Migration
+
+- New schema `schemas/heimserver-service-expectation.v1.schema.json`; new `SCHEMA_MAP` entry `heimserver-service-expectations`.
+- `examples/heimserver-service-expectations/minimal-tailscale.json` gained `schema_version`; its `sha256` changed, so `inputs.expectation_ref.sha256` was updated in all five assessment fixtures. The existing hash guard plus a new explicit cross-check (`tests/test_heimserver_service_expectations.py`) keep the references consistent.
+
+### Still forbidden (unchanged)
+
+Same fence as 11F-B / 11F-C: no producer, runbook kind, CLI, Stage-D / executor, service probe, subprocess, shell, SSH, Tailscale CLI/API, `systemctl`, or socket; no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`.

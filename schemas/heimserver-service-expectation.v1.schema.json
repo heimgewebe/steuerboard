@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/heimserver-service-expectation.v1.schema.json",
+  "title": "heimserver-service-expectation.v1",
+  "description": "Declared service-gate expectation input artifact. Static declaration only — it carries no runtime state, no live evidence, no freshness, and no result fields. It is one of the two declared inputs (alongside server-facts.v1) from which a future artifact-derived producer may derive a heimserver-service-gate-assessment.v1.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "host",
+    "scope",
+    "expected_services"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "heimserver-service-expectation.v1"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string",
+      "const": "artifact-derived"
+    },
+    "expected_services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "service_name",
+          "expected_role"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "service_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_role": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
