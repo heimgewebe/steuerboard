@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract (schema only, no producer/runtime). Runtime and Runbook integration remain future-gated.
+Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract; Phase 11F-E adds the `heimserver-service-evidence.v1` input contract (both schema-only, no producer/runtime). Runtime and Runbook integration remain future-gated.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -179,3 +179,48 @@ Contracts-first here means consistency with the organism, not maximal field coun
 ### Still forbidden (unchanged)
 
 Same fence as 11F-B / 11F-C: no producer, runbook kind, CLI, Stage-D / executor, service probe, subprocess, shell, SSH, Tailscale CLI/API, `systemctl`, or socket; no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`.
+
+## Phase 11F-E — Heimserver-Service-Evidence Contract
+
+Status: implemented (contract only). No producer, runbook kind, CLI, executor, Stage-D action, service probe, or live check is added.
+
+11F-D contracted the expectation input; 11F-E contracts the missing third input: **service evidence**. Without it, a producer would have to invent `evaluated_services` out of `server-facts` + `expectation` — more than those inputs carry. That would be false coherence. 11F-E supplies the admissible act from which `evaluated_services` may later be derived.
+
+### Why a separate evidence contract (and not a producer next)
+
+The relevant question is not "how do we produce the verdict?" but "which admissible act does a verdict require?". Evidence is a *descriptive* artifact (what the existing artifacts show); the assessment is the *verdict* (`passed` / `blocked` / `inconclusive`). Keeping them in separate vocabularies prevents the evidence layer from smuggling a verdict or a live claim:
+
+- `evidence_status` is `present | missing | mismatch | unknown` — descriptive, never `running` / `reachable` / `live`.
+- Reason codes use a dedicated `service_evidence_*` namespace, distinct from the assessment's verdict-oriented `service_gate_*` codes. A future producer maps the former to the latter explicitly.
+
+### The preimage chain
+
+```
+server_facts_ref
++ expectation_ref
++ service_evidence_ref
++ contract rules
+= future assessment derivation (heimserver-service-gate-assessment.v1)
+```
+
+All three inputs are now contracted (`server-facts.v1`, `heimserver-service-expectation.v1`, `heimserver-service-evidence.v1`). The derivation step itself stays future-gated.
+
+### Contract shape
+
+| Field | Rule |
+| --- | --- |
+| `schema_version` | const `heimserver-service-evidence.v1` |
+| `host` | string, `minLength` 1 |
+| `scope` | const `artifact-derived` |
+| `observed_at` | strict UTC-`Z` pattern (not `format: date-time`) |
+| `services[]` | objects of `service_name`, `evidence_status`, `reason_codes` (≥1), `evidence` (≥1) |
+
+`additionalProperties: false` at every level. The artifact carries **no** `status`, `evaluated_services`, `freshness`, `does_not_prove`, or any live-truth field. It records artifact evidence only and must never assert `live_service_running`, `service_reachable`, or `runtime_correctness`.
+
+### Assessment integration deferred
+
+The assessment schema is **not** changed in 11F-E. Adding `inputs.service_evidence_ref` to `heimserver-service-gate-assessment.v1` (and migrating its fixtures) is the next open phase, kept separate so this phase stays a clean, minimal input contract.
+
+### Still forbidden (unchanged)
+
+Same fence as 11F-B / 11F-C / 11F-D: no producer, runbook kind, CLI, Stage-D / executor, service probe, subprocess, shell, SSH, Tailscale CLI/API, `systemctl`, or socket; no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`; no rename of `passed`.

@@ -1295,3 +1295,27 @@ Non-goals:
 - no Stage-D action
 - no live network / SSH / Tailscale / systemctl / subprocess / socket
 - no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
+
+## Phase 11F-E — Heimserver-Service-Evidence Contract
+
+Status: done (contract only).
+
+Closes the last preimage gap after 11F-D: the admissible artifact from which `evaluated_services` may later be derived, without any live check. Avoids the false-coherence trap of building a producer before a legitimate evidence artifact exists.
+
+Scope:
+- add `schemas/heimserver-service-evidence.v1.schema.json` (the `service_evidence_ref` input contract)
+- add `examples/heimserver-service-evidence/minimal-artifact-only.json`
+- wire it into the validator (`SCHEMA_MAP`) and register the example in `tests/test_schema_examples.py`
+- add evidence contract tests (validation, required fields, `scope` const, strict UTC-Z `observed_at`, no additional properties, pure-input guard, no runbook leak)
+
+Design: reuses the 11F-D envelope decision (`schema_version`, no `kind`). Descriptive `evidence_status` (`present` / `missing` / `mismatch` / `unknown`) and a dedicated `service_evidence_*` reason-code namespace, decoupled from the assessment's verdict vocabulary. Assessment integration (`inputs.service_evidence_ref`) deferred to a later phase.
+
+Non-goals:
+- no runtime producer / no producer-preimage deriver
+- no runbook kind
+- no CLI
+- no service checks
+- no Stage-D action
+- no live network / SSH / Tailscale / systemctl / subprocess / socket / shell
+- no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
+- no assessment-schema rebuild in this phase

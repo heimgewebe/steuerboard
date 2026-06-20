@@ -124,6 +124,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "heimserver-service-gate-assessments/inconclusive-stale-evidence.json",
     "heimserver-service-gate-assessments/inconclusive-expectation-missing.json",
     "heimserver-service-expectations/minimal-tailscale.json",
+    "heimserver-service-evidence/minimal-artifact-only.json",
     "switch-main-preflight-proofs/blocked-plan-content-mismatch.json",
     "switch-main-preflight-proofs/blocked-plan-action-mismatch.json",
     "switch-main-preflight-proofs/blocked-branch-unmerged.json",
