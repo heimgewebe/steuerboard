@@ -94,9 +94,9 @@ def test_doc_preserves_producer_preimage_boundary():
 
     test_no_runbook_kind_added already locks the code/schema side (no runbook kind in
     SUPPORTED_RUNBOOK_KINDS, runbook-plan.v1, or runbook-result.v1). This test locks the
-    documentation side: the model doc must keep naming both declared inputs, keep stating
-    what `passed` does not prove, and keep listing the forbidden live-runtime mechanisms,
-    so the contract fence cannot be silently eroded by a doc edit.
+    documentation side: the model doc must keep naming all three declared inputs, keep
+    stating what `passed` does not prove, and keep listing the forbidden live-runtime
+    mechanisms, so the contract fence cannot be silently eroded by a doc edit.
     """
     doc = MODEL_DOC.read_text(encoding="utf-8")
 
@@ -105,8 +105,9 @@ def test_doc_preserves_producer_preimage_boundary():
     assert "Producer Preimage Boundary" in doc
     assert "artifact-derived" in doc
 
-    # The field lineage must name both declared inputs.
-    for declared_input in ("server_facts_ref", "expectation_ref"):
+    # The field lineage must name all three declared inputs (server-facts, expectation,
+    # and — since 11F-E/11F-F — service evidence).
+    for declared_input in ("server_facts_ref", "expectation_ref", "service_evidence_ref"):
         assert declared_input in doc, f"lineage missing declared input: {declared_input}"
 
     # `passed` must keep disclaiming the three live-truth properties.

@@ -124,6 +124,8 @@ How each assessment field must be derivable. "Input" means a declared, hashed in
 
 The crucial preimage rule is for `evaluated_services`. The current input set — a `server-facts.v1` snapshot plus a service-expectation artifact — contains **no admissible per-service runtime evidence**. Therefore, until such an evidence artifact is contracted, a conformant producer must not populate `evaluated_services` with a `passed` live claim purely from these inputs; the honest derivations are `inconclusive` (`service_gate_no_service_evidence`) or `blocked` (`service_gate_service_evidence_mismatch`). The `passed` example fixture remains a *contract* fixture, not a proof that any service is running.
 
+> **Update (Phase 11F-E / 11F-F):** Service evidence is now contracted and referenced via `service_evidence_ref`; the derivation step still remains future-gated. The "current input set" wording above describes the 11F-C state and is kept for historical context.
+
 ### Open gap — expectation input schema (resolved in Phase 11F-D)
 
 > **Update (Phase 11F-D):** Closed. The expectation input now has its own contract, `schemas/heimserver-service-expectation.v1.schema.json`, wired into the validator. See [Phase 11F-D](#phase-11f-d--heimserver-service-expectation-contract) for the design decision.
