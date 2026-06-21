@@ -1319,3 +1319,25 @@ Non-goals:
 - no live network / SSH / Tailscale / systemctl / subprocess / socket / shell
 - no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
 - no assessment-schema rebuild in this phase
+
+## Phase 11F-F — Assessment Evidence Input Integration
+
+Status: done (contract integration only).
+
+Connects the 11F-E evidence input to the assessment so the producer preimage is fully referenceable from one artifact.
+
+Scope:
+- `schemas/heimserver-service-gate-assessment.v1.schema.json`: add `inputs.service_evidence_ref` (`path` + `sha256` `^[0-9a-f]{64}$`, `additionalProperties: false`) and add it to `inputs.required`
+- migrate all five assessment fixtures with a real `service_evidence_ref` sha256
+- extend the input-hash guard to all three refs; add negatives (missing `service_evidence_ref`, malformed sha256) and boundary tests (closed `inputs` / top level)
+- docs: record 11F-F and the now fully referenceable preimage
+
+Non-goals:
+- no producer / derivation script
+- no runbook kind
+- no CLI
+- no Stage-D action / executor
+- no service probe / live check
+- no live network / SSH / Tailscale / systemctl / subprocess / socket / shell
+- no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
+- no status-semantics change, no `$ref`/`$defs`, no `format: date-time`, no rename of `passed`

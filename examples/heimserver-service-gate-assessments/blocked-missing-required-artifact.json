@@ -14,6 +14,10 @@
     "expectation_ref": {
       "path": "examples/heimserver-service-expectations/minimal-tailscale.json",
       "sha256": "d281c5cf0f78bd318bcf5154dd5be2d2b2a8df42a3afbd5e1b712ca97457b530"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/minimal-artifact-only.json",
+      "sha256": "cab6c8c3b55317a23c271daefb34ba682e2b2119f547f54b8dd8f51822c71fb7"
     }
   },
   "expected_services": [

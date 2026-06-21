@@ -161,6 +161,40 @@ def test_invalid_sha256_rejected():
     instance["inputs"]["server_facts_ref"]["sha256"] = "abc"
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
+def test_service_evidence_ref_required():
+    """Phase 11F-F: every assessment must declare which evidence artifact it derives from."""
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    assert instance["inputs"]["service_evidence_ref"]["path"] == (
+        "examples/heimserver-service-evidence/minimal-artifact-only.json"
+    )
+    del instance["inputs"]["service_evidence_ref"]
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_invalid_service_evidence_sha256_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["inputs"]["service_evidence_ref"]["sha256"] = "abc"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_inputs_reject_unknown_ref():
+    """Boundary: inputs is closed; no runtime/probe/executor ref can be smuggled in."""
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["inputs"]["service_probe_ref"] = {
+        "path": "examples/whatever.json",
+        "sha256": "0" * 64,
+    }
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_assessment_rejects_runtime_or_executor_fields():
+    """Boundary: the assessment top level is closed; no CLI/Stage-D/runtime field fits."""
+    schema = load_json(SCHEMA_PATH)
+    for field in ("executor", "command", "stage_d_action", "live_status"):
+        instance = load_json(PASSED_EXAMPLE)
+        instance[field] = "x"
+        assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
 def test_empty_reason_codes_rejected():
     schema = load_json(SCHEMA_PATH)
     instance = load_json(PASSED_EXAMPLE)
@@ -322,11 +356,12 @@ def sha256_file(path: Path) -> str:
 def test_example_input_hashes_match_referenced_artifacts(example_file):
     """Every example's declared input hashes must match the referenced artifacts on disk.
 
-    All examples reference the same server-facts and expectation artifacts, so an
-    artifact edit that updates only one example's hash would otherwise go unnoticed.
+    All examples reference the same server-facts, expectation, and service-evidence
+    artifacts, so an artifact edit that updates only one example's hash would otherwise
+    go unnoticed.
     """
     instance = load_json(example_file)
-    for ref_name in ("server_facts_ref", "expectation_ref"):
+    for ref_name in ("server_facts_ref", "expectation_ref", "service_evidence_ref"):
         ref = instance["inputs"][ref_name]
         assert sha256_file(Path(ref["path"])) == ref["sha256"], (
             f"{example_file.name}: {ref_name} sha256 does not match {ref['path']}"
