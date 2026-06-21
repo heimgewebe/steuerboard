@@ -1324,13 +1324,13 @@ Non-goals:
 
 Status: done (contract integration only).
 
-Connects the 11F-E evidence input to the assessment so the producer preimage is fully referenceable from one artifact.
+Connects the 11F-E evidence input to the assessment so the assessment preimage references are complete (evidence-internal provenance remains future work).
 
 Scope:
 - `schemas/heimserver-service-gate-assessment.v1.schema.json`: add `inputs.service_evidence_ref` (`path` + `sha256` `^[0-9a-f]{64}$`, `additionalProperties: false`) and add it to `inputs.required`
 - migrate all five assessment fixtures with a real `service_evidence_ref` sha256
 - extend the input-hash guard to all three refs; add negatives (missing `service_evidence_ref`, malformed sha256) and boundary tests (closed `inputs` / top level)
-- docs: record 11F-F and the now fully referenceable preimage
+- docs: record 11F-F and the completed assessment preimage references
 
 Non-goals:
 - no producer / derivation script

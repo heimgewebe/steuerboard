@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract; Phase 11F-E adds the `heimserver-service-evidence.v1` input contract; Phase 11F-F integrates `inputs.service_evidence_ref` into the assessment so the producer preimage is fully referenceable (all schema-only, no producer/runtime). Runtime and Runbook integration remain future-gated.
+Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract; Phase 11F-E adds the `heimserver-service-evidence.v1` input contract; Phase 11F-F integrates `inputs.service_evidence_ref` into the assessment so the assessment preimage references are complete (evidence-internal provenance remains future work) (all schema-only, no producer/runtime). Runtime and Runbook integration remain future-gated.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -186,7 +186,7 @@ Same fence as 11F-B / 11F-C: no producer, runbook kind, CLI, Stage-D / executor,
 
 Status: implemented (contract only). No producer, runbook kind, CLI, executor, Stage-D action, service probe, or live check is added.
 
-11F-D contracted the expectation input; 11F-E contracts the missing third input: **service evidence**. Without it, a producer would have to invent `evaluated_services` out of `server-facts` + `expectation` — more than those inputs carry. That would be false coherence. 11F-E supplies the admissible act from which `evaluated_services` may later be derived.
+11F-D contracted the expectation input; 11F-E contracts the missing third input: **service evidence**. Without it, a producer would have to invent `evaluated_services` out of `server-facts` + `expectation` — more than those inputs carry. That would be false coherence. 11F-E supplies the admissible act from which `evaluated_services` may later be derived. Note: The `heimserver-service-evidence.v1` artifact is purely descriptive and currently lacks cryptographically bound references (e.g. `SourceRef` with hashes) to its underlying source artifacts (like system logs or status dumps). This means the traceability chain currently terminates at the evidence artifact itself. This is a known limitation that may be addressed in future phases.
 
 ### Why a separate evidence contract (and not a producer next)
 
@@ -239,7 +239,7 @@ Status: implemented (contract integration only). No producer, runbook kind, CLI,
 - All five assessment fixtures gained a real `service_evidence_ref` pointing at `examples/heimserver-service-evidence/minimal-artifact-only.json`.
 - The input-hash guard now checks all three references; new negatives cover a missing `service_evidence_ref` and a malformed `service_evidence_ref.sha256`; boundary tests confirm the closed `inputs` and top-level objects reject any smuggled runtime / probe / executor field.
 
-### The preimage is now fully referenceable
+### Assessment preimage references are complete
 
 ```
 server_facts_ref + expectation_ref + service_evidence_ref + contract rules
@@ -251,3 +251,8 @@ Every assessment now declares, by content hash, exactly which server-facts, expe
 ### Still forbidden (unchanged)
 
 No producer, derivation script, runbook kind, CLI, Stage-D / executor, service probe, subprocess, shell, SSH, Tailscale CLI/API, `systemctl`, or socket; no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`; no rename of `passed`; no live-truth claim (`does_not_prove` still guards `live_service_running`, `service_reachable`, `runtime_correctness`).
+
+## Known Contract Asymmetries
+
+- `schema_version`: Expectation and Evidence use `<name>.v1` whereas Assessment uses `"1"`. As noted in Phase 11F-D, Assessment is the repository's lone outlier and harmonising it is a deferred follow-up.
+- `host` and `scope`: Expectation and Evidence define these at the top-level, whereas Assessment nests them under a `subject` object. This is a known architectural asymmetry.

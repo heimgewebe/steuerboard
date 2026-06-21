@@ -367,3 +367,24 @@ def test_example_input_hashes_match_referenced_artifacts(example_file):
         assert sha256_file(Path(ref["path"])) == ref["sha256"], (
             f"{example_file.name}: {ref_name} sha256 does not match {ref['path']}"
         )
+
+def test_assessment_server_facts_refs_match_example():
+    """Every assessment fixture must reference the migrated server-facts example by hash.
+
+    This locks cross-artifact hash consistency: each heimserver-service-gate assessment's
+    server_facts_ref must point at the server-facts example and carry its on-disk sha256.
+    """
+    server_facts_example = Path("examples/server-facts/minimal-linux.json")
+    actual = sha256_file(server_facts_example)
+    assessment_files = sorted(EXAMPLES_DIR.glob("*.json"))
+    assert assessment_files
+
+    for assessment_file in assessment_files:
+        assessment = load_json(assessment_file)
+        ref = assessment["inputs"]["server_facts_ref"]
+        assert ref["path"] == str(server_facts_example), (
+            f"{assessment_file.name}: unexpected server_facts_ref.path {ref['path']}"
+        )
+        assert ref["sha256"] == actual, (
+            f"{assessment_file.name}: server_facts_ref.sha256 does not match {server_facts_example}"
+        )

@@ -47,6 +47,7 @@
           },
           "evidence_status": {
             "type": "string",
+            "description": "Note: 'present' means evidence of the service exists in the parsed artifacts, NOT that the service is currently running.",
             "enum": [
               "present",
               "missing",
