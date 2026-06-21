@@ -115,7 +115,7 @@ How each assessment field must be derivable. "Input" means a declared, hashed in
 | `subject.scope` | contract rule (const `artifact-derived`) | never any other value |
 | `inputs.server_facts_ref` | declared input | `path` + `sha256` of an existing artifact |
 | `inputs.expectation_ref` | declared input | `path` + `sha256` of an existing artifact |
-| `inputs.service_evidence_ref` | declared input | `path` + `sha256` of an existing artifact |
+| `inputs.service_evidence_ref` | declared input | `path` + `sha256` of an existing `heimserver-service-evidence.v1` artifact |
 | `expected_services` | **exclusively** from `expectation_ref` | never invented by the producer |
 | `evaluated_services` | **exclusively** from admissible artifact evidence | while no such evidence exists, no live state may be claimed |
 | `reason_codes` | contract rules (the schema reason-code enum + per-status partition) | no free-form codes |

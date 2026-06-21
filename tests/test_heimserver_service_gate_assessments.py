@@ -90,33 +90,47 @@ def test_no_runbook_kind_added():
 
 
 def test_doc_preserves_producer_preimage_boundary():
-    """Guard the documented Phase 11F-C producer-preimage boundary.
-
-    test_no_runbook_kind_added already locks the code/schema side (no runbook kind in
-    SUPPORTED_RUNBOOK_KINDS, runbook-plan.v1, or runbook-result.v1). This test locks the
-    documentation side: the model doc must keep naming all three declared inputs, keep
-    stating what `passed` does not prove, and keep listing the forbidden live-runtime
-    mechanisms, so the contract fence cannot be silently eroded by a doc edit.
-    """
+    """Guard the documented producer-preimage boundary against schema drift."""
     doc = MODEL_DOC.read_text(encoding="utf-8")
-
-    # The Phase 11F-C boundary section and its artifact-derived framing must be present.
     assert "Phase 11F-C" in doc
     assert "Producer Preimage Boundary" in doc
     assert "artifact-derived" in doc
-
-    # The field lineage must name all three declared inputs (server-facts, expectation,
-    # and — since 11F-E/11F-F — service evidence).
-    for declared_input in ("server_facts_ref", "expectation_ref", "service_evidence_ref"):
-        assert declared_input in doc, f"lineage missing declared input: {declared_input}"
-
-    # `passed` must keep disclaiming the three live-truth properties.
-    for protection in ("live_service_running", "service_reachable", "runtime_correctness"):
-        assert protection in doc, f"does_not_prove protection missing from doc: {protection}"
-
-    # The forbidden live-runtime mechanisms must remain documented.
-    for forbidden in ("systemctl", "SSH", "Tailscale", "subprocess", "network probe", "Stage-D", "CLI"):
-        assert forbidden in doc, f"forbidden-list entry missing from doc: {forbidden}"
+    lineage_start_marker = "### Field lineage (preimage)"
+    lineage_end_marker = "The crucial preimage rule"
+    assert lineage_start_marker in doc
+    assert lineage_end_marker in doc
+    lineage_start = doc.index(lineage_start_marker)
+    lineage_end = doc.index(lineage_end_marker, lineage_start)
+    lineage_section = doc[lineage_start:lineage_end]
+    schema = load_json(SCHEMA_PATH)
+    required_inputs = schema["properties"]["inputs"]["required"]
+    assert required_inputs
+    for input_name in required_inputs:
+        expected_row_prefix = f"| `inputs.{input_name}` |"
+        assert expected_row_prefix in lineage_section, (
+            "field-lineage table missing required assessment input row: "
+            f"{input_name}"
+        )
+    for protection in (
+        "live_service_running",
+        "service_reachable",
+        "runtime_correctness",
+    ):
+        assert protection in doc, (
+            f"does_not_prove protection missing from doc: {protection}"
+        )
+    for forbidden in (
+        "systemctl",
+        "SSH",
+        "Tailscale",
+        "subprocess",
+        "network probe",
+        "Stage-D",
+        "CLI",
+    ):
+        assert forbidden in doc, (
+            f"forbidden-list entry missing from doc: {forbidden}"
+        )
 
 
 def test_reason_code_subsets_partition_master_enum():
