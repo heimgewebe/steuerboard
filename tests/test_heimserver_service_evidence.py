@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -182,7 +183,6 @@ def test_no_runbook_leak():
         assert "heimserver-service-evidence" not in kinds
 
 
-import hashlib
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
