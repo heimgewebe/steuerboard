@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/steuerboard/schemas/heimserver-service-expectation.v1.schema.json",
   "title": "heimserver-service-expectation.v1",
-  "description": "Declared service-gate expectation input artifact. Static declaration only — it carries no runtime state, no live evidence, no freshness, and no result fields. It is one of the two declared inputs (alongside server-facts.v1) from which a future artifact-derived producer may derive a heimserver-service-gate-assessment.v1.",
+  "description": "Declared service-gate expectation input artifact. Static declaration only — it carries no runtime state, no live evidence, no freshness, and no result fields. It is one declared input alongside server-facts.v1 and heimserver-service-evidence.v1 from which a future artifact-derived producer may derive a heimserver-service-gate-assessment.v1.",
   "type": "object",
   "required": [
     "schema_version",

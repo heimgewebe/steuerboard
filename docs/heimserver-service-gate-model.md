@@ -122,9 +122,9 @@ How each assessment field must be derivable. "Input" means a declared, hashed in
 | `freshness` | artifact time / declared observation time | never derived from a live query |
 | `does_not_prove` | fixed contract protection list | must always contain `live_service_running` |
 
-The crucial preimage rule is for `evaluated_services`. The current input set — a `server-facts.v1` snapshot plus a service-expectation artifact — contains **no admissible per-service runtime evidence**. Therefore, until such an evidence artifact is contracted, a conformant producer must not populate `evaluated_services` with a `passed` live claim purely from these inputs; the honest derivations are `inconclusive` (`service_gate_no_service_evidence`) or `blocked` (`service_gate_service_evidence_mismatch`). The `passed` example fixture remains a *contract* fixture, not a proof that any service is running.
+The crucial preimage rule is for `evaluated_services`. At the time of Phase 11F-C, the input set — a `server-facts.v1` snapshot plus a service-expectation artifact — contained **no admissible per-service runtime evidence**. Therefore, until such an evidence artifact was contracted, a conformant producer could not populate `evaluated_services` with a `passed` live claim purely from these inputs; the honest derivations were `inconclusive` (`service_gate_no_service_evidence`) or `blocked` (`service_gate_service_evidence_mismatch`). The `passed` example fixture remains a *contract* fixture, not a proof that any service is running.
 
-> **Update (Phase 11F-E / 11F-F):** Service evidence is now contracted and referenced via `service_evidence_ref`; the derivation step still remains future-gated. The "current input set" wording above describes the 11F-C state and is kept for historical context.
+Phase 11F-E/F closes that reference gap by adding a contracted `service_evidence_ref`; it does not implement the producer or authorize live checks. The derivation step remains future-gated, and a future producer must still not generate live claims.
 
 ### Open gap — expectation input schema (resolved in Phase 11F-D)
 

@@ -180,3 +180,26 @@ def test_no_runbook_leak():
     for kinds in (plan_kinds, result_kinds):
         assert "heimserver-service-gate" not in kinds
         assert "heimserver-service-evidence" not in kinds
+
+
+import hashlib
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+ASSESSMENTS_DIR = Path("examples/heimserver-service-gate-assessments")
+
+def test_assessment_service_evidence_refs_match_example():
+    actual = sha256_file(MINIMAL_EXAMPLE)
+    assessment_files = sorted(ASSESSMENTS_DIR.glob("*.json"))
+    assert assessment_files
+
+    for assessment_file in assessment_files:
+        assessment = load_json(assessment_file)
+        ref = assessment["inputs"]["service_evidence_ref"]
+        assert ref["path"] == str(MINIMAL_EXAMPLE), (
+            f"{assessment_file.name}: unexpected service_evidence_ref.path {ref['path']}"
+        )
+        assert ref["sha256"] == actual, (
+            f"{assessment_file.name}: service_evidence_ref.sha256 does not match {MINIMAL_EXAMPLE}"
+        )
