@@ -368,9 +368,11 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 @pytest.mark.parametrize("example_file", EXAMPLE_FILES, ids=lambda path: path.name)
-def test_example_input_hashes_match_referenced_artifacts(example_file):
-    """Every example's declared input hashes must match the referenced artifacts on disk.
+def test_shape_example_input_hashes_match_referenced_artifacts(example_file):
+    """Every shape-only example's declared input hashes must match the referenced artifacts on disk.
 
+    Assessment fixtures in this phase validate contract shape and status partitions.
+    They are not producer golden fixtures and do not prove cross-artifact derivation.
     All examples reference the same server-facts, expectation, and service-evidence
     artifacts, so an artifact edit that updates only one example's hash would otherwise
     go unnoticed.

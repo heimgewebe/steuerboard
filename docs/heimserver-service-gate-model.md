@@ -249,6 +249,11 @@ server_facts_ref + expectation_ref + service_evidence_ref + contract rules
 
 Every assessment now declares, by content hash, exactly which server-facts, expectation, and service-evidence artifacts it was derived from. The derivation step (the producer) remains future-gated.
 
+### Fixture Semantics
+
+Assessment fixtures in this phase validate contract shape and status partitions.
+They are not producer golden fixtures and do not prove cross-artifact derivation.
+
 ### Still forbidden (unchanged)
 
 No producer, derivation script, runbook kind, CLI, Stage-D / executor, service probe, subprocess, shell, SSH, Tailscale CLI/API, `systemctl`, or socket; no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`; no rename of `passed`; no live-truth claim (`does_not_prove` still guards `live_service_running`, `service_reachable`, `runtime_correctness`).
