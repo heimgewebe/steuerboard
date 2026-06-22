@@ -8,6 +8,7 @@
     "schema_version",
     "host",
     "scope",
+    "freshness_status",
     "observed_at",
     "services"
   ],
@@ -24,6 +25,14 @@
     "scope": {
       "type": "string",
       "const": "artifact-derived"
+    },
+    "freshness_status": {
+      "type": "string",
+      "enum": [
+        "fresh",
+        "stale",
+        "unknown"
+      ]
     },
     "observed_at": {
       "type": "string",
@@ -78,8 +87,149 @@
             },
             "description": "A textual artifact-derived evidence summary for this service. Not a live probe, not a structured SourceRef, and not a proof of live service state."
           }
+        },
+        "allOf": [
+          {
+            "properties": {
+              "reason_codes": {
+                "contains": {
+                  "const": "service_evidence_artifact_only_scope"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "evidence_status": {
+                  "const": "present"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_evidence_artifact_only_scope",
+                      "service_evidence_present_in_artifacts",
+                      "service_evidence_artifact_stale"
+                    ]
+                  },
+                  "contains": {
+                    "const": "service_evidence_present_in_artifacts"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "evidence_status": {
+                  "const": "missing"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_evidence_artifact_only_scope",
+                      "service_evidence_absent_from_artifacts",
+                      "service_evidence_artifact_stale"
+                    ]
+                  },
+                  "contains": {
+                    "const": "service_evidence_absent_from_artifacts"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "evidence_status": {
+                  "const": "mismatch"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_evidence_artifact_only_scope",
+                      "service_evidence_artifact_mismatch",
+                      "service_evidence_artifact_stale"
+                    ]
+                  },
+                  "contains": {
+                    "const": "service_evidence_artifact_mismatch"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "evidence_status": {
+                  "const": "unknown"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_evidence_artifact_only_scope",
+                      "service_evidence_unknown",
+                      "service_evidence_artifact_stale"
+                    ]
+                  },
+                  "contains": {
+                    "const": "service_evidence_unknown"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "properties": {
+            "freshness_status": {
+              "const": "stale"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "services": {
+            "items": {
+              "properties": {
+                "reason_codes": {
+                  "not": {
+                    "contains": {
+                      "const": "service_evidence_artifact_stale"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
-  }
+  ]
 }

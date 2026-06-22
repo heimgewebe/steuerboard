@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-inconclusive-no-service-evidence",
+  "description": "Golden case for inconclusive-no-service-evidence",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-no-service-evidence.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-no-service-evidence.json",
+      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-no-service-evidence.json",
+      "sha256": "db10b00b6406de9a048e065b2155b38d6f7e0ae406b1f78152e441480c9b34c2"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-no-service-evidence.json",
+    "sha256": "91e75c2f5825e111bee7ba4fd258990ba0e1a5cf372ac54d91d88a56ab4675a7"
+  }
+}

@@ -49,6 +49,7 @@ SCHEMA_MAP = {
     "ui-view-models": SCHEMAS_DIR / "ui-view-model.v1.schema.json",
     "runbooks": SCHEMAS_DIR / "runbook-plan.v1.schema.json",
     "heimserver-service-gate-assessments": SCHEMAS_DIR / "heimserver-service-gate-assessment.v1.schema.json",
+    "heimserver-service-gate-derivation-cases": SCHEMAS_DIR / "heimserver-service-gate-derivation-case.v1.schema.json",
     "heimserver-service-expectations": SCHEMAS_DIR / "heimserver-service-expectation.v1.schema.json",
     "heimserver-service-evidence": SCHEMAS_DIR / "heimserver-service-evidence.v1.schema.json",
     "runbook-results": SCHEMAS_DIR / "runbook-result.v1.schema.json",

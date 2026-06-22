@@ -402,7 +402,7 @@ def test_shape_assessment_server_facts_refs_match_shared_example():
     """
     server_facts_example = Path("examples/server-facts/minimal-linux.json")
     actual = sha256_file(server_facts_example)
-    assessment_files = sorted(EXAMPLES_DIR.glob("*.json"))
+    assessment_files = [f for f in sorted(EXAMPLES_DIR.glob("*.json")) if not f.name.startswith("golden-")]
     assert assessment_files
 
     for assessment_file in assessment_files:

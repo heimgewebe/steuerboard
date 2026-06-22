@@ -3,21 +3,21 @@
   "kind": "heimserver-service-gate-assessment",
   "status": "inconclusive",
   "subject": {
-    "host": "heimserver",
+    "host": "heimserver-golden",
     "scope": "artifact-derived"
   },
   "inputs": {
     "server_facts_ref": {
-      "path": "examples/server-facts/minimal-linux.json",
-      "sha256": "8512d826401aa6b3eb31b3ed22036db5ca5034880966e15f96cefc64b337eee2"
+      "path": "examples/server-facts/golden-inconclusive-empty-expectation.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
     },
     "expectation_ref": {
-      "path": "examples/heimserver-service-expectations/minimal-tailscale.json",
-      "sha256": "d281c5cf0f78bd318bcf5154dd5be2d2b2a8df42a3afbd5e1b712ca97457b530"
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-empty-expectation.json",
+      "sha256": "61e1e27c24e2999bc99b4edceb322fec689c90056f1babb8423fa202e6cd93bb"
     },
     "service_evidence_ref": {
-      "path": "examples/heimserver-service-evidence/minimal-artifact-only.json",
-      "sha256": "9e2ed048140db9cf78fe88c15cb5ba5d877335ded4bc429f77abf2c628d3c3c1"
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-empty-expectation.json",
+      "sha256": "57275925f63b2be79ab5866bfded2d94b13b49dbc1ce9590aafc5caa93a2de8a"
     }
   },
   "expected_services": [],
@@ -26,10 +26,10 @@
     "service_gate_expectation_missing"
   ],
   "evidence": [
-    "service expectation is missing in this assessment fixture"
+    "No services expected."
   ],
   "freshness": {
-    "status": "unknown",
+    "status": "fresh",
     "observed_at": "2026-06-13T00:00:00Z"
   },
   "does_not_prove": [

@@ -1341,3 +1341,28 @@ Non-goals:
 - no live network / SSH / Tailscale / systemctl / subprocess / socket / shell
 - no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
 - no status-semantics change, no `$ref`/`$defs`, no `format: date-time`, no rename of `passed`
+
+## Phase 11F-G — Heimserver Service Gate Derivation Readiness Contract
+
+Status: implemented.
+
+Schafft die kausalen Voraussetzungen, damit ein Producer eindeutig aus den Artefakten ableiten kann.
+Scope:
+- Einführung des `heimserver-service-gate-derivation-case.v1` Vertrages.
+- `freshness_status` als Required Field in Evidence eingeführt.
+- Strenge Enum-Partitionen für Reason-Codes (Status-Kapselung).
+- Keine `live_service_running` Claims, `service_role_fulfilled` in `does_not_prove` aufgenommen.
+- 10 normierte Producer-Golden Cases ohne Producer Implementierung.
+- Loader/Derivation-Grenzziehung vertraglich fixiert (Host-Identity, Service-Join).
+
+Non-goals:
+- Kein Producer, keine CLI, kein Runbook, keine Live-Prüfung.
+
+## Phase 11F-H — Heimserver Service Gate Producer In-Memory
+
+Status: future-gated.
+
+Scope:
+- Implementierung der reinen In-Memory-Ableitung aus den validierten 11F-G Inputartefakten.
+- Erfüllung der 10 Golden Cases.
+- Output ist ein korrektes Assessment-Artefakt.

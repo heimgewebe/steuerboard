@@ -176,9 +176,11 @@
                 "service_gate_artifacts_missing",
                 "service_gate_artifacts_stale",
                 "service_gate_expectation_missing",
+                "service_gate_freshness_unknown",
                 "service_gate_input_schema_invalid",
                 "service_gate_no_service_evidence",
                 "service_gate_service_evidence_mismatch",
+                "service_gate_subject_mismatch",
                 "service_gate_subject_unknown"
               ]
             },
@@ -204,9 +206,11 @@
           "service_gate_artifacts_missing",
           "service_gate_artifacts_stale",
           "service_gate_expectation_missing",
+          "service_gate_freshness_unknown",
           "service_gate_input_schema_invalid",
           "service_gate_no_service_evidence",
           "service_gate_service_evidence_mismatch",
+          "service_gate_subject_mismatch",
           "service_gate_subject_unknown"
         ]
       },
@@ -249,12 +253,22 @@
         "enum": [
           "live_service_running",
           "service_reachable",
-          "runtime_correctness"
+          "runtime_correctness",
+          "service_role_fulfilled"
         ]
       },
-      "contains": {
-        "const": "live_service_running"
-      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "live_service_running"
+          }
+        },
+        {
+          "contains": {
+            "const": "service_role_fulfilled"
+          }
+        }
+      ],
       "minItems": 1
     }
   },
@@ -326,7 +340,8 @@
             "items": {
               "enum": [
                 "service_gate_artifacts_missing",
-                "service_gate_service_evidence_mismatch"
+                "service_gate_service_evidence_mismatch",
+                "service_gate_subject_mismatch"
               ]
             }
           }
@@ -351,6 +366,7 @@
               "enum": [
                 "service_gate_artifacts_stale",
                 "service_gate_expectation_missing",
+                "service_gate_freshness_unknown",
                 "service_gate_input_schema_invalid",
                 "service_gate_no_service_evidence",
                 "service_gate_subject_unknown"

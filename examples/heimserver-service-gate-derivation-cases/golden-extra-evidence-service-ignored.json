@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-extra-evidence-service-ignored",
+  "description": "Golden case for extra-evidence-service-ignored",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-extra-evidence-service-ignored.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-extra-evidence-service-ignored.json",
+      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-extra-evidence-service-ignored.json",
+      "sha256": "596341490541637496e0a525385b22277f8a4bf5fb058a74939e0cc1a53bad1d"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-extra-evidence-service-ignored.json",
+    "sha256": "d6c7ca7f9ee681dd929ab0e19088bb31a47bd8aaed01e5afd9be22b1a5e24cae"
+  }
+}

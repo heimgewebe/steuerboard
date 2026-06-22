@@ -298,3 +298,22 @@ No producer, derivation script, runbook kind, CLI, Stage-D / executor, service p
 
 - `schema_version`: Expectation and Evidence use `<name>.v1` whereas Assessment uses `"1"`. As noted in Phase 11F-D, Assessment is the repository's lone outlier and harmonising it is a deferred follow-up.
 - `host` and `scope`: Expectation and Evidence define these at the top-level, whereas Assessment nests them under a `subject` object. This is a known architectural asymmetry.
+
+## Phase 11F-G — Derivation Readiness Contract
+
+Status: implemented (contract only).
+
+11F-G liefert das Bindeglied zwischen den Inputs und dem Output. Es legt die Derivationsregeln fest, ohne einen Producer zu implementieren. Die 10 Golden Cases (als `heimserver-service-gate-derivation-case.v1` Verträge) schreiben normativ fest, wie Inputs auf Assessments abzubilden sind.
+
+### What changed
+
+- `heimserver-service-evidence.v1` enthält nun `freshness_status` als Pflichtfeld, um Staleness sicher zu bewerten.
+- Die Derivations-Regeln wurden formalisiert (Service-Namen Eindeutigkeit, Host-Namen Eindeutigkeit, Reason-Code-Mapping).
+- `does_not_prove` listet nun explizit `service_role_fulfilled`, um klarzustellen, dass Rollen-Zuweisung keine Rollen-Verifikation ist.
+- 10 normierte, kryptographisch gesicherte Derivations-Fälle wurden als Test-Suite hinterlegt.
+
+## Phase 11F-H — Producer In-Memory
+
+Status: future-gated.
+
+11F-H wird den eigentlichen Producer bereitstellen, der die in 11F-G definierten Derivations-Regeln programmatisch abbildet. Der Producer führt keine I/O- oder Live-Checks durch, sondern transformiert die 3 Inputs strikt in-memory in ein Assessment.

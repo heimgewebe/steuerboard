@@ -1,6 +1,6 @@
 {
   "schema_version": "heimserver-service-evidence.v1",
-  "host": "heimserver",
+  "host": "heimserver-golden",
   "scope": "artifact-derived",
   "freshness_status": "fresh",
   "observed_at": "2026-06-13T00:00:00Z",
@@ -13,7 +13,7 @@
         "service_evidence_present_in_artifacts"
       ],
       "evidence": [
-        "artifact-derived only: the service unit name is declared in the referenced artifacts; this does not prove live service state"
+        "service is found"
       ]
     }
   ]

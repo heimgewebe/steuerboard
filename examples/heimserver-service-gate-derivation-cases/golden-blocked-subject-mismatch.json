@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-blocked-subject-mismatch",
+  "description": "Golden case for blocked-subject-mismatch",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-blocked-subject-mismatch.json",
+      "sha256": "7a84a6678c482c40562858c95a51396e444af7b3267feea2f13a070044184d44"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-blocked-subject-mismatch.json",
+      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-blocked-subject-mismatch.json",
+      "sha256": "57275925f63b2be79ab5866bfded2d94b13b49dbc1ce9590aafc5caa93a2de8a"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-blocked-subject-mismatch.json",
+    "sha256": "a27aeb1b1aba3ecd62194ab2b8ef8db12ce26ff8c118ae1337fbade77fd570f4"
+  }
+}

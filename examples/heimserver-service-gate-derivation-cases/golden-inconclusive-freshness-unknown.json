@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-inconclusive-freshness-unknown",
+  "description": "Golden case for inconclusive-freshness-unknown",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-freshness-unknown.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-freshness-unknown.json",
+      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-freshness-unknown.json",
+      "sha256": "83abd855ee8ace224c9180a50b380aa691e88a5960693a95a4dadf355ae82f27"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-freshness-unknown.json",
+    "sha256": "52b867f2e0e79bfb3f2fd441bbf3a48b47f98cbec91be001e6d91c80dc062c0f"
+  }
+}

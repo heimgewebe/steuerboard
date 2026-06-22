@@ -3,39 +3,39 @@
   "kind": "heimserver-service-gate-assessment",
   "status": "passed",
   "subject": {
-    "host": "heimserver",
+    "host": "heimserver-golden",
     "scope": "artifact-derived"
   },
   "inputs": {
     "server_facts_ref": {
-      "path": "examples/server-facts/minimal-linux.json",
-      "sha256": "8512d826401aa6b3eb31b3ed22036db5ca5034880966e15f96cefc64b337eee2"
+      "path": "examples/server-facts/golden-passed-single-service-fresh.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
     },
     "expectation_ref": {
-      "path": "examples/heimserver-service-expectations/minimal-tailscale.json",
-      "sha256": "d281c5cf0f78bd318bcf5154dd5be2d2b2a8df42a3afbd5e1b712ca97457b530"
+      "path": "examples/heimserver-service-expectations/golden-passed-single-service-fresh.json",
+      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
     },
     "service_evidence_ref": {
-      "path": "examples/heimserver-service-evidence/minimal-artifact-only.json",
-      "sha256": "9e2ed048140db9cf78fe88c15cb5ba5d877335ded4bc429f77abf2c628d3c3c1"
+      "path": "examples/heimserver-service-evidence/golden-passed-single-service-fresh.json",
+      "sha256": "57275925f63b2be79ab5866bfded2d94b13b49dbc1ce9590aafc5caa93a2de8a"
     }
   },
   "expected_services": [
     {
       "service_name": "tailscaled.service",
-      "expected_role": "overlay-network-admin"
+      "expected_role": "network"
     }
   ],
   "evaluated_services": [
     {
       "service_name": "tailscaled.service",
-      "expected_role": "overlay-network-admin",
+      "expected_role": "network",
       "status": "passed",
       "reason_codes": [
         "service_gate_artifact_only_scope"
       ],
       "evidence": [
-        "assessment fixture records artifact-derived scope only; this does not prove live service state"
+        "service is found"
       ]
     }
   ],
@@ -43,7 +43,7 @@
     "service_gate_artifact_only_scope"
   ],
   "evidence": [
-    "assessment fixture records artifact-derived scope only; this does not prove live service state"
+    "service is found"
   ],
   "freshness": {
     "status": "fresh",

@@ -129,7 +129,7 @@ def test_shape_assessment_expectation_refs_match_shared_example():
     is derivable from the shared expectation artifact.
     """
     actual = sha256_file(MINIMAL_EXAMPLE)
-    assessment_files = sorted(ASSESSMENTS_DIR.glob("*.json"))
+    assessment_files = [f for f in sorted(ASSESSMENTS_DIR.glob("*.json")) if not f.name.startswith("golden-")]
     assert assessment_files
 
     for assessment_file in assessment_files:
