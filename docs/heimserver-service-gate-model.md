@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract; Phase 11F-E adds the `heimserver-service-evidence.v1` input contract; Phase 11F-F integrates `inputs.service_evidence_ref` into the assessment so the assessment preimage references are complete (evidence-internal provenance remains future work) (all schema-only, no producer/runtime). Runtime and Runbook integration remain future-gated.
+Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract; Phase 11F-E adds the `heimserver-service-evidence.v1` input contract; Phase 11F-F integrates `inputs.service_evidence_ref` so the assessment's direct input-reference set is complete; evidence-internal provenance and derivation remain future work (all schema-only, no producer/runtime). Runtime and Runbook integration remain future-gated.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -131,8 +131,10 @@ The crucial preimage rule is for `evaluated_services`. At the time of
 Phase 11F-C, the input set — a `server-facts.v1` snapshot plus a
 service-expectation artifact — contained no admissible per-service evidence.
 Therefore, no conformant future producer could derive `passed` from those
-inputs alone. The exact mapping to `blocked` or `inconclusive` statuses and
-assessment reason codes remains future-gated. The `passed` example fixture
+inputs alone. The assessment schema already fixes the allowed reason-code
+partitions for `blocked` and `inconclusive`; the evidence-condition
+selection, aggregation, precedence, and concrete reason-code choice within
+those partitions remain future-gated. The `passed` example fixture
 remains a contract fixture, not a proof that any service is running.
 
 Phase 11F-E/F closes that reference gap by adding a contracted `service_evidence_ref`; it does not implement the producer or authorize live checks. The derivation step remains future-gated, and a future producer must still not generate live claims.
@@ -249,7 +251,7 @@ Same fence as 11F-B / 11F-C / 11F-D: no producer, runbook kind, CLI, Stage-D / e
 
 Status: implemented (contract integration only). No producer, runbook kind, CLI, executor, Stage-D action, service probe, or live check is added.
 
-11F-E contracted service evidence but kept it disconnected from the assessment. 11F-F closes the loop: the assessment now references all three producer inputs, so the entire preimage is referenceable from a single artifact.
+11F-E contracted service evidence but kept it disconnected from the assessment. 11F-F closes the direct assessment-input loop: the assessment now references all three declared producer input artifacts, so its complete direct input-reference set is available from a single assessment artifact. Evidence-internal provenance remains future work.
 
 ### What changed
 
@@ -257,7 +259,7 @@ Status: implemented (contract integration only). No producer, runbook kind, CLI,
 - All five assessment fixtures gained a real `service_evidence_ref` pointing at `examples/heimserver-service-evidence/minimal-artifact-only.json`.
 - The input-hash guard now checks all three references; new negatives cover a missing `service_evidence_ref` and a malformed `service_evidence_ref.sha256`; boundary tests confirm the closed `inputs` and top-level objects reject any smuggled runtime / probe / executor field.
 
-### Assessment preimage references are complete
+### Direct assessment input references are complete
 
 ```
 server_facts_ref
@@ -275,6 +277,7 @@ that the fixture verdict was derived from those artifacts.
 The derivation rules and producer implementation remain future-gated.
 
 ### Fixture Semantics
+
 For Phase 11F-F, the current assessment examples are contract-shape fixtures.
 They validate schema shape, status partitions, and input-reference integrity.
 Their input references do not prove that the fixture verdict is derivable

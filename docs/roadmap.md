@@ -1324,7 +1324,7 @@ Non-goals:
 
 Status: done (contract integration only).
 
-Connects the 11F-E evidence input to the assessment so the assessment preimage references are complete (evidence-internal provenance remains future work).
+Connects the 11F-E evidence input to the assessment so the assessment's direct input-reference set is complete (evidence-internal provenance remains future work).
 
 Scope:
 - `schemas/heimserver-service-gate-assessment.v1.schema.json`: add `inputs.service_evidence_ref` (`path` + `sha256` `^[0-9a-f]{64}$`, `additionalProperties: false`) and add it to `inputs.required`
