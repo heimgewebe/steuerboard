@@ -123,12 +123,10 @@ def test_contract_stays_a_pure_input():
     assert not (props & forbidden)
 
 
-def test_assessment_expectation_refs_match_migrated_example():
-    """Every assessment fixture must reference the migrated expectation by hash.
-
-    This locks cross-artifact hash consistency after the Variant A' migration:
-    each heimserver-service-gate assessment's expectation_ref must point at the
-    expectation example and carry its on-disk sha256.
+def test_shape_assessment_expectation_refs_match_shared_example():
+    """Current shape fixtures share one expectation reference.
+    This checks path/hash integrity only and does not assert that each verdict
+    is derivable from the shared expectation artifact.
     """
     actual = sha256_file(MINIMAL_EXAMPLE)
     assessment_files = sorted(ASSESSMENTS_DIR.glob("*.json"))

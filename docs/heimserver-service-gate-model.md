@@ -243,16 +243,32 @@ Status: implemented (contract integration only). No producer, runbook kind, CLI,
 ### Assessment preimage references are complete
 
 ```
-server_facts_ref + expectation_ref + service_evidence_ref + contract rules
-= future assessment derivation
+server_facts_ref
++ expectation_ref
++ service_evidence_ref
+= declared input-reference set for a future derivation
+
+Derivation rules + producer implementation
+= future-gated
 ```
 
-Every assessment now declares, by content hash, exactly which server-facts, expectation, and service-evidence artifacts it was derived from. The derivation step (the producer) remains future-gated.
+Every assessment fixture declares all three input references by content hash.
+This proves reference-path and content-hash integrity only; it does not prove
+that the fixture verdict was derived from those artifacts.
+The derivation rules and producer implementation remain future-gated.
 
 ### Fixture Semantics
+For Phase 11F-F, the current assessment examples are contract-shape fixtures.
+They validate schema shape, status partitions, and input-reference integrity.
+Their input references do not prove that the fixture verdict is derivable
+from the referenced artifacts. Producer-golden semantics and derivation rules
+remain future-gated.
 
-Assessment fixtures in this phase validate contract shape and status partitions.
-They are not producer golden fixtures and do not prove cross-artifact derivation.
+This classification is fixed by Phase 11F-F to avoid treating schema examples
+as producer-golden proofs before derivation rules exist.
+
+Future producer-golden fixtures must not be subjected accidentally to the
+shared-reference assumptions of the current shape-fixture tests.
 
 ### Still forbidden (unchanged)
 

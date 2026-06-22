@@ -1,4 +1,5 @@
 import hashlib
+import re
 from pathlib import Path
 
 import pytest
@@ -103,14 +104,21 @@ def test_doc_preserves_producer_preimage_boundary():
     lineage_end = doc.index(lineage_end_marker, lineage_start)
     lineage_section = doc[lineage_start:lineage_end]
     schema = load_json(SCHEMA_PATH)
-    required_inputs = schema["properties"]["inputs"]["required"]
-    assert required_inputs
-    for input_name in required_inputs:
-        expected_row_prefix = f"| `inputs.{input_name}` |"
-        assert expected_row_prefix in lineage_section, (
-            "field-lineage table missing required assessment input row: "
-            f"{input_name}"
+    schema_inputs = set(
+        schema["properties"]["inputs"]["properties"]
+    )
+    documented_inputs = set(
+        re.findall(
+            r"^\| `inputs\.([^`]+)` \|",
+            lineage_section,
+            flags=re.MULTILINE,
         )
+    )
+    assert documented_inputs == schema_inputs, (
+        "field-lineage input rows do not match assessment schema inputs: "
+        f"documented={sorted(documented_inputs)}, "
+        f"schema={sorted(schema_inputs)}"
+    )
     for protection in (
         "live_service_running",
         "service_reachable",
@@ -403,4 +411,26 @@ def test_assessment_server_facts_refs_match_example():
         )
         assert ref["sha256"] == actual, (
             f"{assessment_file.name}: server_facts_ref.sha256 does not match {server_facts_example}"
+        )
+
+def test_doc_preserves_contract_shape_fixture_boundary():
+    """Contract examples must not be presented as producer-golden proofs."""
+    doc = MODEL_DOC.read_text(encoding="utf-8")
+    start_marker = "### Fixture Semantics"
+    end_marker = "### Still forbidden"
+    assert start_marker in doc
+    assert end_marker in doc
+    start = doc.index(start_marker)
+    end = doc.index(end_marker, start)
+    section = doc[start:end]
+    for marker in (
+        "contract-shape fixtures",
+        "input-reference integrity",
+        "do not prove",
+        "Producer-golden semantics",
+        "future-gated",
+    ):
+        assert marker in section, (
+            "fixture-semantics boundary missing normative marker: "
+            f"{marker}"
         )

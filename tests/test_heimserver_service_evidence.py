@@ -189,7 +189,11 @@ def sha256_file(path: Path) -> str:
 
 ASSESSMENTS_DIR = Path("examples/heimserver-service-gate-assessments")
 
-def test_assessment_service_evidence_refs_match_example():
+def test_shape_assessment_evidence_refs_match_shared_example():
+    """Current shape fixtures share one evidence reference.
+    This checks path/hash integrity only and does not assert that each verdict
+    is derivable from the shared evidence artifact.
+    """
     actual = sha256_file(MINIMAL_EXAMPLE)
     assessment_files = sorted(ASSESSMENTS_DIR.glob("*.json"))
     assert assessment_files
