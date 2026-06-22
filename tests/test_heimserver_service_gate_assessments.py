@@ -107,13 +107,16 @@ def test_doc_preserves_producer_preimage_boundary():
     schema_inputs = set(
         schema["properties"]["inputs"]["properties"]
     )
-    documented_inputs = set(
-        re.findall(
-            r"^\| `inputs\.([^`]+)` \|",
-            lineage_section,
-            flags=re.MULTILINE,
-        )
+    documented_input_rows = re.findall(
+        r"^\| `inputs\.([^`]+)` \|",
+        lineage_section,
+        flags=re.MULTILINE,
     )
+    assert len(documented_input_rows) == len(set(documented_input_rows)), (
+        "field-lineage table contains duplicate input rows: "
+        f"{documented_input_rows}"
+    )
+    documented_inputs = set(documented_input_rows)
     assert documented_inputs == schema_inputs, (
         "field-lineage input rows do not match assessment schema inputs: "
         f"documented={sorted(documented_inputs)}, "
@@ -185,7 +188,7 @@ def test_invalid_sha256_rejected():
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
 def test_service_evidence_ref_required():
-    """Phase 11F-F: every assessment must declare which evidence artifact it derives from."""
+    """Every assessment shape fixture must declare a service-evidence input reference."""
     schema = load_json(SCHEMA_PATH)
     instance = load_json(PASSED_EXAMPLE)
     assert instance["inputs"]["service_evidence_ref"]["path"] == (
@@ -392,11 +395,10 @@ def test_shape_example_input_hashes_match_referenced_artifacts(example_file):
             f"{example_file.name}: {ref_name} sha256 does not match {ref['path']}"
         )
 
-def test_assessment_server_facts_refs_match_example():
-    """Every assessment fixture must reference the migrated server-facts example by hash.
-
-    This locks cross-artifact hash consistency: each heimserver-service-gate assessment's
-    server_facts_ref must point at the server-facts example and carry its on-disk sha256.
+def test_shape_assessment_server_facts_refs_match_shared_example():
+    """Current shape fixtures share one server-facts reference.
+    This checks path/hash integrity only and does not assert that each verdict
+    is derivable from the shared server-facts artifact.
     """
     server_facts_example = Path("examples/server-facts/minimal-linux.json")
     actual = sha256_file(server_facts_example)

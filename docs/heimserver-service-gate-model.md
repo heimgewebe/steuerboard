@@ -89,7 +89,11 @@ Status: design/decision-prep. Not implemented. This phase ships documentation an
 
 ### Intent
 
-Phase 11F-B fixed the *shape* of `heimserver-service-gate-assessment.v1`. Phase 11F-C fixes its *preimage*: the rules by which a future, artifact-derived producer may reconstruct (derive) such an assessment from its declared inputs and from fixed contract rules, and the fields that must never claim to prove live truth.
+Phase 11F-B fixed the *shape* of `heimserver-service-gate-assessment.v1`. Phase 11F-C fixes its preimage
+boundary and field lineage: which declared inputs and fixed contract
+constraints a future artifact-derived producer may use, and which fields
+must never claim live truth. Complete derivation and mapping rules remain
+future-gated.
 
 This is a fence, not a remote control. It constrains a future producer's inputs and derivation semantics without granting it any executable capability.
 
