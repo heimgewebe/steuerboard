@@ -1253,3 +1253,91 @@ Status: done.
 - added boundary tests to ensure no runtime/runbook leaks
 - option A (artifact-derived) is fixed for this phase
 - option B (live check) and runbook/runtime integration remain future-gated
+
+## Phase 11F-C — Producer Preimage Boundary
+
+Status: design/decision-prep / future-gated.
+
+Scope:
+- define the producer preimage / field-lineage contract for `heimserver-service-gate-assessment.v1`
+- document which assessment fields must be derivable from which input artifacts (`server_facts_ref`, `expectation_ref`) or fixed contract rules
+- document which fields must not claim to prove live truth (`does_not_prove`)
+- add a documentation/schema guard test for the boundary
+- record the missing `heimserver-service-expectation.v1` schema as an explicit open gap
+
+Non-goals:
+- no runtime producer
+- no runbook kind
+- no CLI
+- no service checks
+- no Stage-D action
+- no live network / SSH / Tailscale / systemctl / subprocess
+
+## Phase 11F-D — Heimserver-Service-Expectation Contract
+
+Status: done (contract only).
+
+Closes the asymmetry surfaced by 11F-C: the assessment output was contracted, the expectation input was not.
+
+Scope:
+- add `schemas/heimserver-service-expectation.v1.schema.json` (the `expectation_ref` input contract)
+- wire it into the validator (`SCHEMA_MAP`) so the example validates
+- migrate `examples/heimserver-service-expectations/minimal-tailscale.json` (add `schema_version`) and re-hash `inputs.expectation_ref.sha256` in all five assessment fixtures
+- add expectation contract tests (validation, required fields, `scope` const, no additional properties, hash consistency)
+
+Design decision: Variant A′ — `schema_version` (universal repo convention) but no top-level `kind` (which only the assessment carries; the co-input `server-facts.v1` omits it).
+
+Non-goals:
+- no runtime producer
+- no runbook kind
+- no CLI
+- no service checks
+- no Stage-D action
+- no live network / SSH / Tailscale / systemctl / subprocess / socket
+- no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
+
+## Phase 11F-E — Heimserver-Service-Evidence Contract
+
+Status: done (contract only).
+
+Closes the last preimage gap after 11F-D: the admissible artifact from which `evaluated_services` may later be derived, without any live check. Avoids the false-coherence trap of building a producer before a legitimate evidence artifact exists.
+
+Scope:
+- add `schemas/heimserver-service-evidence.v1.schema.json` (the `service_evidence_ref` input contract)
+- add `examples/heimserver-service-evidence/minimal-artifact-only.json`
+- wire it into the validator (`SCHEMA_MAP`) and register the example in `tests/test_schema_examples.py`
+- add evidence contract tests (validation, required fields, `scope` const, strict UTC-Z `observed_at`, no additional properties, pure-input guard, no runbook leak)
+
+Design: reuses the 11F-D envelope decision (`schema_version`, no `kind`). Descriptive `evidence_status` (`present` / `missing` / `mismatch` / `unknown`) and a dedicated `service_evidence_*` reason-code namespace, decoupled from the assessment's verdict vocabulary. Assessment integration (`inputs.service_evidence_ref`) deferred to a later phase.
+
+Non-goals:
+- no runtime producer / no producer-preimage deriver
+- no runbook kind
+- no CLI
+- no service checks
+- no Stage-D action
+- no live network / SSH / Tailscale / systemctl / subprocess / socket / shell
+- no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
+- no assessment-schema rebuild in this phase
+
+## Phase 11F-F — Assessment Evidence Input Integration
+
+Status: done (contract integration only).
+
+Connects the 11F-E evidence input to the assessment so the assessment's direct input-reference set is complete (evidence-internal provenance remains future work).
+
+Scope:
+- `schemas/heimserver-service-gate-assessment.v1.schema.json`: add `inputs.service_evidence_ref` (`path` + `sha256` `^[0-9a-f]{64}$`, `additionalProperties: false`) and add it to `inputs.required`
+- migrate all five assessment fixtures with a real `service_evidence_ref` sha256
+- extend the input-hash guard to all three refs; add negatives (missing `service_evidence_ref`, malformed sha256) and boundary tests (closed `inputs` / top level)
+- docs: record 11F-F and the completed assessment preimage references
+
+Non-goals:
+- no producer / derivation script
+- no runbook kind
+- no CLI
+- no Stage-D action / executor
+- no service probe / live check
+- no live network / SSH / Tailscale / systemctl / subprocess / socket / shell
+- no change to `SUPPORTED_RUNBOOK_KINDS`, `runbook-plan.v1`, or `runbook-result.v1`
+- no status-semantics change, no `$ref`/`$defs`, no `format: date-time`, no rename of `passed`

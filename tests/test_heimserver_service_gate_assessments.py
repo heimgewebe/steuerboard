@@ -1,4 +1,5 @@
 import hashlib
+import re
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ EXAMPLES_DIR = Path("examples/heimserver-service-gate-assessments")
 PASSED_EXAMPLE = EXAMPLES_DIR / "passed.json"
 SCHEMA_PATH = SCHEMA_MAP["heimserver-service-gate-assessments"]
 EXAMPLE_FILES = sorted(EXAMPLES_DIR.glob("*.json"))
+MODEL_DOC = Path("docs/heimserver-service-gate-model.md")
 
 def assert_invalid(instance: dict, schema: dict, source: str = "test") -> None:
     with pytest.raises(Exception):
@@ -88,6 +90,60 @@ def test_no_runbook_kind_added():
     assert "heimserver-service-gate" not in result_kinds
 
 
+def test_doc_preserves_producer_preimage_boundary():
+    """Guard the documented producer-preimage boundary against schema drift."""
+    doc = MODEL_DOC.read_text(encoding="utf-8")
+    assert "Phase 11F-C" in doc
+    assert "Producer Preimage Boundary" in doc
+    assert "artifact-derived" in doc
+    lineage_start_marker = "### Field lineage (preimage)"
+    lineage_end_marker = "The crucial preimage rule"
+    assert lineage_start_marker in doc
+    assert lineage_end_marker in doc
+    lineage_start = doc.index(lineage_start_marker)
+    lineage_end = doc.index(lineage_end_marker, lineage_start)
+    lineage_section = doc[lineage_start:lineage_end]
+    schema = load_json(SCHEMA_PATH)
+    schema_inputs = set(
+        schema["properties"]["inputs"]["properties"]
+    )
+    documented_input_rows = re.findall(
+        r"^\| `inputs\.([^`]+)` \|",
+        lineage_section,
+        flags=re.MULTILINE,
+    )
+    assert len(documented_input_rows) == len(set(documented_input_rows)), (
+        "field-lineage table contains duplicate input rows: "
+        f"{documented_input_rows}"
+    )
+    documented_inputs = set(documented_input_rows)
+    assert documented_inputs == schema_inputs, (
+        "field-lineage input rows do not match assessment schema inputs: "
+        f"documented={sorted(documented_inputs)}, "
+        f"schema={sorted(schema_inputs)}"
+    )
+    for protection in (
+        "live_service_running",
+        "service_reachable",
+        "runtime_correctness",
+    ):
+        assert protection in doc, (
+            f"does_not_prove protection missing from doc: {protection}"
+        )
+    for forbidden in (
+        "systemctl",
+        "SSH",
+        "Tailscale",
+        "subprocess",
+        "network probe",
+        "Stage-D",
+        "CLI",
+    ):
+        assert forbidden in doc, (
+            f"forbidden-list entry missing from doc: {forbidden}"
+        )
+
+
 def test_reason_code_subsets_partition_master_enum():
     """The per-status reason-code subsets must form a complete, disjoint partition of
     the master enum, and the evaluated-service enum must mirror the master enum.
@@ -130,6 +186,40 @@ def test_invalid_sha256_rejected():
     instance = load_json(PASSED_EXAMPLE)
     instance["inputs"]["server_facts_ref"]["sha256"] = "abc"
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_service_evidence_ref_required():
+    """Every assessment shape fixture must declare a service-evidence input reference."""
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    assert instance["inputs"]["service_evidence_ref"]["path"] == (
+        "examples/heimserver-service-evidence/minimal-artifact-only.json"
+    )
+    del instance["inputs"]["service_evidence_ref"]
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_invalid_service_evidence_sha256_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["inputs"]["service_evidence_ref"]["sha256"] = "abc"
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_inputs_reject_unknown_ref():
+    """Boundary: inputs is closed; no runtime/probe/executor ref can be smuggled in."""
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(PASSED_EXAMPLE)
+    instance["inputs"]["service_probe_ref"] = {
+        "path": "examples/whatever.json",
+        "sha256": "0" * 64,
+    }
+    assert_invalid(instance, schema, str(PASSED_EXAMPLE))
+
+def test_assessment_rejects_runtime_or_executor_fields():
+    """Boundary: the assessment top level is closed; no CLI/Stage-D/runtime field fits."""
+    schema = load_json(SCHEMA_PATH)
+    for field in ("executor", "command", "stage_d_action", "live_status"):
+        instance = load_json(PASSED_EXAMPLE)
+        instance[field] = "x"
+        assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
 def test_empty_reason_codes_rejected():
     schema = load_json(SCHEMA_PATH)
@@ -289,15 +379,60 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 @pytest.mark.parametrize("example_file", EXAMPLE_FILES, ids=lambda path: path.name)
-def test_example_input_hashes_match_referenced_artifacts(example_file):
-    """Every example's declared input hashes must match the referenced artifacts on disk.
+def test_shape_example_input_hashes_match_referenced_artifacts(example_file):
+    """Every shape-only example's declared input hashes must match the referenced artifacts on disk.
 
-    All examples reference the same server-facts and expectation artifacts, so an
-    artifact edit that updates only one example's hash would otherwise go unnoticed.
+    Assessment fixtures in this phase validate contract shape and status partitions.
+    They are not producer golden fixtures and do not prove cross-artifact derivation.
+    All examples reference the same server-facts, expectation, and service-evidence
+    artifacts, so an artifact edit that updates only one example's hash would otherwise
+    go unnoticed.
     """
     instance = load_json(example_file)
-    for ref_name in ("server_facts_ref", "expectation_ref"):
+    for ref_name in ("server_facts_ref", "expectation_ref", "service_evidence_ref"):
         ref = instance["inputs"][ref_name]
         assert sha256_file(Path(ref["path"])) == ref["sha256"], (
             f"{example_file.name}: {ref_name} sha256 does not match {ref['path']}"
+        )
+
+def test_shape_assessment_server_facts_refs_match_shared_example():
+    """Current shape fixtures share one server-facts reference.
+    This checks path/hash integrity only and does not assert that each verdict
+    is derivable from the shared server-facts artifact.
+    """
+    server_facts_example = Path("examples/server-facts/minimal-linux.json")
+    actual = sha256_file(server_facts_example)
+    assessment_files = sorted(EXAMPLES_DIR.glob("*.json"))
+    assert assessment_files
+
+    for assessment_file in assessment_files:
+        assessment = load_json(assessment_file)
+        ref = assessment["inputs"]["server_facts_ref"]
+        assert ref["path"] == str(server_facts_example), (
+            f"{assessment_file.name}: unexpected server_facts_ref.path {ref['path']}"
+        )
+        assert ref["sha256"] == actual, (
+            f"{assessment_file.name}: server_facts_ref.sha256 does not match {server_facts_example}"
+        )
+
+def test_doc_preserves_contract_shape_fixture_boundary():
+    """Contract examples must not be presented as producer-golden proofs."""
+    doc = MODEL_DOC.read_text(encoding="utf-8")
+    start_marker = "### Fixture Semantics"
+    end_marker = "### Still forbidden"
+    assert start_marker in doc
+    assert end_marker in doc
+    start = doc.index(start_marker)
+    end = doc.index(end_marker, start)
+    section = doc[start:end]
+    for marker in (
+        "contract-shape fixtures",
+        "input-reference integrity",
+        "do not prove",
+        "Producer-golden semantics",
+        "future-gated",
+    ):
+        assert marker in section, (
+            "fixture-semantics boundary missing normative marker: "
+            f"{marker}"
         )

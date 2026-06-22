@@ -56,7 +56,8 @@
       "type": "object",
       "required": [
         "server_facts_ref",
-        "expectation_ref"
+        "expectation_ref",
+        "service_evidence_ref"
       ],
       "additionalProperties": false,
       "properties": {
@@ -79,6 +80,24 @@
           }
         },
         "expectation_ref": {
+          "type": "object",
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "service_evidence_ref": {
           "type": "object",
           "required": [
             "path",
