@@ -1,0 +1,58 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "inconclusive",
+  "subject": {
+    "host": "heimserver-golden",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "206f7419b0c69cf8e16d22e79a491798e044fd46162c79a99e7b67e1de5ab883"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "1464cf767663aedba3dff0a4fdbece8e5d6feeac3889e9fba331875d0e64543e"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "example.service",
+      "expected_role": "workload"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "example.service",
+      "expected_role": "workload",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_no_service_evidence"
+      ],
+      "evidence": [
+        "No matching artifact-derived evidence found for expected service 'example.service'."
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_no_service_evidence"
+  ],
+  "evidence": [
+    "No matching artifact-derived evidence found for expected service 'example.service'."
+  ],
+  "freshness": {
+    "status": "fresh",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness",
+    "service_role_fulfilled"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-inconclusive-empty-expectation",
+  "description": "Golden case for inconclusive-empty-expectation",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-empty-expectation.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-empty-expectation.json",
+      "sha256": "61e1e27c24e2999bc99b4edceb322fec689c90056f1babb8423fa202e6cd93bb"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-empty-expectation.json",
+      "sha256": "57275925f63b2be79ab5866bfded2d94b13b49dbc1ce9590aafc5caa93a2de8a"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-empty-expectation.json",
+    "sha256": "232678a72145e097711d45970bf7fb4f5ba0cbae0a10ffbba64c3d3f35a9a0b6"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "blocked",
+  "subject": {
+    "host": "heimserver-golden",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-blocked-precedence.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-blocked-precedence.json",
+      "sha256": "dac3c8ee44f1d44b6611108710bb7890601dac24988ae240956d3762a4338f9a"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-blocked-precedence.json",
+      "sha256": "e281acedc6ea39a37e1d938362f0d3a1838994af5003ebb4c9760b693758357c"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "network"
+    },
+    {
+      "service_name": "s2.service",
+      "expected_role": "r2"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "network",
+      "status": "passed",
+      "reason_codes": [
+        "service_gate_artifact_only_scope"
+      ],
+      "evidence": [
+        "service is found"
+      ]
+    },
+    {
+      "service_name": "s2.service",
+      "expected_role": "r2",
+      "status": "blocked",
+      "reason_codes": [
+        "service_gate_service_evidence_mismatch"
+      ],
+      "evidence": [
+        "mismatch found"
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_service_evidence_mismatch"
+  ],
+  "evidence": [
+    "service is found",
+    "mismatch found"
+  ],
+  "freshness": {
+    "status": "fresh",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness",
+    "service_role_fulfilled"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-multi-service-inconclusive-precedence",
+  "description": "Golden case for multi-service-inconclusive-precedence",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-inconclusive-precedence.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-inconclusive-precedence.json",
+      "sha256": "dac3c8ee44f1d44b6611108710bb7890601dac24988ae240956d3762a4338f9a"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-inconclusive-precedence.json",
+      "sha256": "ca5a1d3a8554c206cb7f94db7b323dc7a38259170bcd729385275a0d28ac8a64"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-multi-service-inconclusive-precedence.json",
+    "sha256": "f7e89ee934fb1a18a46dcde8f9e7acb51a1e2ffc883f27401c011b82de0324ea"
+  }
+}

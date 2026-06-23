@@ -1,0 +1,6 @@
+{
+  "schema_version": "heimserver-service-expectation.v1",
+  "host": "heimserver-golden",
+  "scope": "artifact-derived",
+  "expected_services": []
+}

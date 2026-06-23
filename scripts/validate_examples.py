@@ -49,6 +49,7 @@ SCHEMA_MAP = {
     "ui-view-models": SCHEMAS_DIR / "ui-view-model.v1.schema.json",
     "runbooks": SCHEMAS_DIR / "runbook-plan.v1.schema.json",
     "heimserver-service-gate-assessments": SCHEMAS_DIR / "heimserver-service-gate-assessment.v1.schema.json",
+    "heimserver-service-gate-derivation-cases": SCHEMAS_DIR / "heimserver-service-gate-derivation-case.v1.schema.json",
     "heimserver-service-expectations": SCHEMAS_DIR / "heimserver-service-expectation.v1.schema.json",
     "heimserver-service-evidence": SCHEMAS_DIR / "heimserver-service-evidence.v1.schema.json",
     "runbook-results": SCHEMAS_DIR / "runbook-result.v1.schema.json",
@@ -104,13 +105,17 @@ def _is_date_time(value: str) -> bool:
     return True
 
 
-def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> None:
+def minimal_validate(instance: Any, schema: dict[str, Any] | bool, path: str = "$") -> None:
     """Small fallback validator for the schema subset used by this repository.
 
     This is intentionally not a full JSON Schema implementation. It enforces the
     contract primitives used by repo examples when the external jsonschema
     package is unavailable.
     """
+    if schema is True:
+        return
+    if schema is False:
+        raise ValidationError(f"{path}: instance rejected by false schema")
     import re
 
     def type_matches(value: Any, expected: str) -> bool:
@@ -226,7 +231,7 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
             if extra:
                 raise ValidationError(f"{path}: unexpected additional properties {sorted(extra)!r}")
 
-    if any(key in schema for key in ("items", "contains", "minItems", "maxItems", "uniqueItems")):
+    if any(key in schema for key in ("items", "contains", "minItems", "maxItems", "uniqueItems", "prefixItems")):
         if not isinstance(instance, list):
             raise ValidationError(f"{path}: expected array for array validation keywords")
 
@@ -242,9 +247,26 @@ def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> 
                 if marker in seen:
                     raise ValidationError(f"{path}: array items are not unique")
                 seen.add(marker)
+        prefix_items = schema.get("prefixItems", [])
+        for index, subschema in enumerate(prefix_items):
+            if index < len(instance):
+                minimal_validate(
+                    instance[index],
+                    subschema,
+                    f"{path}[{index}]",
+                )
+
         if "items" in schema:
-            for index, item in enumerate(instance):
-                minimal_validate(item, schema["items"], f"{path}[{index}]")
+            remaining_start = len(prefix_items)
+            for index, item in enumerate(
+                instance[remaining_start:],
+                start=remaining_start,
+            ):
+                minimal_validate(
+                    item,
+                    schema["items"],
+                    f"{path}[{index}]",
+                )
         if "contains" in schema:
             matched = False
             for index, item in enumerate(instance):

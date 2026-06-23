@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-passed-single-service-fresh",
+  "description": "Golden case for passed-single-service-fresh",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-passed-single-service-fresh.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-passed-single-service-fresh.json",
+      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-passed-single-service-fresh.json",
+      "sha256": "57275925f63b2be79ab5866bfded2d94b13b49dbc1ce9590aafc5caa93a2de8a"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-passed-single-service-fresh.json",
+    "sha256": "8d21e79e69ad946c20a4cd3067707e2ed784bbd684a79ad5771524406c55ea47"
+  }
+}

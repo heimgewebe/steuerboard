@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-multi-service-blocked-precedence",
+  "description": "Golden case for multi-service-blocked-precedence",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-blocked-precedence.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-blocked-precedence.json",
+      "sha256": "dac3c8ee44f1d44b6611108710bb7890601dac24988ae240956d3762a4338f9a"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-blocked-precedence.json",
+      "sha256": "e281acedc6ea39a37e1d938362f0d3a1838994af5003ebb4c9760b693758357c"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-multi-service-blocked-precedence.json",
+    "sha256": "86f7371c00248593d07f860c8bc52ebc859eb72e0ad1e160fb4f7416a64a014a"
+  }
+}

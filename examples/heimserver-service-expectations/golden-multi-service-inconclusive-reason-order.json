@@ -1,0 +1,19 @@
+{
+  "schema_version": "heimserver-service-expectation.v1",
+  "host": "heimserver-golden",
+  "scope": "artifact-derived",
+  "expected_services": [
+    {
+      "service_name": "stale.service",
+      "expected_role": "workload"
+    },
+    {
+      "service_name": "unknown.service",
+      "expected_role": "workload"
+    },
+    {
+      "service_name": "missing.service",
+      "expected_role": "workload"
+    }
+  ]
+}

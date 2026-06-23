@@ -76,7 +76,7 @@ def test_invalid_reason_code_rejected():
 
 
 @pytest.mark.parametrize(
-    "missing", ["schema_version", "host", "scope", "observed_at", "services"]
+    "missing", ["schema_version", "host", "scope", "freshness_status", "observed_at", "services"]
 )
 def test_missing_required_top_level_field_rejected(missing):
     schema = load_json(SCHEMA_PATH)
@@ -138,7 +138,7 @@ def test_contract_stays_a_pure_artifact_input():
     """
     schema = load_json(SCHEMA_PATH)
     top_props = set(schema["properties"])
-    assert top_props == {"schema_version", "host", "scope", "observed_at", "services"}
+    assert top_props == {"schema_version", "host", "scope", "freshness_status", "observed_at", "services"}
 
     service_props = set(
         schema["properties"]["services"]["items"]["properties"]
@@ -163,6 +163,78 @@ def test_contract_stays_a_pure_artifact_input():
     )
     assert evidence_statuses == {"present", "missing", "mismatch", "unknown"}
     assert not (evidence_statuses & {"running", "reachable", "live", "active"})
+
+
+def test_freshness_status_invalid_value_rejected():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(MINIMAL_EXAMPLE)
+    instance["freshness_status"] = "something_else"
+    assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
+
+def test_evidence_status_reason_code_partition_enforced():
+    schema = load_json(SCHEMA_PATH)
+    
+    # test present rejecting missing reason
+    instance = load_json(MINIMAL_EXAMPLE)
+    instance["services"][0]["evidence_status"] = "present"
+    instance["services"][0]["reason_codes"] = [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_absent_from_artifacts"
+    ]
+    assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
+
+    # test missing rejecting present reason
+    instance = load_json(MINIMAL_EXAMPLE)
+    instance["services"][0]["evidence_status"] = "missing"
+    instance["services"][0]["reason_codes"] = [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_present_in_artifacts"
+    ]
+    assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
+
+def test_stale_reason_code_only_allowed_when_freshness_stale():
+    schema = load_json(SCHEMA_PATH)
+    
+    # fresh -> stale reason code rejected
+    instance = load_json(MINIMAL_EXAMPLE)
+    instance["freshness_status"] = "fresh"
+    instance["services"][0]["reason_codes"].append("service_evidence_artifact_stale")
+    assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
+    
+    # stale -> stale reason code accepted
+    instance["freshness_status"] = "stale"
+    validate_instance(instance, schema, str(MINIMAL_EXAMPLE))
+
+@pytest.mark.parametrize("status,reason", [
+    ("present", "service_evidence_present_in_artifacts"),
+    ("missing", "service_evidence_absent_from_artifacts"),
+    ("mismatch", "service_evidence_artifact_mismatch"),
+    ("unknown", "service_evidence_unknown"),
+])
+def test_evidence_status_reason_code_matrix(status, reason):
+    """Enforces that each evidence_status strictly requires and allows only its corresponding reason."""
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(MINIMAL_EXAMPLE)
+    
+    # Valid pairing
+    instance["services"][0]["evidence_status"] = status
+    instance["services"][0]["reason_codes"] = ["service_evidence_artifact_only_scope", reason]
+    validate_instance(instance, schema, f"{status}_valid")
+    
+    # Invalid pair (wrong reason)
+    wrong_reason = "service_evidence_unknown" if status != "unknown" else "service_evidence_present_in_artifacts"
+    instance["services"][0]["reason_codes"] = ["service_evidence_artifact_only_scope", wrong_reason]
+    assert_invalid(instance, schema, f"{status}_invalid")
+
+def test_unique_items_on_reason_codes():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(MINIMAL_EXAMPLE)
+    instance["services"][0]["reason_codes"] = [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_present_in_artifacts",
+        "service_evidence_present_in_artifacts"
+    ]
+    assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
 
 
 def test_no_runbook_leak():
@@ -195,7 +267,7 @@ def test_shape_assessment_evidence_refs_match_shared_example():
     is derivable from the shared evidence artifact.
     """
     actual = sha256_file(MINIMAL_EXAMPLE)
-    assessment_files = sorted(ASSESSMENTS_DIR.glob("*.json"))
+    assessment_files = [f for f in sorted(ASSESSMENTS_DIR.glob("*.json")) if not f.name.startswith("golden-")]
     assert assessment_files
 
     for assessment_file in assessment_files:

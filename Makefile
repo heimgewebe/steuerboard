@@ -6,6 +6,7 @@ EXAMPLE_CONFIG = examples/local-configs/heim-pc.json
 
 validate:
 	$(PYTHON) scripts/validate_examples.py
+	$(PYTHON) scripts/validate_heimserver_service_gate_derivation_cases.py
 
 docs:
 	$(PYTHON) scripts/docmeta/generate_cli_surface.py --write

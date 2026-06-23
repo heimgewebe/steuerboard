@@ -1,0 +1,58 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "inconclusive",
+  "subject": {
+    "host": "heimserver-golden",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-evidence-status-unknown.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-evidence-status-unknown.json",
+      "sha256": "206f7419b0c69cf8e16d22e79a491798e044fd46162c79a99e7b67e1de5ab883"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-evidence-status-unknown.json",
+      "sha256": "1ed80d8ee4a1895e9ba22a2c87c2996e5699a15e7183aff24d1c6d5144f8f2a7"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "example.service",
+      "expected_role": "workload"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "example.service",
+      "expected_role": "workload",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_no_service_evidence"
+      ],
+      "evidence": [
+        "Service unknown"
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_no_service_evidence"
+  ],
+  "evidence": [
+    "Service unknown"
+  ],
+  "freshness": {
+    "status": "fresh",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness",
+    "service_role_fulfilled"
+  ]
+}

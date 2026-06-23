@@ -17,7 +17,7 @@
     },
     "service_evidence_ref": {
       "path": "examples/heimserver-service-evidence/minimal-artifact-only.json",
-      "sha256": "cab6c8c3b55317a23c271daefb34ba682e2b2119f547f54b8dd8f51822c71fb7"
+      "sha256": "9e2ed048140db9cf78fe88c15cb5ba5d877335ded4bc429f77abf2c628d3c3c1"
     }
   },
   "expected_services": [
@@ -26,7 +26,19 @@
       "expected_role": "overlay-network-admin"
     }
   ],
-  "evaluated_services": [],
+  "evaluated_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "overlay-network-admin",
+      "status": "blocked",
+      "reason_codes": [
+        "service_gate_artifacts_missing"
+      ],
+      "evidence": [
+        "required artifact evidence is missing in this assessment fixture"
+      ]
+    }
+  ],
   "reason_codes": [
     "service_gate_artifacts_missing"
   ],
@@ -40,6 +52,7 @@
   "does_not_prove": [
     "live_service_running",
     "service_reachable",
-    "runtime_correctness"
+    "runtime_correctness",
+    "service_role_fulfilled"
   ]
 }

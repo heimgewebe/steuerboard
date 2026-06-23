@@ -1,0 +1,74 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "inconclusive",
+  "subject": {
+    "host": "heimserver-golden",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-inconclusive-precedence.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-inconclusive-precedence.json",
+      "sha256": "dac3c8ee44f1d44b6611108710bb7890601dac24988ae240956d3762a4338f9a"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-inconclusive-precedence.json",
+      "sha256": "ca5a1d3a8554c206cb7f94db7b323dc7a38259170bcd729385275a0d28ac8a64"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "network"
+    },
+    {
+      "service_name": "s2.service",
+      "expected_role": "r2"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "network",
+      "status": "passed",
+      "reason_codes": [
+        "service_gate_artifact_only_scope"
+      ],
+      "evidence": [
+        "service is found"
+      ]
+    },
+    {
+      "service_name": "s2.service",
+      "expected_role": "r2",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_no_service_evidence"
+      ],
+      "evidence": [
+        "missing from artifacts"
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_no_service_evidence"
+  ],
+  "evidence": [
+    "service is found",
+    "missing from artifacts"
+  ],
+  "freshness": {
+    "status": "fresh",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness",
+    "service_role_fulfilled"
+  ]
+}

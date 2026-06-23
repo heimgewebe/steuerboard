@@ -1,0 +1,11 @@
+{
+  "schema_version": "heimserver-service-expectation.v1",
+  "host": "heimserver-golden",
+  "scope": "artifact-derived",
+  "expected_services": [
+    {
+      "service_name": "example.service",
+      "expected_role": "workload"
+    }
+  ]
+}
