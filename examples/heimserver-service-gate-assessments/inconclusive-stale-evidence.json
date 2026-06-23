@@ -26,7 +26,19 @@
       "expected_role": "overlay-network-admin"
     }
   ],
-  "evaluated_services": [],
+  "evaluated_services": [
+    {
+      "service_name": "tailscaled.service",
+      "expected_role": "overlay-network-admin",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_artifacts_stale"
+      ],
+      "evidence": [
+        "artifact-derived evidence is stale in this assessment fixture"
+      ]
+    }
+  ],
   "reason_codes": [
     "service_gate_artifacts_stale"
   ],

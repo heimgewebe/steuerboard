@@ -679,3 +679,63 @@ def test_tailscale_preflight_schema_accepts_valid_expected_ip_values():
 
     # Should pass without raising
     validate_instance(valid_plan, _runbook_plan_schema())
+import pytest
+from scripts.validate_examples import minimal_validate, ValidationError
+
+def test_minimal_validate_prefixItems():
+    schema = {
+        "type": "array",
+        "prefixItems": [
+            { "const": "live_service_running" },
+            { "const": "service_reachable" },
+            { "const": "runtime_correctness" },
+            { "const": "service_role_fulfilled" }
+        ],
+        "items": False,
+        "minItems": 4
+    }
+
+    # gültige exakte Viererliste -> akzeptiert
+    minimal_validate([
+        "live_service_running",
+        "service_reachable",
+        "runtime_correctness",
+        "service_role_fulfilled"
+    ], schema)
+
+    # falsche Reihenfolge -> abgelehnt
+    with pytest.raises(ValidationError):
+        minimal_validate([
+            "service_reachable",
+            "live_service_running",
+            "runtime_correctness",
+            "service_role_fulfilled"
+        ], schema)
+
+    # fehlendes Element -> abgelehnt
+    with pytest.raises(ValidationError):
+        minimal_validate([
+            "live_service_running",
+            "service_reachable",
+            "runtime_correctness"
+        ], schema)
+
+    # zusätzliches Element -> abgelehnt
+    with pytest.raises(ValidationError):
+        minimal_validate([
+            "live_service_running",
+            "service_reachable",
+            "runtime_correctness",
+            "service_role_fulfilled",
+            "extra"
+        ], schema)
+
+    # ungültiges Element -> abgelehnt
+    with pytest.raises(ValidationError):
+        minimal_validate([
+            "live_service_running",
+            "wrong",
+            "runtime_correctness",
+            "service_role_fulfilled"
+        ], schema)
+

@@ -330,7 +330,7 @@ If any of the three differs, the assessment is blocked:
 - A fixed evidence text is emitted: `Host identity mismatch: server_facts='<facts_host>', expectation='<expectation_host>', service_evidence='<evidence_host>'.`
 
 ### Expected Services Rule
-For assessments not blocked by a host mismatch, the `expected_services` list is copied exactly from the expectation artifact to the assessment. This means exact element equality, identical ordering, and exact `expected_role` values without addition, omission, or normalization. `expected_role` is a declarative label; this phase performs no role verification.
+For every assessment, including host-identity mismatch assessments, the `expected_services` list is copied exactly from the expectation artifact to the assessment. This means exact element equality, identical ordering, and exact `expected_role` values without addition, omission, or normalization. `expected_role` is a declarative label; this phase performs no role verification.
 
 ### Service Join Rule
 The join key between expected services and service evidence is strictly `service_name`.
@@ -381,6 +381,10 @@ Fixed templates for evidence:
 - Host Mismatch: `Host identity mismatch: server_facts='<facts_host>', expectation='<expectation_host>', service_evidence='<evidence_host>'.`
 - Empty Expectation: `No expected services were declared.`
 - Unmatched Service: `No matching artifact-derived evidence found for expected service '<service_name>'.`
+
+For any matching evidence entry — including missing and unknown — the service-level evidence array is copied unchanged from that entry.
+
+Only the complete absence of a matching service entry creates the fixed "No matching artifact-derived evidence..." template.
 
 ### Does Not Prove
 The assessment explicitly declares that it `does_not_prove` the following properties, as a strictly enforced exact 4-element array:

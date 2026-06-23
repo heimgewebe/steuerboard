@@ -204,7 +204,9 @@
                   "const": "passed"
                 }
               },
-              "required": ["status"]
+              "required": [
+                "status"
+              ]
             },
             "then": {
               "properties": {
@@ -225,7 +227,9 @@
                   "const": "blocked"
                 }
               },
-              "required": ["status"]
+              "required": [
+                "status"
+              ]
             },
             "then": {
               "properties": {
@@ -247,7 +251,9 @@
                   "const": "inconclusive"
                 }
               },
-              "required": ["status"]
+              "required": [
+                "status"
+              ]
             },
             "then": {
               "properties": {
@@ -319,10 +325,18 @@
     "does_not_prove": {
       "type": "array",
       "prefixItems": [
-        { "const": "live_service_running" },
-        { "const": "service_reachable" },
-        { "const": "runtime_correctness" },
-        { "const": "service_role_fulfilled" }
+        {
+          "const": "live_service_running"
+        },
+        {
+          "const": "service_reachable"
+        },
+        {
+          "const": "runtime_correctness"
+        },
+        {
+          "const": "service_role_fulfilled"
+        }
       ],
       "items": false,
       "minItems": 4,
@@ -355,7 +369,14 @@
             "minItems": 1
           },
           "evaluated_services": {
-            "minItems": 1
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "passed"
+                }
+              }
+            }
           },
           "reason_codes": {
             "items": {
@@ -389,7 +410,41 @@
               ]
             }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "reason_codes": {
+                  "not": {
+                    "contains": {
+                      "enum": [
+                        "service_gate_subject_mismatch",
+                        "service_gate_artifacts_missing"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "evaluated_services": {
+                  "contains": {
+                    "properties": {
+                      "status": {
+                        "const": "blocked"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     {
@@ -417,7 +472,44 @@
               ]
             }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "reason_codes": {
+                  "not": {
+                    "contains": {
+                      "enum": [
+                        "service_gate_expectation_missing",
+                        "service_gate_input_schema_invalid",
+                        "service_gate_subject_unknown",
+                        "service_gate_artifacts_stale",
+                        "service_gate_freshness_unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "evaluated_services": {
+                  "contains": {
+                    "properties": {
+                      "status": {
+                        "const": "inconclusive"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     }
   ]

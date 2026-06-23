@@ -125,16 +125,19 @@ def test_mutation_not_regular_file():
 # ----------------
 def setup_tmp_repo_for_schema(tmp_path):
     import hashlib
+    import copy
+    from scripts.validate_examples import ValidationError
+
     def sha256_file(path: Path) -> str:
         with open(path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
 
     tmp_repo = tmp_path / "repo"
     shutil.copytree(REPO_ROOT / "schemas", tmp_repo / "schemas")
-    
+
     ex_dir = tmp_repo / "examples"
     ex_dir.mkdir()
-    
+
     dirs = [
         "server-facts",
         "heimserver-service-expectations",
@@ -144,67 +147,80 @@ def setup_tmp_repo_for_schema(tmp_path):
     ]
     for d in dirs:
         (ex_dir / d).mkdir()
-        
+
     base_id, case, facts, exp, ev, ass = get_base_case()
-    
+
     def save_and_test(mutated_label, facts_m, exp_m, ev_m, ass_m, case_m):
         facts_path = ex_dir / "server-facts" / "facts.json"
         exp_path = ex_dir / "heimserver-service-expectations" / "exp.json"
         ev_path = ex_dir / "heimserver-service-evidence" / "ev.json"
         ass_path = ex_dir / "heimserver-service-gate-assessments" / "ass.json"
-        case_path = ex_dir / "heimserver-service-gate-derivation-cases" / "case.json"
-        
+        case_path = ex_dir / "heimserver-service-gate-derivation-cases" / f"{base_id}.json"
+
         facts_path.write_text(json.dumps(facts_m))
         exp_path.write_text(json.dumps(exp_m))
         ev_path.write_text(json.dumps(ev_m))
-        ass_path.write_text(json.dumps(ass_m))
-        
+
         if mutated_label != "case":
             case_m["inputs"]["server_facts_ref"]["path"] = "examples/server-facts/facts.json"
             case_m["inputs"]["server_facts_ref"]["sha256"] = sha256_file(facts_path)
-            
+
             case_m["inputs"]["expectation_ref"]["path"] = "examples/heimserver-service-expectations/exp.json"
             case_m["inputs"]["expectation_ref"]["sha256"] = sha256_file(exp_path)
-            
+
             case_m["inputs"]["service_evidence_ref"]["path"] = "examples/heimserver-service-evidence/ev.json"
             case_m["inputs"]["service_evidence_ref"]["sha256"] = sha256_file(ev_path)
-            
+
+            ass_m["inputs"] = copy.deepcopy(case_m["inputs"])
+            ass_path.write_text(json.dumps(ass_m))
+
             case_m["expected_assessment_ref"]["path"] = "examples/heimserver-service-gate-assessments/ass.json"
             case_m["expected_assessment_ref"]["sha256"] = sha256_file(ass_path)
-        
+        else:
+            ass_path.write_text(json.dumps(ass_m))
+
         case_path.write_text(json.dumps(case_m))
-        validate_case_file(case_path, tmp_repo, allow_noncanonical_case_id=True)
-        
+        validate_case_file(case_path, tmp_repo, allow_noncanonical_case_id=False)
+
     return base_id, case, facts, exp, ev, ass, save_and_test
 
+def test_temporary_valid_case_bundle_passes(tmp_path):
+    base_id, case, facts, exp, ev, ass, save_and_test = setup_tmp_repo_for_schema(tmp_path)
+    save_and_test("none", facts, exp, ev, ass, case)
+
 def test_mutation_schema_invalid_facts(tmp_path):
+    from scripts.validate_examples import ValidationError
     base_id, case, facts, exp, ev, ass, save_and_test = setup_tmp_repo_for_schema(tmp_path)
     facts["host"] = "not-an-object"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         save_and_test("server_facts", facts, exp, ev, ass, case)
 
 def test_mutation_schema_invalid_expectation(tmp_path):
+    from scripts.validate_examples import ValidationError
     base_id, case, facts, exp, ev, ass, save_and_test = setup_tmp_repo_for_schema(tmp_path)
     del exp["host"]
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         save_and_test("expectation", facts, exp, ev, ass, case)
 
 def test_mutation_schema_invalid_evidence(tmp_path):
+    from scripts.validate_examples import ValidationError
     base_id, case, facts, exp, ev, ass, save_and_test = setup_tmp_repo_for_schema(tmp_path)
     ev["freshness_status"] = "invalid_enum"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         save_and_test("service_evidence", facts, exp, ev, ass, case)
 
 def test_mutation_schema_invalid_assessment(tmp_path):
+    from scripts.validate_examples import ValidationError
     base_id, case, facts, exp, ev, ass, save_and_test = setup_tmp_repo_for_schema(tmp_path)
     ass["status"] = "invalid_status"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         save_and_test("assessment", facts, exp, ev, ass, case)
 
 def test_mutation_schema_invalid_case(tmp_path):
+    from scripts.validate_examples import ValidationError
     base_id, case, facts, exp, ev, ass, save_and_test = setup_tmp_repo_for_schema(tmp_path)
     del case["expected_assessment_ref"]
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         save_and_test("case", facts, exp, ev, ass, case)
 
 # ----------------
@@ -225,22 +241,33 @@ def test_mutation_in_memory_respected():
 # ----------------
 def test_mutation_duplicate_expected_service():
     base_id, case, facts, exp, ev, ass = get_base_case()
-    s = exp["expected_services"][0]
-    exp["expected_services"].append(s.copy())
-    ass["expected_services"].append(s.copy())
+    s = exp["expected_services"][0].copy()
+    s["expected_role"] = "different-role"
+    exp["expected_services"].append(s)
+    
+    s_ass = ass["expected_services"][0].copy()
+    s_ass["expected_role"] = "different-role"
+    ass["expected_services"].append(s_ass)
+    
     validate_mutation(base_id, case, facts, exp, ev, ass, "duplicate service_name")
 
 def test_mutation_duplicate_evidence_service():
     base_id, case, facts, exp, ev, ass = get_base_case()
-    s = ev["services"][0]
-    ev["services"].append(s.copy())
-    ass["evaluated_services"].append(s.copy())
+    s = ev["services"][0].copy()
+    s["status"] = "stale"
+    ev["services"].append(s)
+    
+    s_ass = ass["evaluated_services"][0].copy()
+    s_ass["status"] = "inconclusive"
+    ass["evaluated_services"].append(s_ass)
+    
     validate_mutation(base_id, case, facts, exp, ev, ass, "duplicate service_name")
 
 def test_mutation_duplicate_assessment_service():
     base_id, case, facts, exp, ev, ass = get_base_case()
-    s = ass["evaluated_services"][0]
-    ass["evaluated_services"].append(s.copy())
+    s = ass["evaluated_services"][0].copy()
+    s["expected_role"] = "different-role"
+    ass["evaluated_services"].append(s)
     validate_mutation(base_id, case, facts, exp, ev, ass, "duplicate service_name")
 
 # ----------------
