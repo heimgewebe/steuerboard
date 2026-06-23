@@ -406,6 +406,17 @@ The addition of the required `freshness_status` to `heimserver-service-evidence.
 
 ## Phase 11F-H — Producer In-Memory
 
-Status: future-gated.
+Status: implemented (pure in-memory producer only)
 
-11F-H wird den eigentlichen Producer bereitstellen, der die in 11F-G definierten Derivations-Regeln programmatisch abbildet. Der Producer führt keine I/O- oder Live-Checks durch, sondern transformiert die 3 Inputs strikt in-memory in ein Assessment.
+11F-H implementiert den eigentlichen Producer (`steuerboard.heimserver_service_gate.derive_heimserver_service_gate_assessment`), der die in 11F-G definierten Derivations-Regeln programmatisch abbildet.
+
+- **Modulpfad:** `steuerboard/heimserver_service_gate.py`
+- **Öffentliche Funktion:** `derive_heimserver_service_gate_assessment`
+- **Vier Parameter:** `server_facts`, `expectation`, `service_evidence`, `input_refs`
+- **Rückgabewert:** Vollständiges `heimserver-service-gate-assessment.v1` Dictionary.
+- **Inputvoraussetzung:** Setzt JSON-decodierte, schema-valide Payloads und exakte Input-Referenzen voraus.
+- **Guards:** Keine Hash-, Schema- oder Pfadprüfung im Producer. Lokale semantische Guards lehnen fehlende Referenzen, Duplikate oder unbekannte Statuswerte ab.
+- **Referenzorakel:** Das in 11F-G geschaffene Referenzorakel bleibt vollständig unabhängig vom Producer und wird exklusiv für Cross-Validierungen in den Tests verwendet.
+- **Erreichbarkeit von Reasons:** Der Producer erzeugt keine artifiziellen Loader- oder Schemafehler, die aus den validierten In-Memory Inputs gar nicht erreichbar sein dürfen.
+- **Reinheitsgarantien:** Keine Datei-I/O, keine Subprozesse, keine Systemzeit, keine Netzwerkzugriffe. Reine deterministische In-Memory Funktion ohne Alias-Beziehungen zum Input.
+- **Non-Goals:** Keine CLI-Integration, kein Runbook, kein Writer, kein Loader, keine Liveprüfung, keine Stage-D-Action.
