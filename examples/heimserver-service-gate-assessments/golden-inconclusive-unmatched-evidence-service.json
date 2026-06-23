@@ -17,7 +17,7 @@
     },
     "service_evidence_ref": {
       "path": "examples/heimserver-service-evidence/golden-inconclusive-unmatched-evidence-service.json",
-      "sha256": "db10b00b6406de9a048e065b2155b38d6f7e0ae406b1f78152e441480c9b34c2"
+      "sha256": "1464cf767663aedba3dff0a4fdbece8e5d6feeac3889e9fba331875d0e64543e"
     }
   },
   "expected_services": [
@@ -43,7 +43,7 @@
     "service_gate_no_service_evidence"
   ],
   "evidence": [
-    "service is found"
+    "No matching artifact-derived evidence found for expected service 'example.service'."
   ],
   "freshness": {
     "status": "fresh",

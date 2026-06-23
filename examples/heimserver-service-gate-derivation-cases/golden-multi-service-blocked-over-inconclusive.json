@@ -18,6 +18,6 @@
   },
   "expected_assessment_ref": {
     "path": "examples/heimserver-service-gate-assessments/golden-multi-service-blocked-over-inconclusive.json",
-    "sha256": "ce543c12856dc8efbe2e3f97af1b4e0c1f8e2c4036f658f074cd6918435eff56"
+    "sha256": "7952cead6e6cff7b3e296fd9052d4d2eed8b965dc7c516b5289886c7afb05a3e"
   }
 }

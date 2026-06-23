@@ -35,7 +35,7 @@
         "service_gate_no_service_evidence"
       ],
       "evidence": [
-        "No matching artifact-derived evidence found for expected service 'example.service'."
+        "Service unknown"
       ]
     }
   ],
@@ -43,7 +43,7 @@
     "service_gate_no_service_evidence"
   ],
   "evidence": [
-    "service is found"
+    "Service unknown"
   ],
   "freshness": {
     "status": "fresh",

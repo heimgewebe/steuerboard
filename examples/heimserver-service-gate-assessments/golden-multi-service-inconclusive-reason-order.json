@@ -54,7 +54,7 @@
         "service_gate_no_service_evidence"
       ],
       "evidence": [
-        "No matching artifact-derived evidence found for expected service 'unknown.service'."
+        "Stale unknown"
       ]
     },
     {
@@ -65,7 +65,7 @@
         "service_gate_no_service_evidence"
       ],
       "evidence": [
-        "No matching artifact-derived evidence found for expected service 'missing.service'."
+        "Stale missing"
       ]
     }
   ],
@@ -74,7 +74,9 @@
     "service_gate_no_service_evidence"
   ],
   "evidence": [
-    "service is found"
+    "Stale present",
+    "Stale unknown",
+    "Stale missing"
   ],
   "freshness": {
     "status": "stale",

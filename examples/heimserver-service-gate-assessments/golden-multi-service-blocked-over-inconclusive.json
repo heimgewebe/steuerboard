@@ -50,7 +50,7 @@
         "service_gate_no_service_evidence"
       ],
       "evidence": [
-        "No matching artifact-derived evidence found for expected service 'inconclusive.service'."
+        "Unknown"
       ]
     }
   ],
@@ -58,7 +58,8 @@
     "service_gate_service_evidence_mismatch"
   ],
   "evidence": [
-    "service is found"
+    "Mismatch",
+    "Unknown"
   ],
   "freshness": {
     "status": "fresh",

@@ -43,7 +43,7 @@
     "service_gate_no_service_evidence"
   ],
   "evidence": [
-    "No matching evidence found for expected service."
+    "No matching artifact-derived evidence found for expected service 'tailscaled.service'."
   ],
   "freshness": {
     "status": "fresh",

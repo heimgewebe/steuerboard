@@ -1344,7 +1344,7 @@ Non-goals:
 
 ## Phase 11F-G — Heimserver Service Gate Derivation Readiness Contract
 
-Status: in progress.
+Status: implemented (contract and reference validation only).
 
 Schafft die kausalen Voraussetzungen, damit ein Producer eindeutig aus den Artefakten ableiten kann.
 Scope:

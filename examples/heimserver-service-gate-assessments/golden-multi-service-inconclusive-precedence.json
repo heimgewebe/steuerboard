@@ -50,7 +50,7 @@
         "service_gate_no_service_evidence"
       ],
       "evidence": [
-        "No matching artifact-derived evidence found for expected service 's2.service'."
+        "missing from artifacts"
       ]
     }
   ],

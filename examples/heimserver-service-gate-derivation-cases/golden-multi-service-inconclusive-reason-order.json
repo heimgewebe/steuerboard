@@ -18,6 +18,6 @@
   },
   "expected_assessment_ref": {
     "path": "examples/heimserver-service-gate-assessments/golden-multi-service-inconclusive-reason-order.json",
-    "sha256": "cafb241d757bd4d6b2bd770f0978f04d04224453b3ac95347809c81ff4770811"
+    "sha256": "bb8348a1c2d081d57ad6d68e30dd96a9be069a34157713b05b0304f1aa28fddb"
   }
 }
