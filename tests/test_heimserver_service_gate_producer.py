@@ -392,14 +392,10 @@ def test_reason_deduplication_and_order():
     produced = derive_heimserver_service_gate_assessment(
         server_facts=facts, expectation=exp, service_evidence=ev, input_refs=refs
     )
-    # The output should have both service_gate_artifacts_stale and service_gate_no_service_evidence
-    # Deduplication ensures stale is there only once. Order is defined by REASON_CODES_ORDER.
+    # The output should exactly have both service_gate_artifacts_stale and service_gate_no_service_evidence
     expected_reasons = ["service_gate_artifacts_stale", "service_gate_no_service_evidence"]
-
-    # Filter produced reasons to only the ones we expect to have been added here
-    relevant_reasons = [r for r in produced["reason_codes"] if r in expected_reasons]
-
-    assert relevant_reasons == expected_reasons
+    assert produced["reason_codes"] == expected_reasons
+    assert produced["reason_codes"].count("service_gate_artifacts_stale") == 1
 
 def test_top_level_evidence_contains_all_services():
     facts, exp, ev, refs = get_base_inputs()
@@ -450,7 +446,27 @@ def test_unknown_freshness_status():
 def test_missing_input_refs():
     facts, exp, ev, refs = get_base_inputs()
     del refs["expectation_ref"]
-    with pytest.raises(ValueError, match="input_refs must contain exactly"):
+    
+    with pytest.raises(ValueError) as exc_info:
         derive_heimserver_service_gate_assessment(
             server_facts=facts, expectation=exp, service_evidence=ev, input_refs=refs
         )
+    
+    assert str(exc_info.value) == (
+        "input_refs must contain exactly: "
+        "server_facts_ref, expectation_ref, service_evidence_ref"
+    )
+
+def test_extra_input_refs():
+    facts, exp, ev, refs = get_base_inputs()
+    refs["extra_ref"] = {"path": "extra"}
+    
+    with pytest.raises(ValueError) as exc_info:
+        derive_heimserver_service_gate_assessment(
+            server_facts=facts, expectation=exp, service_evidence=ev, input_refs=refs
+        )
+    
+    assert str(exc_info.value) == (
+        "input_refs must contain exactly: "
+        "server_facts_ref, expectation_ref, service_evidence_ref"
+    )
