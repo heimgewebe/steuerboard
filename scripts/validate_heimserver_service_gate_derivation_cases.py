@@ -4,6 +4,13 @@ import hashlib
 import sys
 from pathlib import Path
 
+# Einmalig Repo-Root auflösen und in sys.path einfügen für Importe
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.validate_examples import validate_schema, validate_instance
+
 # The 14 canonical case IDs that MUST be present and validated.
 CANONICAL_CASES = [
     "golden-blocked-service-evidence-mismatch",
@@ -74,17 +81,10 @@ def load_json_file(path: Path) -> dict:
         return json.load(f)
 
 def load_and_validate_json(path: Path, schema_path: Path, label: str) -> dict:
-    # Use existing validation mechanism
-    # Note: the prompt suggests using steuerboard.schema_validation or minimal_validate.
-    # We will import minimal_validate from validate_examples for now.
-    import importlib.util
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1])) # Add repo root to sys.path
-    import scripts.validate_examples as validator
-    
     data = load_json_file(path)
     schema = load_json_file(schema_path)
-    validator.validate_schema(schema, schema_path)
-    validator.validate_instance(data, schema, path)
+    validate_schema(schema, schema_path)
+    validate_instance(data, schema, path)
     return data
 
 def assert_unique_service_names(services: list[dict], label: str, case_id: str) -> None:
@@ -108,9 +108,23 @@ def sort_reasons(reasons: list[str], master_enum: list[str]) -> list[str]:
     return sorted(deduped, key=lambda x: master_enum.index(x))
 
 def validate_derivation(case_id: str, case: dict, server_facts: dict, expectation: dict, service_evidence: dict, assessment: dict, master_enum: list[str]) -> None:
-    # Assessment inputs must exactly equal the derivation case inputs
+    # 1. Gemeinsame Invarianten vor Sonderfall-Returns prüfen
     if assessment["inputs"] != case["inputs"]:
         raise ValueError(f"Assessment inputs do not strictly match case inputs in {case_id}")
+
+    if assessment["subject"]["scope"] != "artifact-derived":
+        raise ValueError(f"Subject scope must be artifact-derived in {case_id}")
+
+    if assessment.get("expected_services", []) != expectation.get("expected_services", []):
+        raise ValueError(f"Expected services must match exactly in {case_id}")
+
+    if assessment["freshness"]["status"] != service_evidence["freshness_status"]:
+        raise ValueError(f"Freshness status mismatch in {case_id}")
+    if assessment["freshness"]["observed_at"] != service_evidence["observed_at"]:
+        raise ValueError(f"Freshness observed_at mismatch in {case_id}")
+
+    if assessment["does_not_prove"] != ["live_service_running", "service_reachable", "runtime_correctness", "service_role_fulfilled"]:
+        raise ValueError(f"does_not_prove mismatch in {case_id}")
 
     assert_unique_service_names(expectation.get("expected_services", []), "expectation", case_id)
     assert_unique_service_names(service_evidence.get("services", []), "service_evidence", case_id)
@@ -120,47 +134,39 @@ def validate_derivation(case_id: str, case: dict, server_facts: dict, expectatio
     exp_host = expectation["host"]
     ev_host = service_evidence["host"]
 
+    # 2. Host-Mismatch
     if not (facts_host == exp_host == ev_host):
-        if assessment["status"] != "blocked":
-            raise ValueError(f"Expected status blocked due to host mismatch in {case_id}")
         if assessment["subject"]["host"] != exp_host:
             raise ValueError(f"Subject host must match expectation host in {case_id}")
         if assessment.get("evaluated_services", []) != []:
             raise ValueError(f"Evaluated services must be empty on host mismatch in {case_id}")
+        if assessment["status"] != "blocked":
+            raise ValueError(f"Expected status blocked due to host mismatch in {case_id}")
         if assessment["reason_codes"] != ["service_gate_subject_mismatch"]:
             raise ValueError(f"Top level reason must be subject_mismatch in {case_id}")
         
         expected_text = f"Host identity mismatch: server_facts='{facts_host}', expectation='{exp_host}', service_evidence='{ev_host}'."
         if assessment["evidence"] != [expected_text]:
             raise ValueError(f"Evidence text mismatch for host identity in {case_id}")
-        if assessment["freshness"]["status"] != service_evidence["freshness_status"] or assessment["freshness"]["observed_at"] != service_evidence["observed_at"]:
-            raise ValueError(f"Freshness must map strictly from evidence even on mismatch in {case_id}")
-        if assessment["does_not_prove"] != ["live_service_running", "service_reachable", "runtime_correctness", "service_role_fulfilled"]:
-            raise ValueError(f"does_not_prove mismatch in {case_id}")
         return
 
-    # Normal Processing
+    # Normal Processing (Host Identity Passed)
     if assessment["subject"]["host"] != exp_host:
         raise ValueError(f"Subject host mismatch in {case_id}")
 
-    if assessment.get("expected_services", []) != expectation.get("expected_services", []):
-        raise ValueError(f"Expected services must match exactly in {case_id}")
-
+    # 3. Empty Expectation
     if not expectation.get("expected_services", []):
+        if assessment.get("evaluated_services", []) != []:
+            raise ValueError(f"Evaluated services must be empty in {case_id}")
         if assessment["status"] != "inconclusive":
             raise ValueError(f"Empty expectation must be inconclusive in {case_id}")
         if assessment["reason_codes"] != ["service_gate_expectation_missing"]:
             raise ValueError(f"Empty expectation reason mismatch in {case_id}")
         if assessment["evidence"] != ["No expected services were declared."]:
             raise ValueError(f"Empty expectation evidence mismatch in {case_id}")
-        if assessment["freshness"]["status"] != service_evidence["freshness_status"] or assessment["freshness"]["observed_at"] != service_evidence["observed_at"]:
-            raise ValueError(f"Freshness must map strictly from evidence even on mismatch in {case_id}")
-        if assessment.get("evaluated_services", []) != []:
-            raise ValueError(f"Evaluated services must be empty in {case_id}")
-        if assessment["does_not_prove"] != ["live_service_running", "service_reachable", "runtime_correctness", "service_role_fulfilled"]:
-            raise ValueError(f"does_not_prove mismatch in {case_id}")
         return
 
+    # 4. Service Join Rule
     ev_map = {s["service_name"]: s for s in service_evidence.get("services", [])}
     derived_evaluated_services = []
     has_blocked = False
@@ -260,18 +266,11 @@ def validate_derivation(case_id: str, case: dict, server_facts: dict, expectatio
     if assessment["evidence"] != expected_top_evidence:
         raise ValueError(f"Top level evidence mismatch in {case_id}. Expected {expected_top_evidence}, got {assessment['evidence']}")
 
-    if assessment["freshness"]["status"] != service_evidence["freshness_status"]:
-        raise ValueError(f"Freshness status mismatch in {case_id}")
-    if assessment["freshness"]["observed_at"] != service_evidence["observed_at"]:
-        raise ValueError(f"Freshness observed_at mismatch in {case_id}")
 
-    if assessment["does_not_prove"] != ["live_service_running", "service_reachable", "runtime_correctness", "service_role_fulfilled"]:
-        raise ValueError(f"does_not_prove mismatch in {case_id}")
-
-def validate_case_file(case_path: Path, repo_root: Path):
+def validate_case_file(case_path: Path, repo_root: Path, allow_noncanonical_case_id: bool = False):
     case_id = case_path.stem
-    if case_id not in CANONICAL_CASES:
-        pass # The inventory check already caught missing/extra, this allows running individual tests if needed
+    if not allow_noncanonical_case_id and case_id not in CANONICAL_CASES:
+        raise ValueError(f"unknown derivation case id {case_id!r}")
         
     case_schema_path = repo_root / "schemas" / "heimserver-service-gate-derivation-case.v1.schema.json"
     case = load_and_validate_json(case_path, case_schema_path, "case")
@@ -310,14 +309,12 @@ def validate_case_file(case_path: Path, repo_root: Path):
     validate_derivation(case_id, case, facts, exp, ev, ass, master_enum)
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parents[1]
-    
     try:
-        case_paths = discover_case_paths(repo_root)
+        case_paths = discover_case_paths(REPO_ROOT)
         validate_case_inventory(case_paths)
         
         for case_path in case_paths:
-            validate_case_file(case_path, repo_root)
+            validate_case_file(case_path, REPO_ROOT)
             
         print(f"validated {len(case_paths)} heimserver service gate derivation case(s)")
         return 0
