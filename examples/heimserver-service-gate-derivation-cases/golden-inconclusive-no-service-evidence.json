@@ -18,6 +18,6 @@
   },
   "expected_assessment_ref": {
     "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-no-service-evidence.json",
-    "sha256": "91e75c2f5825e111bee7ba4fd258990ba0e1a5cf372ac54d91d88a56ab4675a7"
+    "sha256": "61369e0f35b06955fad6694f0992fcd2012f23dfe9723bbc8dac46dda679f135"
   }
 }

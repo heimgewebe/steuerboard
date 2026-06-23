@@ -18,6 +18,6 @@
   },
   "expected_assessment_ref": {
     "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-empty-expectation.json",
-    "sha256": "8ecd369b0cbecfbde886603de77f1dd35c7a7d5da1b5bb1006cb198612ae04b4"
+    "sha256": "232678a72145e097711d45970bf7fb4f5ba0cbae0a10ffbba64c3d3f35a9a0b6"
   }
 }

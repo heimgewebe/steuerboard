@@ -8,34 +8,34 @@
   },
   "inputs": {
     "server_facts_ref": {
-      "path": "examples/server-facts/golden-inconclusive-no-service-evidence.json",
+      "path": "examples/server-facts/golden-inconclusive-unmatched-evidence-service.json",
       "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
     },
     "expectation_ref": {
-      "path": "examples/heimserver-service-expectations/golden-inconclusive-no-service-evidence.json",
-      "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "206f7419b0c69cf8e16d22e79a491798e044fd46162c79a99e7b67e1de5ab883"
     },
     "service_evidence_ref": {
-      "path": "examples/heimserver-service-evidence/golden-inconclusive-no-service-evidence.json",
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-unmatched-evidence-service.json",
       "sha256": "db10b00b6406de9a048e065b2155b38d6f7e0ae406b1f78152e441480c9b34c2"
     }
   },
   "expected_services": [
     {
-      "service_name": "tailscaled.service",
-      "expected_role": "network"
+      "service_name": "example.service",
+      "expected_role": "workload"
     }
   ],
   "evaluated_services": [
     {
-      "service_name": "tailscaled.service",
-      "expected_role": "network",
+      "service_name": "example.service",
+      "expected_role": "workload",
       "status": "inconclusive",
       "reason_codes": [
         "service_gate_no_service_evidence"
       ],
       "evidence": [
-        "No matching artifact-derived evidence found for expected service 'tailscaled.service'."
+        "No matching artifact-derived evidence found for expected service 'example.service'."
       ]
     }
   ],
@@ -43,7 +43,7 @@
     "service_gate_no_service_evidence"
   ],
   "evidence": [
-    "No matching evidence found for expected service."
+    "service is found"
   ],
   "freshness": {
     "status": "fresh",

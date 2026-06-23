@@ -301,16 +301,104 @@ No producer, derivation script, runbook kind, CLI, Stage-D / executor, service p
 
 ## Phase 11F-G — Derivation Readiness Contract
 
-Status: implemented (contract only).
+Status: implemented (contract and validation only)
 
-11F-G liefert das Bindeglied zwischen den Inputs und dem Output. Es legt die Derivationsregeln fest, ohne einen Producer zu implementieren. Die 10 Golden Cases (als `heimserver-service-gate-derivation-case.v1` Verträge) schreiben normativ fest, wie Inputs auf Assessments abzubilden sind.
+11F-G establishes the strict derivation boundary between the three declared inputs (`server-facts.v1`, `heimserver-service-expectation.v1`, `heimserver-service-evidence.v1`) and the resulting assessment. It provides a formal, machine-verifiable derivation contract (via `heimserver-service-gate-derivation-case.v1`) against which a future producer must be tested.
 
-### What changed
+### Input Preconditions
+Derivation semantics apply exclusively to inputs that are:
+- loaded
+- JSON-decoded
+- schema-valid
+- hash-verified
+- resolved from safe repository paths
+Loader errors (missing file, invalid JSON, invalid schema, wrong hash, unsafe path, read error) are technical failures outside the derivation semantics. Loader validity ≠ semantic derivation.
 
-- `heimserver-service-evidence.v1` enthält nun `freshness_status` als Pflichtfeld, um Staleness sicher zu bewerten.
-- Die Derivations-Regeln wurden formalisiert (Service-Namen Eindeutigkeit, Host-Namen Eindeutigkeit, Reason-Code-Mapping).
-- `does_not_prove` listet nun explizit `service_role_fulfilled`, um klarzustellen, dass Rollen-Zuweisung keine Rollen-Verifikation ist.
-- 10 normierte, kryptographisch gesicherte Derivations-Fälle wurden als Test-Suite hinterlegt.
+### Host Identity Rule
+Host identity is evaluated by strictly comparing three sources:
+- `server_facts.host.hostname`
+- `expectation.host`
+- `service_evidence.host`
+
+This comparison is an exact byte-for-byte string match without any normalization (no lowercasing, no trimming, no FQDN alias mapping).
+If any of the three differs, the assessment is blocked:
+- `status` = `blocked`
+- `subject.host` = `expectation.host`
+- `evaluated_services` = `[]`
+- `reason_codes` = `["service_gate_subject_mismatch"]`
+- `freshness` is strictly mapped from evidence.
+- A fixed evidence text is emitted: `Host identity mismatch: server_facts='<facts_host>', expectation='<expectation_host>', service_evidence='<evidence_host>'.`
+
+### Expected Services Rule
+For assessments not blocked by a host mismatch, the `expected_services` list is copied exactly from the expectation artifact to the assessment. This means exact element equality, identical ordering, and exact `expected_role` values without addition, omission, or normalization. `expected_role` is a declarative label; this phase performs no role verification.
+
+### Service Join Rule
+The join key between expected services and service evidence is strictly `service_name`.
+These lists must be unique by `service_name` (no duplicates allowed).
+`evaluated_services` exactly follows the order of `expectation.expected_services`.
+Any extra service evidence not present in the expectation is completely ignored and does not alter the status, reasons, or order.
+
+### Missing Evidence Match
+If an expected service has no matching evidence entry:
+- `service.status` = `inconclusive`
+- `service.reason_codes` = `["service_gate_no_service_evidence"]`
+- Fixed evidence text: `No matching artifact-derived evidence found for expected service '<service_name>'.`
+
+### Evidence-Status to Service Mapping
+For a matching evidence entry, the service status is derived strictly as follows:
+| Evidence Status | Freshness | Service Status | Service Reason |
+| --- | --- | --- | --- |
+| `present` | `fresh` | `passed` | `service_gate_artifact_only_scope` |
+| `present` | `stale` | `inconclusive` | `service_gate_artifacts_stale` |
+| `present` | `unknown` | `inconclusive` | `service_gate_freshness_unknown` |
+| `missing` | any | `inconclusive` | `service_gate_no_service_evidence` |
+| `unknown` | any | `inconclusive` | `service_gate_no_service_evidence` |
+| `mismatch` | any | `blocked` | `service_gate_service_evidence_mismatch` |
+
+`mismatch` has strict precedence over freshness rules.
+
+### Freshness
+The assessment freshness is mapped exactly and exclusively from the evidence artifact (`freshness_status` and `observed_at`). No system clock or server-facts timestamps are used.
+
+### Aggregation Rule
+The overall assessment status follows a strict precedence:
+`blocked` > `inconclusive` > `passed`
+
+Sonderfälle:
+- Host-Mismatch -> `blocked`
+- Empty Expectation -> `inconclusive` (Reason: `service_gate_expectation_missing`, Fixed Evidence Text: `No expected services were declared.`)
+
+For standard aggregation:
+- **Blocked**: If at least one service is blocked, the overall status is blocked. The top-level reasons contain the deduplicated blocked service reasons. Inconclusive reasons remain at the service level.
+- **Inconclusive**: If no service is blocked but at least one is inconclusive, the overall status is inconclusive. The top-level reasons contain the deduplicated inconclusive service reasons.
+- **Passed**: Only if all expected services are passed. Reason: `service_gate_artifact_only_scope`.
+
+### Reason Code Order
+Top-level reason codes must be deduplicated and emitted strictly in the exact order defined by the canonical master-enum in the assessment schema (not sorted alphabetically).
+
+### Evidence Texts
+Fixed templates for evidence:
+- Host Mismatch: `Host identity mismatch: server_facts='<facts_host>', expectation='<expectation_host>', service_evidence='<evidence_host>'.`
+- Empty Expectation: `No expected services were declared.`
+- Unmatched Service: `No matching artifact-derived evidence found for expected service '<service_name>'.`
+
+### Does Not Prove
+The assessment explicitly declares that it `does_not_prove` the following properties, as a strictly enforced exact 4-element array:
+- `live_service_running`
+- `service_reachable`
+- `runtime_correctness`
+- `service_role_fulfilled`
+
+### Shape vs Golden Cases
+- **Shape Fixtures**: Test the structural validity, constraints, and reference validity of artifacts against the JSON schemas.
+- **Golden Cases**: Test the causal Input → Output mapping semantics enforcing the normative rules above.
+
+### Validator Boundary & Non-Goals
+The derivation rules are protected by a dedicated schema and cross-artifact validator that enforces these constraints across the golden cases.
+**Non-Goals**: This phase establishes the rules and validating tests but implements **no producer**, no CLI, no runbooks, no live-checks, no network/subprocesses usage, no system time calls, no writer logic, and no evidence-internal provenance.
+
+### In-Place v1 Hardening Justification
+The addition of the required `freshness_status` to `heimserver-service-evidence.v1` is an in-place pre-runtime contract hardening. No production producer or consumer existed; all repository fixtures were migrated atomically.
 
 ## Phase 11F-H — Producer In-Memory
 

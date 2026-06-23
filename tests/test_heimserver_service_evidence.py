@@ -203,9 +203,38 @@ def test_stale_reason_code_only_allowed_when_freshness_stale():
     
     # stale -> stale reason code accepted
     instance["freshness_status"] = "stale"
-    # we need to make sure the evidence_status allows it. 
-    # For 'present', 'service_evidence_artifact_stale' is in the enum subset.
     validate_instance(instance, schema, str(MINIMAL_EXAMPLE))
+
+@pytest.mark.parametrize("status,reason", [
+    ("present", "service_evidence_present_in_artifacts"),
+    ("missing", "service_evidence_absent_from_artifacts"),
+    ("mismatch", "service_evidence_artifact_mismatch"),
+    ("unknown", "service_evidence_unknown"),
+])
+def test_evidence_status_reason_code_matrix(status, reason):
+    """Enforces that each evidence_status strictly requires and allows only its corresponding reason."""
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(MINIMAL_EXAMPLE)
+    
+    # Valid pairing
+    instance["services"][0]["evidence_status"] = status
+    instance["services"][0]["reason_codes"] = ["service_evidence_artifact_only_scope", reason]
+    validate_instance(instance, schema, f"{status}_valid")
+    
+    # Invalid pair (wrong reason)
+    wrong_reason = "service_evidence_unknown" if status != "unknown" else "service_evidence_present_in_artifacts"
+    instance["services"][0]["reason_codes"] = ["service_evidence_artifact_only_scope", wrong_reason]
+    assert_invalid(instance, schema, f"{status}_invalid")
+
+def test_unique_items_on_reason_codes():
+    schema = load_json(SCHEMA_PATH)
+    instance = load_json(MINIMAL_EXAMPLE)
+    instance["services"][0]["reason_codes"] = [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_present_in_artifacts",
+        "service_evidence_present_in_artifacts"
+    ]
+    assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
 
 
 def test_no_runbook_leak():

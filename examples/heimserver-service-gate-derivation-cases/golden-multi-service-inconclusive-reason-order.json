@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-multi-service-inconclusive-reason-order",
+  "description": "Golden case for multi-service-inconclusive-reason-order",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-inconclusive-reason-order.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-inconclusive-reason-order.json",
+      "sha256": "186b8b6ab627c446fed726dc0ed11867c6167fe2bd08ac952b268aec971470c6"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-inconclusive-reason-order.json",
+      "sha256": "3e0819f37c5a10cb90fcd0e8d1b55f31b0b0cb83f9c3a037d626ef4033a6b0cf"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-multi-service-inconclusive-reason-order.json",
+    "sha256": "cafb241d757bd4d6b2bd770f0978f04d04224453b3ac95347809c81ff4770811"
+  }
+}

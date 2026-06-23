@@ -1,0 +1,45 @@
+{
+  "schema_version": "heimserver-service-evidence.v1",
+  "host": "heimserver-golden",
+  "scope": "artifact-derived",
+  "freshness_status": "stale",
+  "observed_at": "2026-06-13T00:00:00Z",
+  "services": [
+    {
+      "service_name": "stale.service",
+      "evidence_status": "present",
+      "reason_codes": [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_present_in_artifacts",
+        "service_evidence_artifact_stale"
+      ],
+      "evidence": [
+        "Stale present"
+      ]
+    },
+    {
+      "service_name": "unknown.service",
+      "evidence_status": "unknown",
+      "reason_codes": [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_unknown",
+        "service_evidence_artifact_stale"
+      ],
+      "evidence": [
+        "Stale unknown"
+      ]
+    },
+    {
+      "service_name": "missing.service",
+      "evidence_status": "missing",
+      "reason_codes": [
+        "service_evidence_artifact_only_scope",
+        "service_evidence_absent_from_artifacts",
+        "service_evidence_artifact_stale"
+      ],
+      "evidence": [
+        "Stale missing"
+      ]
+    }
+  ]
+}

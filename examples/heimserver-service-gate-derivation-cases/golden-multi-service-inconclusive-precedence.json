@@ -18,6 +18,6 @@
   },
   "expected_assessment_ref": {
     "path": "examples/heimserver-service-gate-assessments/golden-multi-service-inconclusive-precedence.json",
-    "sha256": "f7e89ee934fb1a18a46dcde8f9e7acb51a1e2ffc883f27401c011b82de0324ea"
+    "sha256": "089aa8d0a6972363e34a35b50d424fdd8bcfe7f708d41623fb022de32f48002a"
   }
 }

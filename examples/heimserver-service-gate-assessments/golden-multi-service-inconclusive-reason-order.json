@@ -1,0 +1,89 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "inconclusive",
+  "subject": {
+    "host": "heimserver-golden",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-inconclusive-reason-order.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-inconclusive-reason-order.json",
+      "sha256": "186b8b6ab627c446fed726dc0ed11867c6167fe2bd08ac952b268aec971470c6"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-inconclusive-reason-order.json",
+      "sha256": "3e0819f37c5a10cb90fcd0e8d1b55f31b0b0cb83f9c3a037d626ef4033a6b0cf"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "stale.service",
+      "expected_role": "workload"
+    },
+    {
+      "service_name": "unknown.service",
+      "expected_role": "workload"
+    },
+    {
+      "service_name": "missing.service",
+      "expected_role": "workload"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "stale.service",
+      "expected_role": "workload",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_artifacts_stale"
+      ],
+      "evidence": [
+        "Stale present"
+      ]
+    },
+    {
+      "service_name": "unknown.service",
+      "expected_role": "workload",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_no_service_evidence"
+      ],
+      "evidence": [
+        "No matching artifact-derived evidence found for expected service 'unknown.service'."
+      ]
+    },
+    {
+      "service_name": "missing.service",
+      "expected_role": "workload",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_no_service_evidence"
+      ],
+      "evidence": [
+        "No matching artifact-derived evidence found for expected service 'missing.service'."
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_artifacts_stale",
+    "service_gate_no_service_evidence"
+  ],
+  "evidence": [
+    "service is found"
+  ],
+  "freshness": {
+    "status": "stale",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness",
+    "service_role_fulfilled"
+  ]
+}

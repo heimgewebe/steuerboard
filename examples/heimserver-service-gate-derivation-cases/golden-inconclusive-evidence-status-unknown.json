@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-inconclusive-evidence-status-unknown",
+  "description": "Golden case for inconclusive-evidence-status-unknown",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-evidence-status-unknown.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-evidence-status-unknown.json",
+      "sha256": "206f7419b0c69cf8e16d22e79a491798e044fd46162c79a99e7b67e1de5ab883"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-evidence-status-unknown.json",
+      "sha256": "1ed80d8ee4a1895e9ba22a2c87c2996e5699a15e7183aff24d1c6d5144f8f2a7"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-evidence-status-unknown.json",
+    "sha256": "c4457963cd3cde1c47ee3f373af4bbaa29b47655a7b97999c33029dd0d5833b1"
+  }
+}

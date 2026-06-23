@@ -31,7 +31,7 @@
     "service_gate_subject_mismatch"
   ],
   "evidence": [
-    "Host identity mismatch between facts and inputs."
+    "Host identity mismatch: server_facts='other-host', expectation='heimserver-golden', service_evidence='heimserver-golden'."
   ],
   "freshness": {
     "status": "fresh",

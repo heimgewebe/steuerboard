@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "kind": "heimserver-service-gate-assessment",
+  "status": "blocked",
+  "subject": {
+    "host": "heimserver-golden",
+    "scope": "artifact-derived"
+  },
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-multi-service-blocked-over-inconclusive.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-multi-service-blocked-over-inconclusive.json",
+      "sha256": "1aca5f92ac9d5047dfc764bbe326bec177683821b739ebefabd9300fbb4945b0"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-multi-service-blocked-over-inconclusive.json",
+      "sha256": "d189d77b1c593cf0e87bf9b4f939e393a39cd4082d96e0e27517ae9b5ba00e6e"
+    }
+  },
+  "expected_services": [
+    {
+      "service_name": "blocked.service",
+      "expected_role": "workload"
+    },
+    {
+      "service_name": "inconclusive.service",
+      "expected_role": "workload"
+    }
+  ],
+  "evaluated_services": [
+    {
+      "service_name": "blocked.service",
+      "expected_role": "workload",
+      "status": "blocked",
+      "reason_codes": [
+        "service_gate_service_evidence_mismatch"
+      ],
+      "evidence": [
+        "Mismatch"
+      ]
+    },
+    {
+      "service_name": "inconclusive.service",
+      "expected_role": "workload",
+      "status": "inconclusive",
+      "reason_codes": [
+        "service_gate_no_service_evidence"
+      ],
+      "evidence": [
+        "No matching artifact-derived evidence found for expected service 'inconclusive.service'."
+      ]
+    }
+  ],
+  "reason_codes": [
+    "service_gate_service_evidence_mismatch"
+  ],
+  "evidence": [
+    "service is found"
+  ],
+  "freshness": {
+    "status": "fresh",
+    "observed_at": "2026-06-13T00:00:00Z"
+  },
+  "does_not_prove": [
+    "live_service_running",
+    "service_reachable",
+    "runtime_correctness",
+    "service_role_fulfilled"
+  ]
+}

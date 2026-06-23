@@ -184,7 +184,8 @@
                 "service_gate_subject_unknown"
               ]
             },
-            "minItems": 1
+            "minItems": 1,
+            "uniqueItems": true
           },
           "evidence": {
             "type": "array",
@@ -194,7 +195,75 @@
             "description": "A textual artifact-derived evidence summary for this evaluated service.",
             "minItems": 1
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "passed"
+                }
+              },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_gate_artifact_only_scope"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "blocked"
+                }
+              },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_gate_artifacts_missing",
+                      "service_gate_service_evidence_mismatch"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "inconclusive"
+                }
+              },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "items": {
+                    "enum": [
+                      "service_gate_artifacts_stale",
+                      "service_gate_freshness_unknown",
+                      "service_gate_no_service_evidence"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "reason_codes": {
@@ -214,7 +283,8 @@
           "service_gate_subject_unknown"
         ]
       },
-      "minItems": 1
+      "minItems": 1,
+      "uniqueItems": true
     },
     "evidence": {
       "type": "array",
@@ -248,28 +318,16 @@
     },
     "does_not_prove": {
       "type": "array",
-      "items": {
-        "type": "string",
-        "enum": [
-          "live_service_running",
-          "service_reachable",
-          "runtime_correctness",
-          "service_role_fulfilled"
-        ]
-      },
-      "allOf": [
-        {
-          "contains": {
-            "const": "live_service_running"
-          }
-        },
-        {
-          "contains": {
-            "const": "service_role_fulfilled"
-          }
-        }
+      "prefixItems": [
+        { "const": "live_service_running" },
+        { "const": "service_reachable" },
+        { "const": "runtime_correctness" },
+        { "const": "service_role_fulfilled" }
       ],
-      "minItems": 1
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true
     }
   },
   "allOf": [
@@ -297,21 +355,7 @@
             "minItems": 1
           },
           "evaluated_services": {
-            "minItems": 1,
-            "items": {
-              "properties": {
-                "status": {
-                  "const": "passed"
-                },
-                "reason_codes": {
-                  "items": {
-                    "enum": [
-                      "service_gate_artifact_only_scope"
-                    ]
-                  }
-                }
-              }
-            }
+            "minItems": 1
           },
           "reason_codes": {
             "items": {

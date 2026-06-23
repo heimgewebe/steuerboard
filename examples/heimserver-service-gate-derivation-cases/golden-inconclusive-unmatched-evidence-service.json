@@ -1,0 +1,23 @@
+{
+  "schema_version": "heimserver-service-gate-derivation-case.v1",
+  "case_id": "golden-inconclusive-unmatched-evidence-service",
+  "description": "Golden case for inconclusive-unmatched-evidence-service",
+  "inputs": {
+    "server_facts_ref": {
+      "path": "examples/server-facts/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+    },
+    "expectation_ref": {
+      "path": "examples/heimserver-service-expectations/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "206f7419b0c69cf8e16d22e79a491798e044fd46162c79a99e7b67e1de5ab883"
+    },
+    "service_evidence_ref": {
+      "path": "examples/heimserver-service-evidence/golden-inconclusive-unmatched-evidence-service.json",
+      "sha256": "db10b00b6406de9a048e065b2155b38d6f7e0ae406b1f78152e441480c9b34c2"
+    }
+  },
+  "expected_assessment_ref": {
+    "path": "examples/heimserver-service-gate-assessments/golden-inconclusive-unmatched-evidence-service.json",
+    "sha256": "4b2a122850dcd594528360763c35fbbb10d71dec1aa735b1bf4e1e8f4572cc2e"
+  }
+}

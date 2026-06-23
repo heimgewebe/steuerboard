@@ -1344,19 +1344,20 @@ Non-goals:
 
 ## Phase 11F-G — Heimserver Service Gate Derivation Readiness Contract
 
-Status: implemented.
+Status: in progress.
 
 Schafft die kausalen Voraussetzungen, damit ein Producer eindeutig aus den Artefakten ableiten kann.
 Scope:
-- Einführung des `heimserver-service-gate-derivation-case.v1` Vertrages.
+- Einführung des `heimserver-service-gate-derivation-case.v1` Vertrages und eines dedizierten Cross-Artifact-Validators.
 - `freshness_status` als Required Field in Evidence eingeführt.
-- Strenge Enum-Partitionen für Reason-Codes (Status-Kapselung).
-- Keine `live_service_running` Claims, `service_role_fulfilled` in `does_not_prove` aufgenommen.
-- 10 normierte Producer-Golden Cases ohne Producer Implementierung.
+- Strenge Enum-Partitionen für Reason-Codes (Status-Kapselung) und `uniqueItems` Arrays.
+- Exakte `does_not_prove` 4-Element-Liste.
+- Maschinengeprüftes, exaktes Golden Case Inventar (14 Fälle).
 - Loader/Derivation-Grenzziehung vertraglich fixiert (Host-Identity, Service-Join).
 
 Non-goals:
 - Kein Producer, keine CLI, kein Runbook, keine Live-Prüfung.
+- Keine I/O Integration, kein Netzwerk, keine Systemzeit.
 
 ## Phase 11F-H — Heimserver Service Gate Producer In-Memory
 
@@ -1364,5 +1365,5 @@ Status: future-gated.
 
 Scope:
 - Implementierung der reinen In-Memory-Ableitung aus den validierten 11F-G Inputartefakten.
-- Erfüllung der 10 Golden Cases.
+- Erfüllung des exakten 11F-G Case Inventars.
 - Output ist ein korrektes Assessment-Artefakt.
