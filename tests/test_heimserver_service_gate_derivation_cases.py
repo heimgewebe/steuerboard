@@ -254,7 +254,8 @@ def test_mutation_duplicate_expected_service():
 def test_mutation_duplicate_evidence_service():
     base_id, case, facts, exp, ev, ass = get_base_case()
     s = ev["services"][0].copy()
-    s["status"] = "stale"
+    s["evidence_status"] = "unknown"
+    s["reason_codes"] = ["service_evidence_artifact_only_scope", "service_evidence_unknown"]
     ev["services"].append(s)
     
     s_ass = ass["evaluated_services"][0].copy()

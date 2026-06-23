@@ -105,17 +105,17 @@ def _is_date_time(value: str) -> bool:
     return True
 
 
-def minimal_validate(instance: Any, schema: dict[str, Any], path: str = "$") -> None:
-    if schema is True:
-        return
-    if schema is False:
-        raise ValidationError(f"{path}: instance rejected by false schema")
+def minimal_validate(instance: Any, schema: dict[str, Any] | bool, path: str = "$") -> None:
     """Small fallback validator for the schema subset used by this repository.
 
     This is intentionally not a full JSON Schema implementation. It enforces the
     contract primitives used by repo examples when the external jsonschema
     package is unavailable.
     """
+    if schema is True:
+        return
+    if schema is False:
+        raise ValidationError(f"{path}: instance rejected by false schema")
     import re
 
     def type_matches(value: Any, expected: str) -> bool:

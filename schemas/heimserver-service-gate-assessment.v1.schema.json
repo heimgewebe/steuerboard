@@ -416,13 +416,8 @@
             "if": {
               "properties": {
                 "reason_codes": {
-                  "not": {
-                    "contains": {
-                      "enum": [
-                        "service_gate_subject_mismatch",
-                        "service_gate_artifacts_missing"
-                      ]
-                    }
+                  "contains": {
+                    "const": "service_gate_service_evidence_mismatch"
                   }
                 }
               }
@@ -478,16 +473,12 @@
             "if": {
               "properties": {
                 "reason_codes": {
-                  "not": {
-                    "contains": {
-                      "enum": [
-                        "service_gate_expectation_missing",
-                        "service_gate_input_schema_invalid",
-                        "service_gate_subject_unknown",
-                        "service_gate_artifacts_stale",
-                        "service_gate_freshness_unknown"
-                      ]
-                    }
+                  "contains": {
+                    "enum": [
+                      "service_gate_no_service_evidence",
+                      "service_gate_artifacts_stale",
+                      "service_gate_freshness_unknown"
+                    ]
                   }
                 }
               }
