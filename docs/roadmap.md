@@ -1361,9 +1361,10 @@ Non-goals:
 
 ## Phase 11F-H — Heimserver Service Gate Producer In-Memory
 
-Status: future-gated.
+Status: implemented (pure in-memory producer only)
 
 Scope:
 - Implementierung der reinen In-Memory-Ableitung aus den validierten 11F-G Inputartefakten.
 - Erfüllung des exakten 11F-G Case Inventars.
 - Output ist ein korrektes Assessment-Artefakt.
+- Keine CLI-, Runbook- oder Liveintegration als erledigt markieren.
