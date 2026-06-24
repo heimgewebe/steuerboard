@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation rules, golden cases, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. CLI, runbook, loader, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
+Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. CLI, runbook, loader, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
