@@ -1,0 +1,498 @@
+"""Safe artifact input adapter for the Heimserver-Service-Gate producer (Phase 11F-I).
+
+This module is the first controlled bridge that makes the pure in-memory producer
+``steuerboard.heimserver_service_gate.derive_heimserver_service_gate_assessment``
+reachable through explicit, repository-relative artifact references.
+
+The adapter owns exactly the technical loading boundary and nothing else:
+
+* it checks exactly three ``input_refs``;
+* it resolves each referenced file safely inside one allowed ``artifact_root``
+  (no absolute paths, no ``..`` traversal, no symlink escape from the root);
+* it reads each file's raw bytes exactly once;
+* it binds the declared SHA-256 to those exact bytes;
+* it decodes the same bytes strictly as UTF-8 and then strict JSON
+  (rejecting duplicate object keys and non-finite ``NaN``/``Infinity`` numbers);
+* it validates the three payloads against the canonical Draft 2020-12 schemas;
+* it calls the unchanged producer exactly once;
+* it validates the producer's assessment against the assessment schema;
+* it returns the assessment as an independent in-memory dictionary.
+
+Contract authority: the canonical schemas are always loaded from the steuerboard
+checkout (``_SCHEMAS_DIR``), never from ``artifact_root``, so a caller cannot
+smuggle a weakened replacement schema next to the artifacts.
+
+Error boundary: technical loading failures are raised as
+:class:`HeimserverServiceGateArtifactError`. They are never translated into
+assessment reason codes, and the producer's own domain ``ValueError``\\s are not
+caught or re-wrapped here.
+
+Threat model: the adapter defends against static path escape and ordinary
+misconfiguration. It does **not** claim full protection against a concurrently
+acting privileged local filesystem attacker. Small local steuerboard artifacts
+are read fully into memory; this slice intentionally introduces no file-size
+limit. This adapter assumes the current steuerboard checkout / local-install
+layout (code-relative top-level ``schemas/``); it performs no packaging reform.
+"""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError, ValidationError
+
+from steuerboard.heimserver_service_gate import (
+    derive_heimserver_service_gate_assessment,
+)
+
+__all__ = [
+    "HeimserverServiceGateArtifactError",
+    "derive_heimserver_service_gate_assessment_from_refs",
+]
+
+# Canonical schemas always come from the steuerboard checkout, never from the
+# caller-supplied artifact root. This is the contract-authority boundary.
+_SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas"
+
+_REQUIRED_INPUTS = (
+    "server_facts_ref",
+    "expectation_ref",
+    "service_evidence_ref",
+)
+
+_INPUT_SCHEMAS = {
+    "server_facts_ref": "server-facts.v1.schema.json",
+    "expectation_ref": "heimserver-service-expectation.v1.schema.json",
+    "service_evidence_ref": "heimserver-service-evidence.v1.schema.json",
+}
+
+_ASSESSMENT_SCHEMA_FILENAME = "heimserver-service-gate-assessment.v1.schema.json"
+
+# Canonical schemas are loaded and checked up front, in a fixed,
+# caller-independent order: the three input contracts followed by the
+# assessment output contract.
+_CANONICAL_SCHEMA_FILENAMES = (
+    _INPUT_SCHEMAS["server_facts_ref"],
+    _INPUT_SCHEMAS["expectation_ref"],
+    _INPUT_SCHEMAS["service_evidence_ref"],
+    _ASSESSMENT_SCHEMA_FILENAME,
+)
+
+# Diagnostic details never carry whole payloads or file contents.
+_MAX_DETAIL_CHARS = 200
+
+
+class HeimserverServiceGateArtifactError(ValueError):
+    """Raised for any technical failure while loading service-gate artifacts.
+
+    The error never represents a domain assessment outcome: the producer's own
+    derivation ``ValueError``\\s are intentionally left to propagate unchanged.
+
+    Machine-checkable attributes: ``code``, ``stage``, ``input_name``, ``path``.
+    """
+
+    def __init__(
+        self,
+        *,
+        code: str,
+        stage: str,
+        input_name: str | None = None,
+        path: str | None = None,
+        detail: str,
+    ) -> None:
+        self.code = code
+        self.stage = stage
+        self.input_name = input_name
+        self.path = path
+        self.detail = detail
+
+        message = f"[{code}] at stage {stage!r}"
+        if input_name is not None:
+            message += f" for {input_name}"
+        if path is not None:
+            message += f" (path={path!r})"
+        message += f": {detail}"
+        super().__init__(message)
+
+
+class _StrictJsonError(ValueError):
+    """Internal strict-JSON violation (duplicate key or non-finite number)."""
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _StrictJsonError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
+
+
+def _reject_non_finite_constant(constant: str) -> Any:
+    raise _StrictJsonError(f"non-finite JSON constant {constant!r}")
+
+
+def _strict_json_loads(text: str) -> Any:
+    """Parse JSON strictly, rejecting duplicate object keys and non-finite numbers."""
+    return json.loads(
+        text,
+        object_pairs_hook=_reject_duplicate_keys,
+        parse_constant=_reject_non_finite_constant,
+    )
+
+
+def _short(text: str) -> str:
+    """Collapse and truncate a diagnostic string so payloads cannot leak."""
+    collapsed = " ".join(text.split())
+    if len(collapsed) > _MAX_DETAIL_CHARS:
+        return collapsed[: _MAX_DETAIL_CHARS - 3] + "..."
+    return collapsed
+
+
+def _plain_json_copy(value: Any) -> Any:
+    """Deep-copy into plain JSON-like containers (``dict``/``list``) for validation."""
+    if isinstance(value, Mapping):
+        return {key: _plain_json_copy(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_json_copy(item) for item in value]
+    return value
+
+
+def _first_error(
+    validator: Draft202012Validator, instance: Any
+) -> ValidationError | None:
+    """Return the deterministically first schema error, or ``None`` if valid."""
+    errors = sorted(
+        validator.iter_errors(instance),
+        key=lambda error: (
+            tuple(str(part) for part in error.absolute_path),
+            tuple(str(part) for part in error.absolute_schema_path),
+            error.message,
+        ),
+    )
+    return errors[0] if errors else None
+
+
+def _canonical_schema_path(filename: str) -> Path:
+    return _SCHEMAS_DIR / filename
+
+
+def _load_canonical_schemas() -> dict[str, Any]:
+    """Load the four canonical schemas from ``_SCHEMAS_DIR`` in fixed order."""
+    schemas: dict[str, Any] = {}
+    for filename in _CANONICAL_SCHEMA_FILENAMES:
+        schema_path = _canonical_schema_path(filename)
+        try:
+            raw_bytes = schema_path.read_bytes()
+        except OSError as exc:
+            raise HeimserverServiceGateArtifactError(
+                code="contract_load_failed",
+                stage="contract_load",
+                path=filename,
+                detail=f"canonical schema could not be read: {_short(str(exc))}",
+            ) from exc
+        try:
+            text = raw_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise HeimserverServiceGateArtifactError(
+                code="contract_load_failed",
+                stage="contract_load",
+                path=filename,
+                detail="canonical schema is not valid UTF-8",
+            ) from exc
+        try:
+            schemas[filename] = _strict_json_loads(text)
+        except (_StrictJsonError, json.JSONDecodeError) as exc:
+            raise HeimserverServiceGateArtifactError(
+                code="contract_load_failed",
+                stage="contract_load",
+                path=filename,
+                detail=f"canonical schema is not valid strict JSON: {_short(str(exc))}",
+            ) from exc
+    return schemas
+
+
+def _check_canonical_schemas(schemas: Mapping[str, Any]) -> None:
+    """Validate that each canonical schema is itself a valid Draft 2020-12 schema."""
+    for filename in _CANONICAL_SCHEMA_FILENAMES:
+        try:
+            Draft202012Validator.check_schema(schemas[filename])
+        except SchemaError as exc:
+            raise HeimserverServiceGateArtifactError(
+                code="contract_schema_invalid",
+                stage="contract_schema",
+                path=filename,
+                detail=(
+                    "canonical schema is not a valid Draft 2020-12 schema: "
+                    f"{_short(exc.message)}"
+                ),
+            ) from exc
+
+
+def _validate_artifact_root(artifact_root: Any) -> Path:
+    """Resolve and validate the allowed artifact root (no git calls)."""
+    try:
+        candidate = Path(artifact_root)
+    except TypeError as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_artifact_root",
+            stage="artifact_root",
+            detail="artifact_root must be a path-like value",
+        ) from exc
+    try:
+        resolved = candidate.resolve(strict=True)
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_artifact_root",
+            stage="artifact_root",
+            detail="artifact_root does not exist",
+        ) from exc
+    except OSError as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_artifact_root",
+            stage="artifact_root",
+            detail=f"artifact_root could not be resolved: {_short(str(exc))}",
+        ) from exc
+    if not resolved.is_dir():
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_artifact_root",
+            stage="artifact_root",
+            detail="artifact_root is not a directory",
+        )
+    return resolved
+
+
+def _validate_input_refs(
+    input_refs: Any, inputs_subschema: Mapping[str, Any]
+) -> dict[str, dict[str, Any]]:
+    """Validate the caller's ``input_refs`` against the canonical ``inputs`` subschema.
+
+    The subschema is taken verbatim from the assessment schema; it is never
+    weakened or duplicated. Returns a canonical-order plain-dict copy preserving
+    the lexical ``path`` and ``sha256`` values.
+    """
+    if not isinstance(input_refs, Mapping):
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_input_refs",
+            stage="input_refs",
+            detail="input_refs must be a mapping",
+        )
+    candidate = _plain_json_copy(input_refs)
+    validator = Draft202012Validator(inputs_subschema)
+    error = _first_error(validator, candidate)
+    if error is not None:
+        input_name = str(error.absolute_path[0]) if error.absolute_path else None
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_input_refs",
+            stage="input_refs",
+            input_name=input_name,
+            detail=_short(error.message),
+        )
+    return {name: dict(candidate[name]) for name in _REQUIRED_INPUTS}
+
+
+def _resolve_safe_path(input_name: str, path_str: str, resolved_root: Path) -> Path:
+    """Resolve a declared reference path safely inside ``resolved_root``."""
+    raw = Path(path_str)
+    if raw.is_absolute():
+        raise HeimserverServiceGateArtifactError(
+            code="unsafe_path",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail="absolute paths are not allowed",
+        )
+    if ".." in raw.parts:
+        raise HeimserverServiceGateArtifactError(
+            code="unsafe_path",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail="parent-directory traversal '..' is not allowed",
+        )
+    candidate = resolved_root / raw
+    try:
+        resolved = candidate.resolve(strict=True)
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="file_missing",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail="referenced artifact does not exist",
+        ) from exc
+    except OSError as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="unsafe_path",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail=f"referenced path could not be resolved: {_short(str(exc))}",
+        ) from exc
+    try:
+        resolved.relative_to(resolved_root)
+    except ValueError as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="unsafe_path",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail="resolved target escapes the artifact root",
+        ) from exc
+    if not resolved.is_file():
+        raise HeimserverServiceGateArtifactError(
+            code="not_regular_file",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail="referenced target is not a regular file",
+        )
+    return resolved
+
+
+def _load_input_payload(
+    input_name: str,
+    ref: Mapping[str, Any],
+    resolved_root: Path,
+    validator: Draft202012Validator,
+) -> Any:
+    """Resolve, read-once, hash-bind, decode, parse, and schema-check one input."""
+    path_str = ref["path"]
+    expected_sha256 = ref["sha256"]
+
+    resolved_path = _resolve_safe_path(input_name, path_str, resolved_root)
+
+    try:
+        raw_bytes = resolved_path.read_bytes()
+    except OSError as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="read_failed",
+            stage="read",
+            input_name=input_name,
+            path=path_str,
+            detail=f"artifact could not be read: {_short(str(exc))}",
+        ) from exc
+
+    actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise HeimserverServiceGateArtifactError(
+            code="hash_mismatch",
+            stage="hash",
+            input_name=input_name,
+            path=path_str,
+            detail=(
+                f"declared sha256 {expected_sha256} does not match "
+                f"artifact-byte sha256 {actual_sha256}"
+            ),
+        )
+
+    try:
+        text = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_utf8",
+            stage="utf8_decode",
+            input_name=input_name,
+            path=path_str,
+            detail="artifact bytes are not valid UTF-8",
+        ) from exc
+
+    try:
+        payload = _strict_json_loads(text)
+    except (_StrictJsonError, json.JSONDecodeError) as exc:
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_json",
+            stage="json_decode",
+            input_name=input_name,
+            path=path_str,
+            detail=f"artifact is not valid strict JSON: {_short(str(exc))}",
+        ) from exc
+
+    error = _first_error(validator, payload)
+    if error is not None:
+        raise HeimserverServiceGateArtifactError(
+            code="input_schema_invalid",
+            stage="input_schema",
+            input_name=input_name,
+            path=path_str,
+            detail=_short(error.message),
+        )
+    return payload
+
+
+def derive_heimserver_service_gate_assessment_from_refs(
+    *,
+    artifact_root: Path,
+    input_refs: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Safely load three referenced artifacts and derive the service-gate assessment.
+
+    ``artifact_root`` is the only allowed location for the three input artifacts.
+    The canonical schemas are loaded from the steuerboard checkout, not from
+    ``artifact_root``.
+
+    Deterministic failure priority (caller mapping/filesystem order never
+    changes the first error):
+
+    1. artifact root
+    2. load the four canonical schemas (fixed order)
+    3. check the four canonical schemas
+    4. shape/contract of ``input_refs``
+    5. ``server_facts_ref``
+    6. ``expectation_ref``
+    7. ``service_evidence_ref``
+    8. producer call (its domain errors propagate unchanged)
+    9. output schema
+
+    Per input: lexical path -> resolution + root inclusion -> regular file ->
+    read -> hash -> UTF-8 -> JSON -> input schema.
+
+    Raises :class:`HeimserverServiceGateArtifactError` for technical loading
+    failures. Returns a deep, independent copy of the validated assessment.
+    """
+    resolved_root = _validate_artifact_root(artifact_root)
+
+    schemas = _load_canonical_schemas()
+    _check_canonical_schemas(schemas)
+
+    assessment_schema = schemas[_ASSESSMENT_SCHEMA_FILENAME]
+    inputs_subschema = assessment_schema["properties"]["inputs"]
+
+    canonical_refs = _validate_input_refs(input_refs, inputs_subschema)
+
+    input_validators = {
+        name: Draft202012Validator(schemas[_INPUT_SCHEMAS[name]])
+        for name in _REQUIRED_INPUTS
+    }
+
+    payloads: dict[str, Any] = {}
+    for name in _REQUIRED_INPUTS:
+        payloads[name] = _load_input_payload(
+            name, canonical_refs[name], resolved_root, input_validators[name]
+        )
+
+    # The producer stays pure and unchanged. Its own domain ValueErrors are not
+    # caught or translated into HeimserverServiceGateArtifactError here.
+    assessment = derive_heimserver_service_gate_assessment(
+        server_facts=payloads["server_facts_ref"],
+        expectation=payloads["expectation_ref"],
+        service_evidence=payloads["service_evidence_ref"],
+        input_refs=canonical_refs,
+    )
+
+    output_validator = Draft202012Validator(assessment_schema)
+    output_error = _first_error(output_validator, assessment)
+    if output_error is not None:
+        raise HeimserverServiceGateArtifactError(
+            code="output_schema_invalid",
+            stage="output_schema",
+            detail=_short(output_error.message),
+        )
+
+    return copy.deepcopy(assessment)

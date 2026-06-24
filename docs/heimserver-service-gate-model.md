@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. CLI, runbook, loader, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
+Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter that makes the producer reachable through explicit, hash-bound, repository-relative artifact references. CLI, runbook, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -420,3 +420,52 @@ Status: implemented (pure in-memory producer only)
 - **Erreichbarkeit von Reasons:** Der Producer erzeugt keine artifiziellen Loader- oder Schemafehler, die aus den validierten In-Memory Inputs gar nicht erreichbar sein dürfen.
 - **Reinheitsgarantien:** Keine Datei-I/O, keine Subprozesse, keine Systemzeit, keine Netzwerkzugriffe. Reine deterministische In-Memory Funktion ohne Alias-Beziehungen zum Input.
 - **Non-Goals:** Keine CLI-Integration, kein Runbook, kein Writer, kein Loader, keine Liveprüfung, keine Stage-D-Action.
+
+## Phase 11F-I — Safe Artifact Input Adapter
+
+Status: implemented (safe artifact adapter only)
+
+11F-I macht den reinen, in 11F-H implementierten Producer erstmals kontrolliert über explizite, repository-relative Artefaktverweise erreichbar. Der Adapter verantwortet ausschließlich die technische Ladegrenze; die fachliche Derivation bleibt unverändert beim Producer.
+
+- **Modulpfad:** `steuerboard/heimserver_service_gate_artifacts.py`
+- **Öffentliche API:** genau die Fehlerklasse `HeimserverServiceGateArtifactError` und die Funktion `derive_heimserver_service_gate_assessment_from_refs(*, artifact_root, input_refs)`. Alle Lade-, Pfad-, JSON- und Schemahelfer bleiben privat. Es gibt keine öffentliche Loaderfunktion und keine öffentliche Dataclass.
+
+### Explizite, repository-relative Inputrefs
+
+Der Adapter prüft exakt die drei `input_refs` (`server_facts_ref`, `expectation_ref`, `service_evidence_ref`) gegen das kanonisch kopierte `inputs`-Subschema des Assessment-Vertrages. Es gibt keine automatische Discovery, kein Glob, kein `expanduser()`, keine Umgebungsvariablenauflösung und keine Standardpfade.
+
+### Artifact-Root vs. kanonische Schemaautorität
+
+`artifact_root` bestimmt ausschließlich, wo die drei Eingabeartefakte liegen dürfen. Die vier kanonischen Schemas (`server-facts.v1`, `heimserver-service-expectation.v1`, `heimserver-service-evidence.v1`, `heimserver-service-gate-assessment.v1`) werden immer code-relativ aus dem steuerboard-Checkout geladen (`_SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas"`), niemals aus `artifact_root`. Ein Aufrufer kann damit kein abgeschwächtes Ersatzschema neben den Artefakten einschleusen. Es gibt keinen öffentlichen `schema_root`-Parameter. Diese Grenze setzt das aktuelle steuerboard-Checkout- bzw. lokale Installationsmodell voraus; eine Packaging-Reform findet nicht statt.
+
+### Statische Root-Escape- und Symlink-Prüfung
+
+Pfade werden ohne lexikalisches `..`-Segment und ohne absolute Form akzeptiert, mit `resolve(strict=True)` aufgelöst und per `relative_to(resolved_root)` als innerhalb des Roots bewiesen. Symlink-Policy: ein Symlink auf eine reguläre Datei innerhalb des Roots ist zulässig; ein Symlink (oder eine Symlinkkette) auf ein Ziel außerhalb des Roots ergibt `unsafe_path`; ein fehlendes Ziel ergibt `file_missing`; ein Verzeichnis oder anderes nicht reguläres Ziel ergibt `not_regular_file`.
+
+### Einmaliges Rohbyte-Lesen und SHA-256-Bindung
+
+Jede Inputdatei wird genau einmal als Rohbytes gelesen. Der SHA-256 wird über exakt diese gelesenen Rohbytes gebildet und vor jeder semantischen Verarbeitung gegen den deklarierten `sha256` geprüft. Es wird nicht über neu serialisiertes JSON gehasht; `canonical_json_sha256()` wird bewusst nicht verwendet. Eine semantisch gleiche, aber anders formatierte JSON-Datei benötigt daher einen anderen Referenzhash.
+
+### Striktes UTF-8 und striktes JSON
+
+Dieselben gelesenen Rohbytes werden streng als UTF-8 und anschließend als JSON dekodiert. Der strikte JSON-Decoder lehnt doppelte Objektschlüssel sowie `NaN`, `Infinity` und `-Infinity` ab (Code `invalid_json`, Stage `json_decode`). Diese Striktheit gilt sowohl für die Inputartefakte als auch für die kanonischen Schema-Dateien.
+
+### Vollständige Draft-2020-12-Schemavalidierung
+
+Die drei Payloads werden vollständig mit `jsonschema.Draft202012Validator` gegen die kanonischen Schemas validiert; jedes Schema wird zuvor mit `check_schema` geprüft. Der interne Minimalvalidator reicht für diesen Slice nicht (u. a. wegen `contains` in Evidence und Assessment) und wird hier nicht als stiller Fallback verwendet. Bei mehreren Schemafehlern wird deterministisch der nach (`absolute_path`, `absolute_schema_path`, `message`) erste Fehler als primäre Diagnose gewählt; vollständige Payloads erscheinen nicht in der Fehlermeldung.
+
+### Producer bleibt rein und unverändert; Outputschema-Validierung
+
+Der bestehende Producer wird genau einmal aufgerufen und nicht verändert; seine fachliche Logik wird nicht dupliziert. Das erzeugte Assessment wird anschließend vollständig gegen `heimserver-service-gate-assessment.v1` validiert (`output_schema_invalid` bei Verstoß). Zurückgegeben wird eine tiefe, unabhängige Dictionary-Kopie; Original-`input_refs`, Producer-Eingaben und Rückgabe stehen in keiner Alias-Beziehung.
+
+### Technische Artefaktfehler sind keine Assessment-Reason-Codes
+
+Ladefehler sind technische Fehler des Adapters, keine fachlichen Reason-Codes des Assessments. Sie werden als `HeimserverServiceGateArtifactError` mit den maschinenprüfbaren Attributen `code`, `stage`, `input_name`, `path` erhoben. Die fachlichen `ValueError`-Ausnahmen des Producers werden bewusst nicht abgefangen oder in Adapterfehler übersetzt. Stabile Fehlercodes: `invalid_artifact_root`, `contract_load_failed`, `contract_schema_invalid`, `invalid_input_refs`, `unsafe_path`, `file_missing`, `not_regular_file`, `read_failed`, `hash_mismatch`, `invalid_utf8`, `invalid_json`, `input_schema_invalid`, `output_schema_invalid`.
+
+### Bedrohungsmodell und Speicherverhalten
+
+Der Adapter schützt gegen statische Pfadflucht und normale Fehlkonfiguration. Er behauptet keinen vollständigen Schutz gegen einen gleichzeitig agierenden privilegierten lokalen Dateisystemangreifer (kein `openat2`, kein `O_NOFOLLOW`, keine fd-relative Architektur in diesem Slice). Kleine lokale steuerboard-Artefakte werden vollständig in den Speicher gelesen; ein Schutz vor absichtlich riesigen Dateien ist nicht Bestandteil dieses Slices, und es wird kein künstliches Dateigrößenlimit eingeführt.
+
+### Weiter offen (future-gated)
+
+CLI, Writer, Runbook, Runtime, Live-Checks, Stage D und evidence-interne Provenienz bleiben unverändert offen.
