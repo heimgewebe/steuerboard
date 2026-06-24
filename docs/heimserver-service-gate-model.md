@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B contract implemented. Phase 11F-C (Producer Preimage Boundary) is design/decision-prep (documentation and guard tests). Phase 11F-D adds the `heimserver-service-expectation.v1` input contract; Phase 11F-E adds the `heimserver-service-evidence.v1` input contract; Phase 11F-F integrates `inputs.service_evidence_ref` so the assessment's direct input-reference set is complete; evidence-internal provenance and derivation remain future work (all schema-only, no producer/runtime). Runtime and Runbook integration remain future-gated.
+Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation rules, golden cases, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. CLI, runbook, loader, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
