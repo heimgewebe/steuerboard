@@ -365,30 +365,38 @@ def _inputs_compatibility_probes() -> tuple[dict[str, Any], list[Any]]:
     def base() -> dict[str, Any]:
         return {name: dict(valid_ref) for name in _REQUIRED_INPUTS}
 
-    def with_override(**overrides: Any) -> dict[str, Any]:
+    def replace_ref(input_name: str, value: Any) -> dict[str, Any]:
         probe = base()
-        probe.update(overrides)
+        probe[input_name] = value
         return probe
 
     valid = base()
-    invalid: list[Any] = [
-        {},
-        {k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != "server_facts_ref"},
-        {k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != "expectation_ref"},
-        {k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != "service_evidence_ref"},
-        with_override(extra_ref=dict(valid_ref)),
-        with_override(server_facts_ref=None),
-        with_override(server_facts_ref="x"),
-        with_override(server_facts_ref={"sha256": "0" * 64}),
-        with_override(server_facts_ref={"path": "artifact.json"}),
-        with_override(
-            server_facts_ref={"path": "artifact.json", "sha256": "0" * 64, "extra": 1}
-        ),
-        with_override(server_facts_ref={"path": "", "sha256": "0" * 64}),
-        with_override(server_facts_ref={"path": "artifact.json", "sha256": "0" * 63}),
-        with_override(server_facts_ref={"path": "artifact.json", "sha256": "A" * 64}),
-        with_override(server_facts_ref={"path": "artifact.json", "sha256": "g" * 64}),
+
+    # Top-level structure probes (once).
+    invalid: list[Any] = [{}]
+    for input_name in _REQUIRED_INPUTS:
+        invalid.append({k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != input_name})
+    extra = base()
+    extra["extra_ref"] = dict(valid_ref)
+    invalid.append(extra)
+
+    # Nested per-reference malformations, applied symmetrically to every
+    # canonical reference name (not only server_facts_ref).
+    nested_bad_values: list[Any] = [
+        None,
+        "x",
+        {"sha256": "0" * 64},
+        {"path": "artifact.json"},
+        {"path": "artifact.json", "sha256": "0" * 64, "extra": 1},
+        {"path": "", "sha256": "0" * 64},
+        {"path": "artifact.json", "sha256": "0" * 63},
+        {"path": "artifact.json", "sha256": "A" * 64},
+        {"path": "artifact.json", "sha256": "g" * 64},
     ]
+    for input_name in _REQUIRED_INPUTS:
+        for bad_value in nested_bad_values:
+            invalid.append(replace_ref(input_name, copy.deepcopy(bad_value)))
+
     return valid, invalid
 
 
@@ -502,6 +510,11 @@ def _assert_producer_preimage_shape(*, input_name: str, payload: Any) -> None:
             for key in required_keys:
                 if key not in element:
                     raise _fail(f"{label} element is missing '{key}'")
+            # The producer uses service_name as a set/dict key; a non-string
+            # value (e.g. a list/object accepted by a too-weak schema) would
+            # otherwise raise a raw unhashable-type TypeError in the producer.
+            if not isinstance(element["service_name"], str):
+                raise _fail(f"{label} element has a non-string 'service_name'")
 
     if not isinstance(payload, Mapping):
         raise _fail("payload is not an object")

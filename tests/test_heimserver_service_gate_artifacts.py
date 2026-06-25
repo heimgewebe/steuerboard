@@ -2,7 +2,7 @@
 
 These tests prove that the adapter
 ``steuerboard.heimserver_service_gate_artifacts.derive_heimserver_service_gate_assessment_from_refs``
-loads explicit, repository-relative artifact references safely, binds raw bytes
+loads explicit, artifact-root-relative artifact references safely, binds raw bytes
 to their declared SHA-256, decodes strict UTF-8/JSON, validates payloads against
 the canonical Draft 2020-12 schemas, calls the unchanged producer once, and
 validates the producer's assessment — all with a deterministic failure priority.
@@ -1326,3 +1326,77 @@ def test_real_canonical_schemas_are_self_contained():
         schemas[m._ASSESSMENT_SCHEMA_FILENAME]
     )
     m._assert_inputs_subschema_compatible(inputs_subschema)
+
+
+# --------------------------------------------------------------------------- #
+# Remaining preimage type gaps (PR #81, fourth pass)
+# --------------------------------------------------------------------------- #
+def test_expectation_service_name_non_string_rejected(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch)
+    _patch_schemas(tmp_path, monkeypatch, {EXPECTATION_SCHEMA_FILE: b"{}"})
+    payload = {
+        "host": "heimserver",
+        "expected_services": [{"service_name": [], "expected_role": "overlay-network"}],
+    }
+    refs = build_valid_root(tmp_path, exp_bytes=json.dumps(payload).encode())
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == EXPECTATION_SCHEMA_FILE
+    assert ei.value.input_name == "expectation_ref"
+    assert spy.called is False
+
+
+def test_evidence_service_name_non_string_rejected(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch)
+    _patch_schemas(tmp_path, monkeypatch, {EVIDENCE_SCHEMA_FILE: b"{}"})
+    payload = {
+        "host": "heimserver",
+        "observed_at": "2026-01-01T00:00:00Z",
+        "freshness_status": "fresh",
+        "services": [{"service_name": {}, "evidence_status": "present"}],
+    }
+    refs = build_valid_root(tmp_path, ev_bytes=json.dumps(payload).encode())
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == EVIDENCE_SCHEMA_FILE
+    assert ei.value.input_name == "service_evidence_ref"
+    assert spy.called is False
+
+
+@pytest.mark.parametrize("bad_name", [[], {}, 1, True, None])
+def test_preimage_guard_rejects_non_string_service_name(bad_name):
+    payload = {
+        "host": "h",
+        "expected_services": [{"service_name": bad_name, "expected_role": "r"}],
+    }
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        adapter_module._assert_producer_preimage_shape(
+            input_name="expectation_ref", payload=payload
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.input_name == "expectation_ref"
+
+
+@pytest.mark.parametrize("weak_ref", ["expectation_ref", "service_evidence_ref"])
+def test_weak_single_ref_subschema_detected_symmetrically(tmp_path, monkeypatch, weak_ref):
+    spy = install_spy(monkeypatch)
+    real = json.loads((SCHEMAS_DIR / ASSESSMENT_SCHEMA_FILE).read_text(encoding="utf-8"))
+    real["properties"]["inputs"]["properties"][weak_ref] = {}
+    _patch_schemas(tmp_path, monkeypatch, {ASSESSMENT_SCHEMA_FILE: json.dumps(real).encode()})
+    refs = build_valid_root(tmp_path)
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == ASSESSMENT_SCHEMA_FILE
+    assert spy.called is False
