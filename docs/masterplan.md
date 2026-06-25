@@ -948,7 +948,7 @@ Phase 11F-E contracts the third declared assessment-input artifact, `heimserver-
 Phase 11F-F integrates the evidence input into the assessment contract: `heimserver-service-gate-assessment.v1` now requires `inputs.service_evidence_ref` (same `path` + `sha256` shape as the other two refs), and all five fixtures were migrated with real hashes. Phase 11F-F adds `inputs.service_evidence_ref`, completing the assessment's direct input-reference set within the assessment artifact. This does not complete evidence-internal provenance or producer derivation semantics. Contract integration only — no producer, runbook kind, CLI, Stage-D, or live check, and no status-semantics change.
 Phase 11F-G: Contract + Golden Oracle
 Phase 11F-H: pure production derivation
-Phase 11F-I: safe artifact input adapter (explicit repository-relative refs, root-safe path resolution, raw-byte SHA-256 binding, strict UTF-8/JSON, full Draft 2020-12 validation; the producer stays pure and unchanged). CLI, Writer, Runbook, Runtime, Live-Checks und Stage D bleiben future-gated.
+Phase 11F-I: safe artifact input adapter (explicit artifact-root-relative refs, root-safe path resolution, raw-byte SHA-256 binding, strict UTF-8/JSON, full Draft 2020-12 validation; the producer stays pure and unchanged). CLI, Writer, Runbook, Runtime, Live-Checks und Stage D bleiben future-gated.
 
 #### Ziel
 

@@ -2,7 +2,7 @@
 
 This module is the first controlled bridge that makes the pure in-memory producer
 ``steuerboard.heimserver_service_gate.derive_heimserver_service_gate_assessment``
-reachable through explicit, repository-relative artifact references.
+reachable through explicit, artifact-root-relative artifact references.
 
 The adapter owns exactly the technical loading boundary and nothing else:
 
@@ -20,7 +20,11 @@ The adapter owns exactly the technical loading boundary and nothing else:
 
 Contract authority: the canonical schemas are always loaded from the steuerboard
 checkout (``_SCHEMAS_DIR``), never from ``artifact_root``, so a caller cannot
-smuggle a weakened replacement schema next to the artifacts.
+smuggle a weakened replacement schema next to the artifacts. The four canonical
+schemas must be self-contained (no ``$ref``/``$dynamicRef``/``$recursiveRef``) so
+no reference resolution can occur, the assessment ``inputs`` subschema is probed
+for adapter compatibility, and each loaded payload passes a narrow producer
+preimage-shape guard. ``artifact_root`` need not be a git repository.
 
 Error boundary: technical loading failures are raised as
 :class:`HeimserverServiceGateArtifactError`. They are never translated into
@@ -93,6 +97,11 @@ _CANONICAL_SCHEMA_FILENAMES = (
 
 # Diagnostic details never carry whole payloads or file contents.
 _MAX_DETAIL_CHARS = 200
+
+# This adapter accepts only self-contained, reference-free canonical schemas, so
+# jsonschema never performs reference resolution (which could reach the network).
+# Local references would require a deliberate later slice with an offline registry.
+_FORBIDDEN_REFERENCE_KEYWORDS = ("$ref", "$dynamicRef", "$recursiveRef")
 
 
 class HeimserverServiceGateArtifactError(ValueError):
@@ -250,13 +259,37 @@ def _load_canonical_schemas() -> dict[str, Any]:
     return schemas
 
 
+def _assert_schema_is_self_contained(*, schema: Any, filename: str) -> None:
+    """Reject ``$ref``/``$dynamicRef``/``$recursiveRef`` anywhere in a schema.
+
+    Guarantees the claimed offline behaviour: a reference-free schema can never
+    trigger jsonschema reference resolution. The referenced URI is intentionally
+    not echoed in the error detail.
+    """
+    stack: list[Any] = [schema]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, Mapping):
+            for key, value in node.items():
+                if key in _FORBIDDEN_REFERENCE_KEYWORDS:
+                    raise HeimserverServiceGateArtifactError(
+                        code="contract_schema_invalid",
+                        stage="contract_schema",
+                        path=filename,
+                        detail="canonical schema contains unsupported reference keyword",
+                    )
+                stack.append(value)
+        elif isinstance(node, (list, tuple)):
+            stack.extend(node)
+
+
 def _check_canonical_schemas(schemas: Mapping[str, Any]) -> None:
     """Validate that each canonical schema is itself usable by this adapter.
 
     ``check_schema`` only proves valid-JSON-Schema-ness, and a boolean schema
     (e.g. ``true``) passes it while being structurally incompatible with this
     adapter's contract authority. Each canonical schema must therefore be a
-    JSON object (mapping) schema.
+    JSON object (mapping) schema and must be self-contained (reference-free).
     """
     for filename in _CANONICAL_SCHEMA_FILENAMES:
         schema = schemas[filename]
@@ -267,6 +300,7 @@ def _check_canonical_schemas(schemas: Mapping[str, Any]) -> None:
                 path=filename,
                 detail="canonical schema must be a JSON object schema, not a boolean",
             )
+        _assert_schema_is_self_contained(schema=schema, filename=filename)
         try:
             Draft202012Validator.check_schema(schema)
         except SchemaError as exc:
@@ -317,6 +351,187 @@ def _extract_inputs_subschema(
             detail="assessment schema 'properties.inputs' must be a mapping subschema",
         )
     return inputs_subschema
+
+
+def _inputs_compatibility_probes() -> tuple[dict[str, Any], list[Any]]:
+    """One must-accept probe and several must-reject probes for the inputs subschema.
+
+    These are consumer-driven behaviour probes, not a syntactic mirror of the
+    schema. They encode exactly the reference shapes the adapter/producer can and
+    cannot consume.
+    """
+    valid_ref = {"path": "artifact.json", "sha256": "0" * 64}
+
+    def base() -> dict[str, Any]:
+        return {name: dict(valid_ref) for name in _REQUIRED_INPUTS}
+
+    def with_override(**overrides: Any) -> dict[str, Any]:
+        probe = base()
+        probe.update(overrides)
+        return probe
+
+    valid = base()
+    invalid: list[Any] = [
+        {},
+        {k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != "server_facts_ref"},
+        {k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != "expectation_ref"},
+        {k: dict(valid_ref) for k in _REQUIRED_INPUTS if k != "service_evidence_ref"},
+        with_override(extra_ref=dict(valid_ref)),
+        with_override(server_facts_ref=None),
+        with_override(server_facts_ref="x"),
+        with_override(server_facts_ref={"sha256": "0" * 64}),
+        with_override(server_facts_ref={"path": "artifact.json"}),
+        with_override(
+            server_facts_ref={"path": "artifact.json", "sha256": "0" * 64, "extra": 1}
+        ),
+        with_override(server_facts_ref={"path": "", "sha256": "0" * 64}),
+        with_override(server_facts_ref={"path": "artifact.json", "sha256": "0" * 63}),
+        with_override(server_facts_ref={"path": "artifact.json", "sha256": "A" * 64}),
+        with_override(server_facts_ref={"path": "artifact.json", "sha256": "g" * 64}),
+    ]
+    return valid, invalid
+
+
+def _assert_inputs_subschema_compatible(inputs_subschema: Mapping[str, Any]) -> None:
+    """Probe the assessment ``inputs`` subschema for adapter compatibility.
+
+    A meta-schema-valid but too-weak subschema (e.g. ``{}``) would accept
+    reference shapes the adapter cannot consume, later causing raw indexing
+    errors. If the subschema rejects the canonical valid reference set, or
+    accepts any adapter-incompatible shape, the canonical contract is unusable
+    for this adapter -> ``contract_schema_invalid``. Probe instances are never
+    placed in the error detail.
+    """
+    validator = Draft202012Validator(inputs_subschema)
+    valid_probe, invalid_probes = _inputs_compatibility_probes()
+    if _first_error(validator, valid_probe) is not None:
+        raise HeimserverServiceGateArtifactError(
+            code="contract_schema_invalid",
+            stage="contract_schema",
+            path=_ASSESSMENT_SCHEMA_FILENAME,
+            detail="assessment 'inputs' subschema rejects a canonical valid reference set",
+        )
+    for probe in invalid_probes:
+        if _first_error(validator, probe) is None:
+            raise HeimserverServiceGateArtifactError(
+                code="contract_schema_invalid",
+                stage="contract_schema",
+                path=_ASSESSMENT_SCHEMA_FILENAME,
+                detail=(
+                    "assessment 'inputs' subschema accepts an adapter-incompatible "
+                    "reference shape"
+                ),
+            )
+
+
+def _is_lower_hex64(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _assert_input_refs_form(candidate: Any) -> None:
+    """Defensive contract-sanity guard on the actual ``input_refs``.
+
+    Runs after JSON-schema validation, before any indexing. If the inputs
+    subschema accepted a value this guard rejects, the canonical assessment
+    contract is adapter-incompatible, so the failure is ``contract_schema_invalid``
+    (not ``invalid_input_refs``). No payload values are placed in the detail.
+    """
+
+    def _fail(input_name: str | None, detail: str) -> "HeimserverServiceGateArtifactError":
+        return HeimserverServiceGateArtifactError(
+            code="contract_schema_invalid",
+            stage="contract_schema",
+            path=_ASSESSMENT_SCHEMA_FILENAME,
+            input_name=input_name,
+            detail=detail,
+        )
+
+    if not isinstance(candidate, Mapping):
+        raise _fail(None, "input_refs is not a mapping after schema validation")
+    if set(candidate.keys()) != set(_REQUIRED_INPUTS):
+        raise _fail(None, "input_refs key set does not match the required references")
+    for name in _REQUIRED_INPUTS:
+        ref = candidate[name]
+        if not isinstance(ref, Mapping):
+            raise _fail(name, "reference is not a mapping")
+        if set(ref.keys()) != {"path", "sha256"}:
+            raise _fail(name, "reference does not have exactly 'path' and 'sha256'")
+        path_value = ref["path"]
+        if not isinstance(path_value, str) or not path_value:
+            raise _fail(name, "reference 'path' is not a non-empty string")
+        if not _is_lower_hex64(ref["sha256"]):
+            raise _fail(name, "reference 'sha256' is not a 64-char lowercase hex string")
+
+
+def _assert_producer_preimage_shape(*, input_name: str, payload: Any) -> None:
+    """Verify the minimal structure the producer indexes/iterates directly.
+
+    A too-weak input schema could pass a payload that the pure producer would
+    then index into (e.g. ``server_facts["host"]["hostname"]``,
+    ``expectation["host"]``, ``service_evidence["observed_at"]``) or iterate
+    (``service_name``/``expected_role``/``evidence_status`` per element),
+    raising a raw ``KeyError``/``TypeError``. If a payload passed its schema but
+    violates this technically-required shape, the canonical schema is
+    adapter-incompatible -> ``contract_schema_invalid``.
+
+    Only the producer's direct preimage accesses are checked. The producer's own
+    domain ``ValueError`` rules (e.g. ``freshness_status`` values) are not
+    duplicated, and no payload values are echoed.
+    """
+    schema_file = _INPUT_SCHEMAS[input_name]
+
+    def _fail(detail: str) -> "HeimserverServiceGateArtifactError":
+        return HeimserverServiceGateArtifactError(
+            code="contract_schema_invalid",
+            stage="contract_schema",
+            path=schema_file,
+            input_name=input_name,
+            detail=detail,
+        )
+
+    def _check_service_list(value: Any, required_keys: tuple[str, ...], label: str) -> None:
+        if not isinstance(value, list):
+            raise _fail(f"{label} is not a list")
+        for element in value:
+            if not isinstance(element, Mapping):
+                raise _fail(f"{label} contains a non-object element")
+            for key in required_keys:
+                if key not in element:
+                    raise _fail(f"{label} element is missing '{key}'")
+
+    if not isinstance(payload, Mapping):
+        raise _fail("payload is not an object")
+
+    if input_name == "server_facts_ref":
+        host = payload.get("host")
+        if not isinstance(host, Mapping):
+            raise _fail("server_facts.host is not an object")
+        if "hostname" not in host:
+            raise _fail("server_facts.host is missing 'hostname'")
+    elif input_name == "expectation_ref":
+        if "host" not in payload:
+            raise _fail("expectation is missing 'host'")
+        if "expected_services" in payload:
+            _check_service_list(
+                payload["expected_services"],
+                ("service_name", "expected_role"),
+                "expectation.expected_services",
+            )
+    elif input_name == "service_evidence_ref":
+        if "host" not in payload:
+            raise _fail("service_evidence is missing 'host'")
+        if "observed_at" not in payload:
+            raise _fail("service_evidence is missing 'observed_at'")
+        if "services" in payload:
+            _check_service_list(
+                payload["services"],
+                ("service_name", "evidence_status"),
+                "service_evidence.services",
+            )
 
 
 def _validate_artifact_root(artifact_root: Any) -> Path:
@@ -388,6 +603,9 @@ def _validate_input_refs(
             input_name=input_name,
             detail=_safe_schema_error_detail(error),
         )
+    # Defensive contract-sanity guard before any indexing: if the subschema let a
+    # malformed value through, that is a contract defect, not a caller error.
+    _assert_input_refs_form(candidate)
     return {name: dict(candidate[name]) for name in _REQUIRED_INPUTS}
 
 
@@ -539,6 +757,9 @@ def _load_input_payload(
             path=path_str,
             detail=_safe_schema_error_detail(error),
         )
+    # The payload passed its canonical schema; verify the minimal structure the
+    # producer indexes directly. A violation here means the schema is too weak.
+    _assert_producer_preimage_shape(input_name=input_name, payload=payload)
     return payload
 
 
@@ -579,6 +800,7 @@ def derive_heimserver_service_gate_assessment_from_refs(
 
     assessment_schema = schemas[_ASSESSMENT_SCHEMA_FILENAME]
     inputs_subschema = _extract_inputs_subschema(assessment_schema)
+    _assert_inputs_subschema_compatible(inputs_subschema)
 
     canonical_refs = _validate_input_refs(input_refs, inputs_subschema)
 

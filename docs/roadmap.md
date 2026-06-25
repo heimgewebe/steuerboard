@@ -1373,7 +1373,7 @@ Scope:
 
 Status: implemented (safe artifact adapter only)
 
-Macht den reinen 11F-H-Producer erstmals kontrolliert über explizite, repository-relative Artefaktverweise erreichbar.
+Macht den reinen 11F-H-Producer erstmals kontrolliert über explizite, artifact-root-relative Artefaktverweise erreichbar.
 
 Scope:
 - neues Modul `steuerboard/heimserver_service_gate_artifacts.py` mit genau einer öffentlichen Adapterfunktion (`derive_heimserver_service_gate_assessment_from_refs`) und einer Fehlerklasse (`HeimserverServiceGateArtifactError`).

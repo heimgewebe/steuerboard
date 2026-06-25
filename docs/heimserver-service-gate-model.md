@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter that makes the producer reachable through explicit, hash-bound, repository-relative artifact references. CLI, runbook, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
+Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter that makes the producer reachable through explicit, hash-bound, artifact-root-relative artifact references. CLI, runbook, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -425,12 +425,12 @@ Status: implemented (pure in-memory producer only)
 
 Status: implemented (safe artifact adapter only)
 
-11F-I macht den reinen, in 11F-H implementierten Producer erstmals kontrolliert über explizite, repository-relative Artefaktverweise erreichbar. Der Adapter verantwortet ausschließlich die technische Ladegrenze; die fachliche Derivation bleibt unverändert beim Producer.
+11F-I macht den reinen, in 11F-H implementierten Producer erstmals kontrolliert über explizite, artifact-root-relative Artefaktverweise erreichbar. Der Adapter verantwortet ausschließlich die technische Ladegrenze; die fachliche Derivation bleibt unverändert beim Producer.
 
 - **Modulpfad:** `steuerboard/heimserver_service_gate_artifacts.py`
 - **Öffentliche API:** genau die Fehlerklasse `HeimserverServiceGateArtifactError` und die Funktion `derive_heimserver_service_gate_assessment_from_refs(*, artifact_root, input_refs)`. Alle Lade-, Pfad-, JSON- und Schemahelfer bleiben privat. Es gibt keine öffentliche Loaderfunktion und keine öffentliche Dataclass.
 
-### Explizite, repository-relative Inputrefs
+### Explizite, artifact-root-relative Inputrefs
 
 Der Adapter prüft exakt die drei `input_refs` (`server_facts_ref`, `expectation_ref`, `service_evidence_ref`) gegen das kanonisch kopierte `inputs`-Subschema des Assessment-Vertrages. Es gibt keine automatische Discovery, kein Glob, kein `expanduser()`, keine Umgebungsvariablenauflösung und keine Standardpfade.
 
@@ -453,6 +453,17 @@ Dieselben gelesenen Rohbytes werden streng als UTF-8 und anschließend als JSON 
 ### Vollständige Draft-2020-12-Schemavalidierung
 
 Die drei Payloads werden vollständig mit `jsonschema.Draft202012Validator` gegen die kanonischen Schemas validiert; jedes Schema wird zuvor mit `check_schema` geprüft. Der interne Minimalvalidator reicht für diesen Slice nicht (u. a. wegen `contains` in Evidence und Assessment) und wird hier nicht als stiller Fallback verwendet. Bei mehreren Schemafehlern wird deterministisch der nach (`absolute_path`, `absolute_schema_path`, `message`) erste Fehler ausgewählt. Die ausgegebene Diagnose besteht jedoch ausschließlich aus dem fehlgeschlagenen Schema-Keyword und dem vertrauenswürdigen schema-seitigen Pfad (JSON-Pointer-kodiert); **Artefaktinstanzwerte und untrusted JSON-Schlüssel erscheinen nicht in der Fehlermeldung** (weder über `error.message` noch über `absolute_path`). Kanonische Schemas müssen über die Meta-Schema-Validität (`check_schema`) hinaus strukturell mit dem Adapter kompatibel sein: Mapping-Schemas mit nutzbarem `properties.inputs`; boolesche „akzeptiere alles“-Schemas (z. B. `true`) werden als `contract_schema_invalid` abgelehnt.
+
+### Contract-Kompatibilität und Producer-Preimage-Form
+
+Über die reine Schemavalidierung hinaus prüft der Adapter, dass der kanonische Vertrag tatsächlich mit Adapter und Producer zusammenpasst — ohne die JSON-Schemas in Python nachzubauen:
+
+- Das `inputs`-Subschema wird nicht nur meta-schema-validiert, sondern verhaltensbasiert anhand consumer-relevanter Probeinstanzen auf Adapterkompatibilität geprüft (eine kanonische gültige Referenzmenge muss akzeptiert, alle adapterinkompatiblen Formen müssen abgelehnt werden).
+- Nach der Schemavalidierung der `input_refs` greift ein defensiver Form-Guard vor jedem Indexzugriff (exakte Schlüsselmenge, je Ref genau `path` + `sha256`, nichtleerer `path`, `^[0-9a-f]{64}$`).
+- Tatsächlich geladene Payloads durchlaufen nach der Schemavalidierung einen schmalen Producer-Preimage-Shape-Guard, der nur die vom Producer unmittelbar per Indexzugriff oder Iteration benötigte Struktur prüft (`server_facts.host.hostname`, `expectation.host`, `service_evidence.host`/`observed_at` sowie `service_name`/`expected_role`/`evidence_status` je Listenelement).
+- Besteht ein Payload sein kanonisches Schema, verletzt aber die technisch benötigte Form, gilt das kanonische Schema als adapterinkompatibel: `contract_schema_invalid` (nicht `invalid_input_refs`/`input_schema_invalid`). Der Producer wird in diesem Fall nicht aufgerufen; seine fachlichen `ValueError`-Regeln (z. B. `freshness_status`) werden nicht dupliziert und nicht umklassifiziert.
+- Die vier kanonischen Schemas sind in 11F-I selbstenthalten und referenzfrei; `$ref`, `$dynamicRef` und `$recursiveRef` werden abgelehnt (`contract_schema_invalid`), sodass keinerlei — auch keine netzwerkbasierte — Referenzauflösung stattfindet. Lokale Schema-Referenzen erfordern später eine explizite Offline-Registry und einen eigenen Contract-Slice.
+- Es findet keine vollständige Fachschema-Duplikation in Python statt; die Zusatzprüfungen sind schmale, consumer-getriebene Kompatibilitäts- und Form-Guards. Referenzen sind artifact-root-relativ; `artifact_root` muss kein Git-Repository sein.
 
 ### Producer bleibt rein und unverändert; Outputschema-Validierung
 

@@ -1082,3 +1082,247 @@ def test_input_schema_replaced_by_boolean_true(tmp_path, monkeypatch):
     assert ei.value.code == "contract_schema_invalid"
     assert ei.value.stage == "contract_schema"
     assert ei.value.path == server_facts_file
+
+
+# --------------------------------------------------------------------------- #
+# Contract-compatibility hardening (PR #81, third pass)
+# --------------------------------------------------------------------------- #
+META_SCHEMA_URI = "https://json-schema.org/draft/2020-12/schema"
+SERVER_FACTS_SCHEMA_FILE = adapter_module._INPUT_SCHEMAS["server_facts_ref"]
+EXPECTATION_SCHEMA_FILE = adapter_module._INPUT_SCHEMAS["expectation_ref"]
+EVIDENCE_SCHEMA_FILE = adapter_module._INPUT_SCHEMAS["service_evidence_ref"]
+GOOD_REF = {"path": "a.json", "sha256": "0" * 64}
+
+
+def _patch_schemas(tmp_path, monkeypatch, override):
+    schemas_dir = make_schemas_dir(tmp_path, override=override)
+    monkeypatch.setattr(adapter_module, "_SCHEMAS_DIR", schemas_dir)
+
+
+def _assessment_with_inputs(inputs_obj) -> bytes:
+    return json.dumps(
+        {"$schema": META_SCHEMA_URI, "type": "object", "properties": {"inputs": inputs_obj}}
+    ).encode("utf-8")
+
+
+# Finding A — formally valid but too-weak assessment `inputs` subschema
+@pytest.mark.parametrize(
+    "inputs_obj",
+    [
+        {},
+        {"type": "object"},
+        {
+            "type": "object",
+            "required": ["server_facts_ref"],
+            "properties": {"server_facts_ref": {}},
+        },
+    ],
+)
+def test_weak_assessment_inputs_subschema_rejected(tmp_path, monkeypatch, inputs_obj):
+    spy = install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(
+        tmp_path, monkeypatch, {ASSESSMENT_SCHEMA_FILE: _assessment_with_inputs(inputs_obj)}
+    )
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs={}
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == ASSESSMENT_SCHEMA_FILE
+    assert spy.called is False
+
+
+def test_weak_ref_object_subschema_rejected(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch, passthrough=False)
+    inputs_obj = {
+        "type": "object",
+        "required": list(adapter_module._REQUIRED_INPUTS),
+        "properties": {name: {} for name in adapter_module._REQUIRED_INPUTS},
+    }
+    _patch_schemas(
+        tmp_path, monkeypatch, {ASSESSMENT_SCHEMA_FILE: _assessment_with_inputs(inputs_obj)}
+    )
+    none_refs = {name: None for name in adapter_module._REQUIRED_INPUTS}
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=none_refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.path == ASSESSMENT_SCHEMA_FILE
+    assert spy.called is False
+
+
+# Finding B — defensive form guard catches drift even under a permissive subschema
+@pytest.mark.parametrize(
+    "bad_candidate",
+    [
+        {n: None for n in adapter_module._REQUIRED_INPUTS},
+        {"server_facts_ref": dict(GOOD_REF), "expectation_ref": dict(GOOD_REF)},
+        {
+            **{n: dict(GOOD_REF) for n in adapter_module._REQUIRED_INPUTS},
+            "extra_ref": dict(GOOD_REF),
+        },
+        {
+            **{n: dict(GOOD_REF) for n in adapter_module._REQUIRED_INPUTS},
+            "server_facts_ref": {"path": "a.json"},
+        },
+        {
+            **{n: dict(GOOD_REF) for n in adapter_module._REQUIRED_INPUTS},
+            "server_facts_ref": {"path": "", "sha256": "0" * 64},
+        },
+        {
+            **{n: dict(GOOD_REF) for n in adapter_module._REQUIRED_INPUTS},
+            "server_facts_ref": {"path": "a.json", "sha256": "X" * 64},
+        },
+    ],
+)
+def test_defensive_form_guard_catches_drift(bad_candidate):
+    # The empty subschema accepts anything: only the defensive form guard stands
+    # between contract drift and a raw KeyError/TypeError at dict(candidate[name]).
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        adapter_module._validate_input_refs(bad_candidate, {})
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+
+
+def test_defensive_form_guard_accepts_valid_under_permissive_subschema():
+    valid = {n: dict(GOOD_REF) for n in adapter_module._REQUIRED_INPUTS}
+    result = adapter_module._validate_input_refs(valid, {})
+    assert set(result) == set(adapter_module._REQUIRED_INPUTS)
+    assert result["server_facts_ref"] == GOOD_REF
+
+
+# Finding C — too-weak input schema must not pass producer-incompatible shapes
+def test_weak_server_facts_schema_null_payload(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(tmp_path, monkeypatch, {SERVER_FACTS_SCHEMA_FILE: b"{}"})
+    refs = build_valid_root(tmp_path, facts_bytes=b"null")
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == SERVER_FACTS_SCHEMA_FILE
+    assert ei.value.input_name == "server_facts_ref"
+    assert spy.called is False
+
+
+def test_weak_expectation_schema_list_payload(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(tmp_path, monkeypatch, {EXPECTATION_SCHEMA_FILE: b"{}"})
+    refs = build_valid_root(tmp_path, exp_bytes=b"[]")
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.path == EXPECTATION_SCHEMA_FILE
+    assert ei.value.input_name == "expectation_ref"
+    assert spy.called is False
+
+
+def test_weak_evidence_schema_empty_object_payload(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(
+        tmp_path, monkeypatch, {EVIDENCE_SCHEMA_FILE: json.dumps({"type": "object"}).encode()}
+    )
+    refs = build_valid_root(tmp_path, ev_bytes=b"{}")
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.path == EVIDENCE_SCHEMA_FILE
+    assert ei.value.input_name == "service_evidence_ref"
+    assert spy.called is False
+
+
+def test_weak_server_facts_host_not_object(tmp_path, monkeypatch):
+    install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(tmp_path, monkeypatch, {SERVER_FACTS_SCHEMA_FILE: b"{}"})
+    refs = build_valid_root(tmp_path, facts_bytes=json.dumps({"host": []}).encode())
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.input_name == "server_facts_ref"
+
+
+def test_weak_expectation_services_element_not_object(tmp_path, monkeypatch):
+    install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(tmp_path, monkeypatch, {EXPECTATION_SCHEMA_FILE: b"{}"})
+    payload = {"host": "h", "expected_services": [None]}
+    refs = build_valid_root(tmp_path, exp_bytes=json.dumps(payload).encode())
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.input_name == "expectation_ref"
+
+
+def test_weak_evidence_services_element_not_object(tmp_path, monkeypatch):
+    install_spy(monkeypatch, passthrough=False)
+    _patch_schemas(tmp_path, monkeypatch, {EVIDENCE_SCHEMA_FILE: b"{}"})
+    payload = {"host": "h", "observed_at": "2026-01-01T00:00:00Z", "services": [None]}
+    refs = build_valid_root(tmp_path, ev_bytes=json.dumps(payload).encode())
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.input_name == "service_evidence_ref"
+
+
+# Finding D — canonical schemas must be self-contained (offline, reference-free)
+def test_assessment_schema_with_nested_ref_rejected(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch, passthrough=False)
+    schema = {
+        "$schema": META_SCHEMA_URI,
+        "type": "object",
+        "properties": {"inputs": {"$ref": "https://evil.invalid/inputs.json"}},
+    }
+    _patch_schemas(tmp_path, monkeypatch, {ASSESSMENT_SCHEMA_FILE: json.dumps(schema).encode()})
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs={}
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == ASSESSMENT_SCHEMA_FILE
+    assert "evil.invalid" not in ei.value.detail
+    assert spy.called is False
+
+
+def test_input_schema_with_dynamic_ref_rejected(tmp_path, monkeypatch):
+    spy = install_spy(monkeypatch, passthrough=False)
+    schema = {
+        "$schema": META_SCHEMA_URI,
+        "type": "object",
+        "properties": {"x": {"$dynamicRef": "#evil"}},
+    }
+    _patch_schemas(tmp_path, monkeypatch, {SERVER_FACTS_SCHEMA_FILE: json.dumps(schema).encode()})
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs={}
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == SERVER_FACTS_SCHEMA_FILE
+    assert spy.called is False
+
+
+def test_real_canonical_schemas_are_self_contained():
+    """The four real adapter schemas must remain reference-free."""
+    import steuerboard.heimserver_service_gate_artifacts as m
+
+    schemas = m._load_canonical_schemas()
+    # Must not raise.
+    m._check_canonical_schemas(schemas)
+    inputs_subschema = m._extract_inputs_subschema(
+        schemas[m._ASSESSMENT_SCHEMA_FILENAME]
+    )
+    m._assert_inputs_subschema_compatible(inputs_subschema)
