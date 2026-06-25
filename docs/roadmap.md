@@ -1386,4 +1386,4 @@ Scope:
 Non-goals:
 - keine CLI, kein Writer, kein Runbook-Kind, keine Runtime-Integration, keine Live-Prüfung, keine Stage-D-Action.
 - keine neue externe Abhängigkeit, keine Packaging-Reform, kein Dateigrößenlimit, keine evidence-interne Provenienz.
-- kein vollständiger Schutz gegen einen gleichzeitig agierenden privilegierten lokalen Dateisystemangreifer.
+- kein vollständiger Schutz gegen einen gleichzeitig agierenden Akteur mit Schreibrechten im Artifact-Root (TOCTOU; Schreibrechte genügen, Systemprivilegien nicht zwingend erforderlich).

@@ -920,3 +920,165 @@ def test_adapter_purity_guard():
                 assert (
                     func.attr not in FORBIDDEN_CALLS
                 ), f"forbidden method call: {func.attr}"
+
+
+# --------------------------------------------------------------------------- #
+# Hardening regression tests (PR #81 review)
+# --------------------------------------------------------------------------- #
+SECRET_TOKEN = "TOP_SECRET_TOKEN_11FI"
+SECRET_REF_NAME = "TOP_SECRET_REF_NAME_11FI"
+ASSESSMENT_SCHEMA_FILE = "heimserver-service-gate-assessment.v1.schema.json"
+
+
+# Finding 1 — schema diagnostics must not echo artifact values or untrusted keys
+def test_input_schema_error_detail_hides_artifact_value(tmp_path):
+    facts, exp, ev = base_payloads()
+    ev["freshness_status"] = SECRET_TOKEN  # invalid enum value carrying a secret
+    refs = build_valid_root(tmp_path, ev_bytes=_encode(ev))
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "input_schema_invalid"
+    assert SECRET_TOKEN not in ei.value.detail
+    assert SECRET_TOKEN not in str(ei.value)
+
+
+def test_input_schema_error_detail_hides_unexpected_property_name(tmp_path):
+    facts, exp, ev = base_payloads()
+    ev[SECRET_TOKEN] = "x"  # additionalProperties: false -> secret lives in the KEY
+    refs = build_valid_root(tmp_path, ev_bytes=_encode(ev))
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "input_schema_invalid"
+    assert ei.value.input_name == "service_evidence_ref"
+    assert SECRET_TOKEN not in ei.value.detail
+    assert SECRET_TOKEN not in str(ei.value)
+
+
+def test_output_schema_error_detail_hides_assessment_value(tmp_path, monkeypatch):
+    install_spy(monkeypatch, return_value={"schema_version": SECRET_TOKEN, "kind": "x"})
+    refs = build_valid_root(tmp_path)
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "output_schema_invalid"
+    assert SECRET_TOKEN not in ei.value.detail
+    assert SECRET_TOKEN not in str(ei.value)
+
+
+def test_duplicate_key_error_detail_hides_key(tmp_path):
+    secret_bytes = (
+        '{"' + SECRET_TOKEN + '": 1, "' + SECRET_TOKEN + '": 2}'
+    ).encode("utf-8")
+    refs = build_valid_root(tmp_path, facts_bytes=secret_bytes)
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "invalid_json"
+    assert SECRET_TOKEN not in ei.value.detail
+    assert SECRET_TOKEN not in str(ei.value)
+
+
+def test_input_refs_unexpected_key_is_not_leaked(tmp_path):
+    refs = build_valid_root(tmp_path)
+    refs[SECRET_REF_NAME] = {"path": "evidence.json", "sha256": WRONG_SHA256}
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "invalid_input_refs"
+    assert ei.value.input_name is None
+    assert SECRET_REF_NAME not in (ei.value.detail or "")
+    assert SECRET_REF_NAME not in str(ei.value)
+
+
+def test_input_name_is_limited_to_canonical_refs(tmp_path):
+    """Whatever the schema error path, input_name is a canonical ref name or None."""
+    refs = build_valid_root(tmp_path)
+    refs["server_facts_ref"] = "not-a-mapping"
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.input_name in set(adapter_module._REQUIRED_INPUTS)
+
+
+# Finding 2 — embedded-NUL paths must be translated, not raised raw
+def test_nul_in_artifact_root(tmp_path):
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=str(tmp_path) + "/with\x00nul", input_refs={}
+        )
+    assert ei.value.code == "invalid_artifact_root"
+    assert ei.value.stage == "artifact_root"
+
+
+def test_nul_in_input_path(tmp_path):
+    refs = build_valid_root(tmp_path)
+    refs["server_facts_ref"] = {"path": "with\x00nul.json", "sha256": WRONG_SHA256}
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "unsafe_path"
+    assert ei.value.stage == "path"
+    assert ei.value.input_name == "server_facts_ref"
+
+
+def test_symlink_loop_inside_root_is_unsafe_path(tmp_path):
+    refs = build_valid_root(tmp_path)
+    loop_a = tmp_path / "loop-a.json"
+    loop_b = tmp_path / "loop-b.json"
+    try:
+        loop_a.symlink_to(loop_b)
+        loop_b.symlink_to(loop_a)
+    except OSError:
+        pytest.skip("filesystem does not support symlinks")
+    refs["server_facts_ref"] = {"path": "loop-a.json", "sha256": WRONG_SHA256}
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs=refs
+        )
+    assert ei.value.code == "unsafe_path"
+    assert ei.value.stage == "path"
+    assert ei.value.input_name == "server_facts_ref"
+
+
+# Finding 3 — meta-schema-valid but adapter-incompatible assessment contract
+@pytest.mark.parametrize(
+    "schema_bytes",
+    [
+        b'{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object"}',
+        b"true",
+    ],
+)
+def test_assessment_schema_without_usable_inputs(tmp_path, monkeypatch, schema_bytes):
+    schemas_dir = make_schemas_dir(
+        tmp_path, override={ASSESSMENT_SCHEMA_FILE: schema_bytes}
+    )
+    monkeypatch.setattr(adapter_module, "_SCHEMAS_DIR", schemas_dir)
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs={}
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == ASSESSMENT_SCHEMA_FILE
+
+
+def test_input_schema_replaced_by_boolean_true(tmp_path, monkeypatch):
+    server_facts_file = adapter_module._INPUT_SCHEMAS["server_facts_ref"]
+    schemas_dir = make_schemas_dir(tmp_path, override={server_facts_file: b"true"})
+    monkeypatch.setattr(adapter_module, "_SCHEMAS_DIR", schemas_dir)
+    with pytest.raises(HeimserverServiceGateArtifactError) as ei:
+        derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=tmp_path, input_refs={}
+        )
+    assert ei.value.code == "contract_schema_invalid"
+    assert ei.value.stage == "contract_schema"
+    assert ei.value.path == server_facts_file

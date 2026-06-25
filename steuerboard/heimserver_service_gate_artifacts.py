@@ -29,10 +29,17 @@ caught or re-wrapped here.
 
 Threat model: the adapter defends against static path escape and ordinary
 misconfiguration. It does **not** claim full protection against a concurrently
-acting privileged local filesystem attacker. Small local steuerboard artifacts
-are read fully into memory; this slice intentionally introduces no file-size
-limit. This adapter assumes the current steuerboard checkout / local-install
-layout (code-relative top-level ``schemas/``); it performs no packaging reform.
+acting actor with write access inside the artifact root (a TOCTOU mutation
+between path check and ``read_bytes()`` needs only write permission on that
+root, not system privileges). Small local steuerboard artifacts are read fully
+into memory; this slice intentionally introduces no file-size limit. This
+adapter assumes the current steuerboard checkout / local-install layout
+(code-relative top-level ``schemas/``); it performs no packaging reform.
+
+Diagnostics: schema-validation failures report only the failing schema keyword
+and the trusted schema-side path; artifact instance values and untrusted JSON
+keys are never placed in the exception detail. The declared reference path is
+intentionally retained in the structured ``path`` attribute.
 """
 
 from __future__ import annotations
@@ -129,13 +136,15 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
         if key in result:
-            raise _StrictJsonError(f"duplicate object key {key!r}")
+            # Value-free: the offending key may come from an untrusted artifact.
+            raise _StrictJsonError("duplicate object key")
         result[key] = value
     return result
 
 
 def _reject_non_finite_constant(constant: str) -> Any:
-    raise _StrictJsonError(f"non-finite JSON constant {constant!r}")
+    # Value-free: do not echo the rejected token from an untrusted artifact.
+    raise _StrictJsonError("non-finite JSON number")
 
 
 def _strict_json_loads(text: str) -> Any:
@@ -179,6 +188,29 @@ def _first_error(
     return errors[0] if errors else None
 
 
+def _json_pointer(parts: Any) -> str:
+    """Encode schema-path components as a JSON Pointer (RFC 6901)."""
+    pointer = ""
+    for part in parts:
+        token = str(part).replace("~", "~0").replace("/", "~1")
+        pointer += "/" + token
+    return pointer or "/"
+
+
+def _safe_schema_error_detail(error: ValidationError) -> str:
+    """Build a diagnostic from trusted structure only.
+
+    The instance value, the offending property name, ``error.message``, and
+    ``repr(instance)`` may all originate from an untrusted artifact and are
+    therefore never included. Only the failing schema keyword and the
+    schema-side path (from the canonical schema) are emitted. ``absolute_path``
+    is deliberately avoided because its components can be untrusted JSON keys.
+    """
+    keyword = str(error.validator)
+    schema_path = _json_pointer(error.absolute_schema_path)
+    return f"schema validation failed (keyword={keyword!r}, schema_path={schema_path!r})"
+
+
 def _canonical_schema_path(filename: str) -> Path:
     return _SCHEMAS_DIR / filename
 
@@ -219,10 +251,24 @@ def _load_canonical_schemas() -> dict[str, Any]:
 
 
 def _check_canonical_schemas(schemas: Mapping[str, Any]) -> None:
-    """Validate that each canonical schema is itself a valid Draft 2020-12 schema."""
+    """Validate that each canonical schema is itself usable by this adapter.
+
+    ``check_schema`` only proves valid-JSON-Schema-ness, and a boolean schema
+    (e.g. ``true``) passes it while being structurally incompatible with this
+    adapter's contract authority. Each canonical schema must therefore be a
+    JSON object (mapping) schema.
+    """
     for filename in _CANONICAL_SCHEMA_FILENAMES:
+        schema = schemas[filename]
+        if not isinstance(schema, Mapping):
+            raise HeimserverServiceGateArtifactError(
+                code="contract_schema_invalid",
+                stage="contract_schema",
+                path=filename,
+                detail="canonical schema must be a JSON object schema, not a boolean",
+            )
         try:
-            Draft202012Validator.check_schema(schemas[filename])
+            Draft202012Validator.check_schema(schema)
         except SchemaError as exc:
             raise HeimserverServiceGateArtifactError(
                 code="contract_schema_invalid",
@@ -233,6 +279,44 @@ def _check_canonical_schemas(schemas: Mapping[str, Any]) -> None:
                     f"{_short(exc.message)}"
                 ),
             ) from exc
+
+
+def _extract_inputs_subschema(
+    assessment_schema: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Extract ``properties.inputs`` from the assessment schema, structurally.
+
+    A meta-schema-valid assessment contract may still lack a usable
+    ``properties.inputs`` mapping (e.g. ``{"type": "object"}`` or a boolean
+    schema). Such contracts are rejected as ``contract_schema_invalid`` rather
+    than allowed to raise a raw ``KeyError``/``TypeError``. This is a technical
+    adapter-compatibility check only; it does not duplicate the schema's
+    semantic contract (required fields, reason-code rules, status rules).
+    """
+    if not isinstance(assessment_schema, Mapping):
+        raise HeimserverServiceGateArtifactError(
+            code="contract_schema_invalid",
+            stage="contract_schema",
+            path=_ASSESSMENT_SCHEMA_FILENAME,
+            detail="assessment schema must be a JSON object schema",
+        )
+    properties = assessment_schema.get("properties")
+    if not isinstance(properties, Mapping):
+        raise HeimserverServiceGateArtifactError(
+            code="contract_schema_invalid",
+            stage="contract_schema",
+            path=_ASSESSMENT_SCHEMA_FILENAME,
+            detail="assessment schema is missing a mapping 'properties'",
+        )
+    inputs_subschema = properties.get("inputs")
+    if not isinstance(inputs_subschema, Mapping):
+        raise HeimserverServiceGateArtifactError(
+            code="contract_schema_invalid",
+            stage="contract_schema",
+            path=_ASSESSMENT_SCHEMA_FILENAME,
+            detail="assessment schema 'properties.inputs' must be a mapping subschema",
+        )
+    return inputs_subschema
 
 
 def _validate_artifact_root(artifact_root: Any) -> Path:
@@ -257,7 +341,15 @@ def _validate_artifact_root(artifact_root: Any) -> Path:
         raise HeimserverServiceGateArtifactError(
             code="invalid_artifact_root",
             stage="artifact_root",
-            detail=f"artifact_root could not be resolved: {_short(str(exc))}",
+            detail=f"artifact_root could not be resolved ({type(exc).__name__})",
+        ) from exc
+    except (ValueError, RuntimeError) as exc:
+        # ValueError: embedded NUL byte. RuntimeError: symlink loop (reproduced
+        # for input paths; the same resolve() call backs the artifact root).
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_artifact_root",
+            stage="artifact_root",
+            detail=f"artifact_root could not be safely resolved ({type(exc).__name__})",
         ) from exc
     if not resolved.is_dir():
         raise HeimserverServiceGateArtifactError(
@@ -287,12 +379,14 @@ def _validate_input_refs(
     validator = Draft202012Validator(inputs_subschema)
     error = _first_error(validator, candidate)
     if error is not None:
-        input_name = str(error.absolute_path[0]) if error.absolute_path else None
+        # Only ever surface a canonical ref name; never an untrusted caller key.
+        first_part = str(error.absolute_path[0]) if error.absolute_path else None
+        input_name = first_part if first_part in _REQUIRED_INPUTS else None
         raise HeimserverServiceGateArtifactError(
             code="invalid_input_refs",
             stage="input_refs",
             input_name=input_name,
-            detail=_short(error.message),
+            detail=_safe_schema_error_detail(error),
         )
     return {name: dict(candidate[name]) for name in _REQUIRED_INPUTS}
 
@@ -333,7 +427,18 @@ def _resolve_safe_path(input_name: str, path_str: str, resolved_root: Path) -> P
             stage="path",
             input_name=input_name,
             path=path_str,
-            detail=f"referenced path could not be resolved: {_short(str(exc))}",
+            detail=f"referenced path could not be resolved ({type(exc).__name__})",
+        ) from exc
+    except (ValueError, RuntimeError) as exc:
+        # ValueError: embedded NUL byte. RuntimeError: symlink loop. Both are
+        # raised by resolve() on a declared reference path and must not leak as
+        # raw Python exceptions through the adapter boundary.
+        raise HeimserverServiceGateArtifactError(
+            code="unsafe_path",
+            stage="path",
+            input_name=input_name,
+            path=path_str,
+            detail=f"referenced path could not be safely resolved ({type(exc).__name__})",
         ) from exc
     try:
         resolved.relative_to(resolved_root)
@@ -376,7 +481,7 @@ def _load_input_payload(
             stage="read",
             input_name=input_name,
             path=path_str,
-            detail=f"artifact could not be read: {_short(str(exc))}",
+            detail=f"artifact could not be read ({type(exc).__name__})",
         ) from exc
 
     actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
@@ -405,13 +510,24 @@ def _load_input_payload(
 
     try:
         payload = _strict_json_loads(text)
-    except (_StrictJsonError, json.JSONDecodeError) as exc:
+    except _StrictJsonError as exc:
+        # Strict-decoder messages are already value-free.
         raise HeimserverServiceGateArtifactError(
             code="invalid_json",
             stage="json_decode",
             input_name=input_name,
             path=path_str,
-            detail=f"artifact is not valid strict JSON: {_short(str(exc))}",
+            detail=f"artifact JSON rejected: {exc}",
+        ) from exc
+    except json.JSONDecodeError as exc:
+        # Emit only the position, never the full default message which could
+        # echo untrusted content.
+        raise HeimserverServiceGateArtifactError(
+            code="invalid_json",
+            stage="json_decode",
+            input_name=input_name,
+            path=path_str,
+            detail=f"invalid JSON syntax at line {exc.lineno} column {exc.colno}",
         ) from exc
 
     error = _first_error(validator, payload)
@@ -421,7 +537,7 @@ def _load_input_payload(
             stage="input_schema",
             input_name=input_name,
             path=path_str,
-            detail=_short(error.message),
+            detail=_safe_schema_error_detail(error),
         )
     return payload
 
@@ -462,7 +578,7 @@ def derive_heimserver_service_gate_assessment_from_refs(
     _check_canonical_schemas(schemas)
 
     assessment_schema = schemas[_ASSESSMENT_SCHEMA_FILENAME]
-    inputs_subschema = assessment_schema["properties"]["inputs"]
+    inputs_subschema = _extract_inputs_subschema(assessment_schema)
 
     canonical_refs = _validate_input_refs(input_refs, inputs_subschema)
 
@@ -492,7 +608,7 @@ def derive_heimserver_service_gate_assessment_from_refs(
         raise HeimserverServiceGateArtifactError(
             code="output_schema_invalid",
             stage="output_schema",
-            detail=_short(output_error.message),
+            detail=_safe_schema_error_detail(output_error),
         )
 
     return copy.deepcopy(assessment)
