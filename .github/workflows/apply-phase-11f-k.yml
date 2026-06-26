@@ -1,27 +1,33 @@
 name: apply-phase-11f-k
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/heimserver-service-gate-runbook
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'chore: stage phase 11F-K transfer'
+    if: github.head_ref == 'feat/heimserver-service-gate-runbook'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: feat/heimserver-service-gate-runbook
           fetch-depth: 0
 
       - name: Verify transfer base
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "87f0b2202a06a3924d715562fdc451da5872f86b"
+          test "$(git merge-base HEAD origin/main)" = "87f0b2202a06a3924d715562fdc451da5872f86b"
+          test -d .github/phase-11f-k-transfer
 
       - name: Reconstruct and apply verified patch
         shell: bash
