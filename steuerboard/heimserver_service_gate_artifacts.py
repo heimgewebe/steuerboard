@@ -28,7 +28,7 @@ preimage-shape guard. ``artifact_root`` need not be a git repository.
 
 Error boundary: technical loading failures are raised as
 :class:`HeimserverServiceGateArtifactError`. They are never translated into
-assessment reason codes, and the producer's own domain ``ValueError``\s are not
+assessment reason codes, and the producer's own domain ``ValueError``\\s are not
 caught or re-wrapped here.
 
 Threat model: the adapter defends against static path escape and ordinary
@@ -108,7 +108,7 @@ class HeimserverServiceGateArtifactError(ValueError):
     """Raised for any technical failure while loading service-gate artifacts.
 
     The error never represents a domain assessment outcome: the producer's own
-    derivation ``ValueError``\s are intentionally left to propagate unchanged.
+    derivation ``ValueError``\\s are intentionally left to propagate unchanged.
 
     Machine-checkable attributes: ``code``, ``stage``, ``input_name``, ``path``.
     """
