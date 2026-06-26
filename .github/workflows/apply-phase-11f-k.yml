@@ -1,0 +1,54 @@
+name: apply-phase-11f-k
+
+on:
+  push:
+    branches:
+      - feat/heimserver-service-gate-runbook
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'chore: stage phase 11F-K transfer'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify transfer base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "87f0b2202a06a3924d715562fdc451da5872f86b"
+
+      - name: Reconstruct and apply verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/phase-11f-k-transfer/part-* > /tmp/phase-11f-k.patch.gz.b64
+          printf '%s  %s\n' \
+            '4244c9c7313f5bb8235b6aae58c918fd34e59181ce20f7ca8c595f54c1538cbd' \
+            '/tmp/phase-11f-k.patch.gz.b64' | sha256sum -c -
+          base64 --decode /tmp/phase-11f-k.patch.gz.b64 > /tmp/phase-11f-k.patch.gz
+          printf '%s  %s\n' \
+            '145431ecaf4b9d589d66297f804d4501f271e3f5c81dce4fdd460869ab407077' \
+            '/tmp/phase-11f-k.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/phase-11f-k.patch.gz > /tmp/phase-11f-k.patch
+          printf '%s  %s\n' \
+            '5f467e4c16f1ab672f1f73044bd2059efaaa33867f2eeba59929ae81d8fca666' \
+            '/tmp/phase-11f-k.patch' | sha256sum -c -
+          git apply --check /tmp/phase-11f-k.patch
+          git apply /tmp/phase-11f-k.patch
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/phase-11f-k-transfer
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(runbook): integrate heimserver service gate'
+          git push origin HEAD:feat/heimserver-service-gate-runbook
