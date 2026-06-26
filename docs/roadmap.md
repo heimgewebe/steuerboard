@@ -1368,3 +1368,22 @@ Scope:
 - Erfüllung des exakten 11F-G Case Inventars.
 - Output ist ein korrektes Assessment-Artefakt.
 - Keine CLI-, Runbook- oder Liveintegration als erledigt markieren.
+
+## Phase 11F-I — Safe Artifact Input Adapter
+
+Status: implemented (safe artifact adapter only)
+
+Macht den reinen 11F-H-Producer erstmals kontrolliert über explizite, artifact-root-relative Artefaktverweise erreichbar.
+
+Scope:
+- neues Modul `steuerboard/heimserver_service_gate_artifacts.py` mit genau einer öffentlichen Adapterfunktion (`derive_heimserver_service_gate_assessment_from_refs`) und einer Fehlerklasse (`HeimserverServiceGateArtifactError`).
+- prüft exakt drei `input_refs`; löst Pfade sicher innerhalb eines erlaubten `artifact_root` auf (statische Root-Escape- und Symlink-Abwehr).
+- liest jede Datei genau einmal als Rohbytes, bindet SHA-256 über exakt diese Bytes, dekodiert dieselben Bytes streng als UTF-8 und JSON (Ablehnung doppelter Schlüssel und nicht endlicher Zahlen).
+- validiert die drei Payloads vollständig mit `Draft202012Validator` gegen die kanonischen Schemas; die Schemas stammen aus dem steuerboard-Checkout, nicht aus `artifact_root` (Contract Authority).
+- ruft den unveränderten Producer genau einmal auf und validiert dessen Assessment gegen das Assessment-Schema; Rückgabe ausschließlich im Speicher.
+- alle 14 Golden Cases werden über den Adapter reproduziert; technische Ladefehler sind keine Assessment-Reason-Codes.
+
+Non-goals:
+- keine CLI, kein Writer, kein Runbook-Kind, keine Runtime-Integration, keine Live-Prüfung, keine Stage-D-Action.
+- keine neue externe Abhängigkeit, keine Packaging-Reform, kein Dateigrößenlimit, keine evidence-interne Provenienz.
+- kein vollständiger Schutz gegen einen gleichzeitig agierenden Akteur mit Schreibrechten im Artifact-Root (TOCTOU; Schreibrechte genügen, Systemprivilegien nicht zwingend erforderlich).
