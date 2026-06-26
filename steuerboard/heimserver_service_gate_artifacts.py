@@ -28,7 +28,7 @@ preimage-shape guard. ``artifact_root`` need not be a git repository.
 
 Error boundary: technical loading failures are raised as
 :class:`HeimserverServiceGateArtifactError`. They are never translated into
-assessment reason codes, and the producer's own domain ``ValueError``\\s are not
+assessment reason codes, and the producer's own domain ``ValueError``\s are not
 caught or re-wrapped here.
 
 Threat model: the adapter defends against static path escape and ordinary
@@ -108,7 +108,7 @@ class HeimserverServiceGateArtifactError(ValueError):
     """Raised for any technical failure while loading service-gate artifacts.
 
     The error never represents a domain assessment outcome: the producer's own
-    derivation ``ValueError``\\s are intentionally left to propagate unchanged.
+    derivation ``ValueError``\s are intentionally left to propagate unchanged.
 
     Machine-checkable attributes: ``code``, ``stage``, ``input_name``, ``path``.
     """
@@ -481,8 +481,9 @@ def _assert_producer_preimage_shape(*, input_name: str, payload: Any) -> None:
     A too-weak input schema could pass a payload that the pure producer would
     then index into (e.g. ``server_facts["host"]["hostname"]``,
     ``expectation["host"]``, ``service_evidence["observed_at"]``) or iterate
-    (``service_name``/``expected_role``/``evidence_status`` per element),
-    raising a raw ``KeyError``/``TypeError``. If a payload passed its schema but
+    (``service_name``/``expected_role``/``evidence_status`` per element and a
+    present Evidence ``evidence`` field as a list), raising a raw
+    ``KeyError``/``TypeError``. If a payload passed its schema but
     violates this technically-required shape, the canonical schema is
     adapter-incompatible -> ``contract_schema_invalid``.
 
@@ -501,7 +502,13 @@ def _assert_producer_preimage_shape(*, input_name: str, payload: Any) -> None:
             detail=detail,
         )
 
-    def _check_service_list(value: Any, required_keys: tuple[str, ...], label: str) -> None:
+    def _check_service_list(
+        value: Any,
+        required_keys: tuple[str, ...],
+        label: str,
+        *,
+        list_keys: tuple[str, ...] = (),
+    ) -> None:
         if not isinstance(value, list):
             raise _fail(f"{label} is not a list")
         for element in value:
@@ -515,6 +522,12 @@ def _assert_producer_preimage_shape(*, input_name: str, payload: Any) -> None:
             # otherwise raise a raw unhashable-type TypeError in the producer.
             if not isinstance(element["service_name"], str):
                 raise _fail(f"{label} element has a non-string 'service_name'")
+            # Optional consumer-specific container checks stay deliberately
+            # narrower than the canonical schema. The producer defaults a
+            # missing evidence field to [], but directly iterates a present one.
+            for key in list_keys:
+                if key in element and not isinstance(element[key], list):
+                    raise _fail(f"{label} element has a non-list '{key}'")
 
     if not isinstance(payload, Mapping):
         raise _fail("payload is not an object")
@@ -544,6 +557,7 @@ def _assert_producer_preimage_shape(*, input_name: str, payload: Any) -> None:
                 payload["services"],
                 ("service_name", "evidence_status"),
                 "service_evidence.services",
+                list_keys=("evidence",),
             )
 
 
