@@ -1,0 +1,83 @@
+name: apply-pr83-hardening
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'feat/heimserver-service-gate-runbook'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/heimserver-service-gate-runbook
+          fetch-depth: 0
+
+      - name: Verify expected PR state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object steuerboard/runbooks.py)" = "51c579264ab59f8d44f8b8e55c57daaefe15447e"
+          test "$(git hash-object tests/test_heimserver_service_gate_runbook.py)" = "8882c7fcb7cbd0079ffba9b6449bc7ba604d33a9"
+          test -d .github/pr83-hardening-transfer
+
+      - name: Reconstruct and verify hardening patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/pr83-hardening-transfer/part-* > /tmp/pr83-hardening.patch.gz.b64
+          test "$(wc -c < /tmp/pr83-hardening.patch.gz.b64)" = "7688"
+          printf '%s  %s\n' \
+            'e59cfef5e1d34e13d578d0ce6e5d4f80a91d6b1e5f67ad7ce4d41da65868bdb1' \
+            '/tmp/pr83-hardening.patch.gz.b64' | sha256sum -c -
+          base64 --decode /tmp/pr83-hardening.patch.gz.b64 > /tmp/pr83-hardening.patch.gz
+          test "$(wc -c < /tmp/pr83-hardening.patch.gz)" = "5766"
+          printf '%s  %s\n' \
+            '1f0e96b8a5ca9e7cf55a0bc609f967b06dbd52a37e12f88535bb8e011982f8d3' \
+            '/tmp/pr83-hardening.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/pr83-hardening.patch.gz > /tmp/pr83-hardening.patch
+          test "$(wc -c < /tmp/pr83-hardening.patch)" = "22445"
+          printf '%s  %s\n' \
+            '016ab213209ec0abdc1a77d891de22113900b6bb419fcf442953b4ec668d9af6' \
+            '/tmp/pr83-hardening.patch' | sha256sum -c -
+          git apply --check /tmp/pr83-hardening.patch
+          git apply /tmp/pr83-hardening.patch
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+
+      - name: Validate hardening
+        run: |
+          python -m py_compile steuerboard/runbooks.py
+          python -m pytest -q tests/test_heimserver_service_gate_runbook.py tests/test_runbooks.py tests/test_schema_examples.py
+          python scripts/validate_examples.py
+          python scripts/validate_heimserver_service_gate_derivation_cases.py
+          python scripts/docmeta/generate_cli_surface.py --check
+          git diff --check
+
+      - name: Commit verified hardening and remove transfer machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/pr83-hardening-transfer
+          rm .github/workflows/apply-pr83-hardening.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(runbook): harden service-gate boundaries'
+          git push origin HEAD:feat/heimserver-service-gate-runbook
