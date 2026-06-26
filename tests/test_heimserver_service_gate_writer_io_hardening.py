@@ -1,4 +1,4 @@
-"""Focused regressions for writer path-like and context-exit failures."""
+"""Focused regressions for writer path-like, encoding, and context-exit failures."""
 
 from __future__ import annotations
 
@@ -53,6 +53,26 @@ def test_pathlike_conversion_errors_are_structured(
     assert error.stage == "output_path"
     assert error.path == "exploding-path-like"
     assert isinstance(error.__cause__, exception_type)
+
+
+def test_unpaired_surrogate_is_structured_serialization_error(tmp_path: Path) -> None:
+    assessment = _golden_assessment()
+    assessment["evidence"] = [chr(0xD800)]
+    target = tmp_path / "assessment.json"
+
+    with pytest.raises(HeimserverServiceGateWriteError) as exc_info:
+        write_heimserver_service_gate_assessment(
+            assessment=assessment,
+            output_path=target,
+        )
+
+    error = exc_info.value
+    assert error.code == "output_serialize_failed"
+    assert error.stage == "output_serialize"
+    assert isinstance(error.__cause__, UnicodeEncodeError)
+    assert not target.exists()
+    assert not os.path.lexists(target)
+    assert list(tmp_path.glob(f".{target.name}.*.tmp")) == []
 
 
 class _ExitFailingHandle:
