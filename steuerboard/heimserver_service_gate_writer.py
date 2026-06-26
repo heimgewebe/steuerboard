@@ -1,21 +1,12 @@
 """Safe writer for Heimserver-Service-Gate assessment artifacts.
 
-The writer owns only the persistence boundary for an already produced
-``heimserver-service-gate-assessment.v1`` mapping:
+The writer persists one already produced assessment. It validates against the
+canonical checkout schema, serializes deterministic strict JSON bytes, stages
+those bytes in the target directory, and publishes with ``os.replace()``.
 
-schema-valid assessment in memory -> independent snapshot -> canonical
-contract validation -> deterministic JSON bytes -> temp file in the target
-directory -> ``os.replace()`` publication -> final target entry for ordinary
-readers.
-
-It deliberately does not load input artifacts, call derivation code, invent a
-default filename, create parent directories, or add any CLI/runbook surface.
-
-The publication step prevents ordinary readers from observing intentionally
-partial target files. The pre-publication existence check protects already
-existing targets, including symlinks, but it is not a race-free no-clobber
-primitive against a concurrent writer between the check and ``os.replace()``.
-This slice also makes no crash-durability claim and performs no ``fsync()``.
+It does not load input artifacts, call producer or adapter code, invent a
+filename, create parent directories, or claim race-free no-clobber or crash
+durability.
 """
 
 from __future__ import annotations
@@ -75,12 +66,8 @@ class _StrictJsonError(ValueError):
     """Internal strict-JSON violation."""
 
 
-def _raise(
-    *,
-    code: str,
-    stage: str,
-    path: str | None,
-    detail: str,
+def _error(
+    *, code: str, stage: str, path: str | None, detail: str
 ) -> HeimserverServiceGateWriteError:
     return HeimserverServiceGateWriteError(
         code=code,
@@ -143,8 +130,7 @@ def _snapshot_json_like(value: _Any) -> _Any:
 
 
 def _first_error(
-    validator: _Draft202012Validator,
-    instance: _Any,
+    validator: _Draft202012Validator, instance: _Any
 ) -> _ValidationError | None:
     errors = sorted(
         validator.iter_errors(instance),
@@ -159,7 +145,7 @@ def _first_error(
 def _path_text(value: _Any) -> str | None:
     try:
         return str(value)
-    except (TypeError, ValueError, RuntimeError):
+    except (TypeError, ValueError, RuntimeError, OSError):
         return None
 
 
@@ -167,8 +153,8 @@ def _resolve_output_path(output_path: _Any) -> _Path:
     raw_path = _path_text(output_path)
     try:
         candidate = _Path(output_path)
-    except (TypeError, ValueError) as exc:
-        raise _raise(
+    except (TypeError, ValueError, RuntimeError, OSError) as exc:
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
             path=raw_path,
@@ -177,17 +163,17 @@ def _resolve_output_path(output_path: _Any) -> _Path:
 
     try:
         expanded = candidate.expanduser()
-    except (OSError, RuntimeError, ValueError) as exc:
-        raise _raise(
+        expanded_text = str(expanded)
+    except (TypeError, ValueError, RuntimeError, OSError) as exc:
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
             path=raw_path,
             detail="output_path could not be expanded",
         ) from exc
 
-    expanded_text = str(expanded)
     if "\x00" in expanded_text:
-        raise _raise(
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
             path=expanded_text,
@@ -196,48 +182,39 @@ def _resolve_output_path(output_path: _Any) -> _Path:
 
     try:
         resolved_parent = expanded.parent.resolve(strict=False)
-    except (OSError, RuntimeError, ValueError) as exc:
-        raise _raise(
+        parent_exists = resolved_parent.exists()
+        parent_is_dir = resolved_parent.is_dir()
+    except (TypeError, ValueError, RuntimeError, OSError) as exc:
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
             path=expanded_text,
-            detail="output parent could not be resolved",
+            detail="output parent could not be resolved or inspected",
         ) from exc
 
-    try:
-        parent_exists = resolved_parent.exists()
-        parent_is_dir = resolved_parent.is_dir()
-    except OSError as exc:
-        raise _raise(
-            code="invalid_output_path",
-            stage="output_path",
-            path=str(resolved_parent),
-            detail="output parent could not be inspected",
-        ) from exc
-
+    target = resolved_parent / expanded.name
     if not parent_exists:
-        raise _raise(
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
-            path=str(resolved_parent / expanded.name),
+            path=str(target),
             detail="output parent directory does not exist",
         )
     if not parent_is_dir:
-        raise _raise(
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
-            path=str(resolved_parent / expanded.name),
+            path=str(target),
             detail="output parent is not a directory",
         )
-
-    return resolved_parent / expanded.name
+    return target
 
 
 def _target_entry_exists(target: _Path) -> bool:
     try:
         return _os.path.lexists(target)
-    except (OSError, ValueError) as exc:
-        raise _raise(
+    except (TypeError, ValueError, RuntimeError, OSError) as exc:
+        raise _error(
             code="invalid_output_path",
             stage="output_path",
             path=str(target),
@@ -247,7 +224,7 @@ def _target_entry_exists(target: _Path) -> bool:
 
 def _require_target_absent(target: _Path) -> None:
     if _target_entry_exists(target):
-        raise _raise(
+        raise _error(
             code="output_exists",
             stage="output_path",
             path=str(target),
@@ -259,7 +236,7 @@ def _load_assessment_schema(output_path: str) -> _Any:
     try:
         raw_bytes = _ASSESSMENT_SCHEMA_PATH.read_bytes()
     except OSError as exc:
-        raise _raise(
+        raise _error(
             code="contract_load_failed",
             stage="contract_load",
             path=output_path,
@@ -269,7 +246,7 @@ def _load_assessment_schema(output_path: str) -> _Any:
     try:
         text = raw_bytes.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise _raise(
+        raise _error(
             code="contract_load_failed",
             stage="contract_load",
             path=output_path,
@@ -279,18 +256,21 @@ def _load_assessment_schema(output_path: str) -> _Any:
     try:
         return _strict_json_loads(text)
     except _StrictJsonError as exc:
-        raise _raise(
+        raise _error(
             code="contract_load_failed",
             stage="contract_load",
             path=output_path,
             detail=f"canonical assessment schema is not valid strict JSON: {exc}",
         ) from exc
     except _json.JSONDecodeError as exc:
-        raise _raise(
+        raise _error(
             code="contract_load_failed",
             stage="contract_load",
             path=output_path,
-            detail=f"canonical assessment schema has invalid JSON syntax at line {exc.lineno} column {exc.colno}",
+            detail=(
+                "canonical assessment schema has invalid JSON syntax at "
+                f"line {exc.lineno} column {exc.colno}"
+            ),
         ) from exc
 
 
@@ -301,11 +281,14 @@ def _assert_reference_free(schema: _Any, output_path: str) -> None:
         if isinstance(node, _Mapping):
             for key, value in node.items():
                 if key in _FORBIDDEN_REFERENCE_KEYWORDS:
-                    raise _raise(
+                    raise _error(
                         code="contract_schema_invalid",
                         stage="contract_schema",
                         path=output_path,
-                        detail="canonical assessment schema contains unsupported reference keyword",
+                        detail=(
+                            "canonical assessment schema contains unsupported "
+                            "reference keyword"
+                        ),
                     )
                 stack.append(value)
         elif isinstance(node, list):
@@ -314,16 +297,19 @@ def _assert_reference_free(schema: _Any, output_path: str) -> None:
 
 def _check_assessment_schema(schema: _Any, output_path: str) -> None:
     if isinstance(schema, bool) or not isinstance(schema, _Mapping):
-        raise _raise(
+        raise _error(
             code="contract_schema_invalid",
             stage="contract_schema",
             path=output_path,
-            detail="canonical assessment schema must be a JSON object schema, not a boolean",
+            detail=(
+                "canonical assessment schema must be a JSON object schema, "
+                "not a boolean"
+            ),
         )
     try:
         _Draft202012Validator.check_schema(schema)
     except _SchemaError as exc:
-        raise _raise(
+        raise _error(
             code="contract_schema_invalid",
             stage="contract_schema",
             path=output_path,
@@ -334,7 +320,7 @@ def _check_assessment_schema(schema: _Any, output_path: str) -> None:
 
 def _serialize_snapshot(snapshot: _Any, output_path: str) -> bytes:
     try:
-        serialized_text = (
+        text = (
             _json.dumps(
                 snapshot,
                 indent=2,
@@ -345,13 +331,13 @@ def _serialize_snapshot(snapshot: _Any, output_path: str) -> bytes:
             + "\n"
         )
     except (TypeError, ValueError, OverflowError) as exc:
-        raise _raise(
+        raise _error(
             code="output_serialize_failed",
             stage="output_serialize",
             path=output_path,
             detail="assessment could not be serialized as strict JSON",
         ) from exc
-    return serialized_text.encode("utf-8")
+    return text.encode("utf-8")
 
 
 def _write_bytes_to_fd(fd: int, payload: bytes) -> None:
@@ -373,25 +359,7 @@ def write_heimserver_service_gate_assessment(
     assessment: _Mapping[str, _Any],
     output_path: _Path,
 ) -> _Path:
-    """Persist one already produced assessment as deterministic JSON bytes.
-
-    Deterministic failure priority:
-
-    1. output path can be resolved and its parent already exists as a directory;
-    2. canonical assessment schema is loaded from the checkout;
-    3. canonical assessment schema is checked as Draft 2020-12 and reference-free;
-    4. the supplied assessment is copied into an independent snapshot;
-    5. the snapshot validates against the canonical assessment schema;
-    6. the same snapshot serializes as strict deterministic JSON;
-    7. the target entry is absent immediately before temp-file staging;
-    8. bytes are written to a temp file in the target directory;
-    9. the temp file is published with ``os.replace()``.
-
-    If both the assessment and the target entry are invalid, the assessment
-    error wins after the parent path has been accepted. Existing targets are
-    still never overwritten deliberately; the collision check runs again right
-    before publication, while remaining subject to the documented race window.
-    """
+    """Persist one assessment as deterministic validated JSON bytes."""
     target = _resolve_output_path(output_path)
     target_text = str(target)
 
@@ -400,17 +368,16 @@ def write_heimserver_service_gate_assessment(
 
     snapshot = _snapshot_json_like(assessment)
     validator = _Draft202012Validator(schema)
-    error = _first_error(validator, snapshot)
-    if error is not None:
-        raise _raise(
+    validation_error = _first_error(validator, snapshot)
+    if validation_error is not None:
+        raise _error(
             code="output_schema_invalid",
             stage="output_schema",
             path=target_text,
-            detail=_schema_error_detail(error),
+            detail=_schema_error_detail(validation_error),
         )
 
     serialized_bytes = _serialize_snapshot(snapshot, target_text)
-
     _require_target_absent(target)
 
     fd: int | None = None
@@ -425,7 +392,7 @@ def write_heimserver_service_gate_assessment(
             )
             temp_path = _Path(temp_name)
         except OSError as exc:
-            raise _raise(
+            raise _error(
                 code="output_write_failed",
                 stage="output_write",
                 path=target_text,
@@ -442,7 +409,7 @@ def write_heimserver_service_gate_assessment(
                 except OSError:
                     pass
                 fd = None
-            raise _raise(
+            raise _error(
                 code="output_write_failed",
                 stage="output_write",
                 path=target_text,
@@ -450,13 +417,12 @@ def write_heimserver_service_gate_assessment(
             ) from exc
 
         _require_target_absent(target)
-
         try:
             _os.replace(temp_path, target)
             published = True
             temp_path = None
         except OSError as exc:
-            raise _raise(
+            raise _error(
                 code="output_publish_failed",
                 stage="output_publish",
                 path=target_text,
