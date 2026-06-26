@@ -1,6 +1,6 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter that makes the producer reachable through explicit, hash-bound, artifact-root-relative artifact references. CLI, runbook, writer, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
+Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter that makes the producer reachable through explicit, hash-bound, artifact-root-relative artifact references. Phase 11F-J implements a safe single-assessment JSON artifact writer for an already produced assessment. CLI, runbook, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
 
 Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
 
@@ -479,4 +479,86 @@ Der Adapter schützt gegen statische Pfadflucht und normale Fehlkonfiguration. E
 
 ### Weiter offen (future-gated)
 
-CLI, Writer, Runbook, Runtime, Live-Checks, Stage D und evidence-interne Provenienz bleiben unverändert offen.
+CLI, Runbook, Runtime, Live-Checks, Stage D und evidence-interne Provenienz bleiben unverändert offen.
+
+## Phase 11F-J — Safe Assessment Artifact Writer
+
+Status: implemented (safe single-assessment writer only)
+
+11F-J führt eine eigene technische Persistenzgrenze für ein bereits im Speicher erzeugtes und fachlich unverändertes `heimserver-service-gate-assessment.v1` ein. Der Writer ist keine Orchestrierungsschicht: Er lädt keine Eingabeartefakte, ruft weder Producer noch Adapter auf, erzeugt keine Reason-Codes und repariert oder normalisiert kein Assessment.
+
+- **Modulpfad:** `steuerboard/heimserver_service_gate_writer.py`
+- **Öffentliche API:** genau die Fehlerklasse `HeimserverServiceGateWriteError` und die Funktion `write_heimserver_service_gate_assessment(*, assessment, output_path) -> Path`.
+- **Rückgabe:** der absolut aufgelöste Zielpfad als `Path`.
+- **Kein zusätzlicher Output-Ref:** SHA-256-Metadaten, Writerstatusobjekte oder Runbookresultate bleiben future-gated.
+
+### Eingabevertrag und Snapshot
+
+Der Writer erhält ausschließlich ein bereits fertiges Assessment (`Mapping[str, Any]`) und einen vollständigen Zielpfad. Er erzeugt vor Validierung und Serialisierung eine unabhängige Momentaufnahme in eigenen Dict-/List-Containern; das Originalobjekt bleibt unverändert. Fachliche Listenreihenfolgen bleiben erhalten. Nur JSON-Objektschlüssel werden für die Byteausgabe sortiert. Eine JSON-Rundreise wird nicht als stille Normalisierung verwendet.
+
+### Kanonische Schemaautorität
+
+Der Writer lädt ausschließlich `schemas/heimserver-service-gate-assessment.v1.schema.json` code-relativ aus dem steuerboard-Checkout (`Path(__file__).resolve().parent.parent / "schemas"`). Das Zielverzeichnis, Umgebungsvariablen, automatische Discovery und ein öffentlicher `schema_root` besitzen keine Autorität. Andere Service-Gate-Schemas werden nicht geladen; ein Defekt in einem nicht benötigten Expectation-, Evidence- oder Server-Facts-Schema blockiert diesen Writer nicht.
+
+Das Assessment-Schema wird als Rohbytes gelesen, streng als UTF-8 dekodiert und streng als JSON geparst. Doppelte Objektschlüssel sowie `NaN`, `Infinity` und `-Infinity` in der Schema-Datei werden abgelehnt. Boolesche Schemas werden als ungeeignet verworfen. Danach laufen `Draft202012Validator.check_schema()`, eine rekursive Ablehnung von `$ref`, `$dynamicRef` und `$recursiveRef`, und die vollständige Assessment-Validierung mit `Draft202012Validator`.
+
+Schemadiagnosen folgen der 11F-I-Doktrin: Sie nennen nur das fehlgeschlagene Schema-Keyword und den schema-seitigen JSON Pointer. Assessmentwerte, untrusted JSON-Schlüssel, `repr(instance)`, der vollständige `jsonschema`-Fehlertext und instance-seitige `absolute_path`-Komponenten erscheinen nicht in der Diagnose. Der deklarierte bzw. aufgelöste Ausgabezielpfad darf separat im strukturierten `path`-Attribut des Writerfehlers stehen.
+
+### Deterministische JSON-Bytes
+
+Die Dateibytes entstehen exakt aus:
+
+```python
+json.dumps(
+    snapshot,
+    indent=2,
+    ensure_ascii=False,
+    sort_keys=True,
+    allow_nan=False,
+) + "\n"
+```
+
+Anschließend wird streng als UTF-8 kodiert und im Binärmodus in die Tempdatei geschrieben. Das bedeutet: zwei Leerzeichen Einrückung, sortierte Objektschlüssel, keine unnötigen Unicode-Escapes, keine nicht endlichen Zahlen, exakt ein abschließender Zeilenumbruch und identische Bytes für identische JSON-Strukturen. `canonical_json_sha256()`, `default=str` und kompakte Hash-Serialisierung werden nicht als Dateiformat verwendet.
+
+### Zielpfad- und Kollisionsvertrag
+
+Der Aufrufer übergibt den vollständigen Zielpfad; es gibt keinen Standarddateinamen. Der Pfad wird in `Path` umgewandelt, per `expanduser()` behandelt und mit aufgelöstem Parent zu einem absoluten Zielpfad geformt. Das Elternverzeichnis muss existieren und ein Verzeichnis sein; es wird nicht automatisch angelegt. Ein vorhandener Zieleintrag wird abgelehnt, egal ob reguläre Datei, Verzeichnis, Symlink oder dangling Symlink. Die Prüfung verwendet eine `lexists`-Semantik und verlässt sich nicht allein auf `Path.exists()`.
+
+Die feste Fehlerpriorität lautet:
+
+1. Zielpfad auflösbar und Parent verwendbar;
+2. kanonisches Assessment-Schema laden;
+3. kanonisches Assessment-Schema prüfen;
+4. Assessment-Snapshot erzeugen;
+5. Snapshot gegen Schema validieren;
+6. strikt serialisieren;
+7. Zielkollision unmittelbar vor dem Schreiben prüfen;
+8. Tempdatei erzeugen und vollständig schreiben;
+9. Tempdatei veröffentlichen.
+
+Wenn zugleich das Assessment und der Zieleintrag ungültig sind, gewinnt nach akzeptiertem Parent der Assessment-/Serialisierungsfehler; ein ungültiger Parent gewinnt vorher. Ein bereits vorhandenes Ziel wird dennoch nicht absichtlich überschrieben.
+
+### Tempdatei und Veröffentlichung
+
+Die Tempdatei liegt im selben Zielverzeichnis (`tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")`). Nach vollständigem Schreiben und Schließen wird sie per `os.replace()` veröffentlicht. Bei Schreib- oder Publish-Fehlern werden offene Deskriptoren geschlossen und die Tempdatei bestmöglich entfernt. Das Zielartefakt bleibt bei diesen Fehlern abwesend; ein bereits vorhandenes Sentinel-Ziel wird vorab als Kollision abgelehnt und nicht verändert.
+
+Diese Veröffentlichung verhindert für normale Leser sichtbare Teildateien. Die Vorab-Kollisionsprüfung schützt vor bereits vorhandenen Zielen, garantiert aber keinen race-free No-Clobber-Schutz gegen einen parallel schreibenden Prozess zwischen Prüfung und `os.replace()`. Der Slice bietet keine `fsync()`- oder Stromausfall-Durability-Garantie und verwendet keine plattformspezifischen Rename-/Hardlink-Sonderwege.
+
+### Writerfehler
+
+Technische Writerfehler sind keine Assessment-Reasons und verändern niemals den fachlichen Assessmentstatus. `HeimserverServiceGateWriteError` besitzt die Attribute `code`, `stage`, `path` und `detail`; es gibt kein `input_name`, weil der Writer keine Inputrefs verarbeitet.
+
+Stabile Fehlercodes:
+
+- `invalid_output_path` (`output_path`)
+- `output_exists` (`output_path`)
+- `contract_load_failed` (`contract_load`)
+- `contract_schema_invalid` (`contract_schema`)
+- `output_schema_invalid` (`output_schema`)
+- `output_serialize_failed` (`output_serialize`)
+- `output_write_failed` (`output_write`)
+- `output_publish_failed` (`output_publish`)
+
+### Non-Goals
+
+Keine Producer- oder Adapteraufrufe, keine Inputrefs, keine Eingabeartefakt-Ladegrenze, keine Hashprüfung der Inputs, keine fachliche Reason-Code-Erzeugung, keine Statusumdeutung, keine Standarddatei, kein Parent-`mkdir`, keine CLI- oder Runbook-Integration, keine Runtime-/Stage-D-Integration, keine neuen Schemas, keine Änderung an `SCHEMA_MAP`, keine neue Abhängigkeit, keine race-free No-Clobber-Garantie und keine Crash-Durability-Garantie.

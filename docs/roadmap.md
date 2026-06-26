@@ -1387,3 +1387,21 @@ Non-goals:
 - keine CLI, kein Writer, kein Runbook-Kind, keine Runtime-Integration, keine Live-Prüfung, keine Stage-D-Action.
 - keine neue externe Abhängigkeit, keine Packaging-Reform, kein Dateigrößenlimit, keine evidence-interne Provenienz.
 - kein vollständiger Schutz gegen einen gleichzeitig agierenden Akteur mit Schreibrechten im Artifact-Root (TOCTOU; Schreibrechte genügen, Systemprivilegien nicht zwingend erforderlich).
+
+## Phase 11F-J — Safe Assessment Artifact Writer
+
+Status: implemented (safe single-assessment writer only)
+
+Persistiert ein bereits im Speicher erzeugtes `heimserver-service-gate-assessment.v1` deterministisch als JSON-Artefakt, ohne Inputartefakte zu laden oder Producer/Adapter aufzurufen.
+
+Scope:
+- neues Modul `steuerboard/heimserver_service_gate_writer.py` mit genau einer öffentlichen Writerfunktion (`write_heimserver_service_gate_assessment`) und einer Fehlerklasse (`HeimserverServiceGateWriteError`).
+- erzeugt eine unabhängige Assessment-Momentaufnahme, validiert sie vollständig gegen das kanonische Assessment-Schema aus dem Checkout und serialisiert exakt mit `json.dumps(..., indent=2, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n"`.
+- verwendet einen expliziten Zielpfad ohne Standarddateiname; Parent muss existieren; vorhandene Dateien, Verzeichnisse, Symlinks und dangling Symlinks werden abgelehnt.
+- schreibt Bytes in eine Tempdatei im Zielverzeichnis und veröffentlicht mit `os.replace()`; Tempdateien werden bei Fehlern bestmöglich entfernt.
+- Fehlerdiagnosen bleiben wertfrei: Schemafehler nennen nur Keyword und schema-seitigen JSON Pointer; technische Writerfehler sind keine Assessment-Reason-Codes.
+
+Non-goals:
+- keine CLI, kein Runbook-Kind, keine Runtime-Integration, keine Live-Prüfung, keine Stage-D-Action.
+- kein neues Schema, keine `SCHEMA_MAP`-Änderung, keine neue Abhängigkeit, keine strukturierte Output-Ref-Metadaten.
+- kein race-free No-Clobber gegen parallele Writer zwischen Vorprüfung und `os.replace()` und keine `fsync`-/Stromausfall-Durability-Garantie.
