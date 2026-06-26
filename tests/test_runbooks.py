@@ -991,9 +991,14 @@ class TestCLIAndRunner:
         result = run_runbook(plan, result_out=result_out, command_trace_out=trace_out)
         assert result["status"] == "passed"
 
-    def test_supported_runbook_kinds_exactly_five(self):
+    def test_supported_runbook_kinds_exactly_six(self):
         assert SUPPORTED_RUNBOOK_KINDS == frozenset({
-            "repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight", "server-facts-snapshot",
+            "repo-sync-gate",
+            "dns-gate",
+            "ssh-gate",
+            "tailscale-preflight",
+            "server-facts-snapshot",
+            "heimserver-service-gate",
         })
 
     def test_stage_d_still_exactly_two_mutating_executors(self):

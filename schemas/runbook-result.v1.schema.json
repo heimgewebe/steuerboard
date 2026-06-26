@@ -40,7 +40,8 @@
         "dns-gate",
         "ssh-gate",
         "tailscale-preflight",
-        "server-facts-snapshot"
+        "server-facts-snapshot",
+        "heimserver-service-gate"
       ]
     },
     "status": {

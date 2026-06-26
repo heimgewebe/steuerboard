@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 11A/11B/11C/11D/11E introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
+Phases 11A through 11E and 11F-K introduce read-only runbooks: repeatable local check sequences over existing steuerboard artifacts and read-only/derivation-only functions.
 
 A runbook is an operational checklist, not an action executor.
 
@@ -37,12 +37,16 @@ Phase 11D status: implemented.
 Phase 11E status: implemented.
 - server-facts-snapshot
 
+Phase 11F-K status: implemented.
+- heimserver-service-gate
+
 Implemented runbook kinds:
 - repo-sync-gate
 - dns-gate
 - ssh-gate
 - tailscale-preflight
 - server-facts-snapshot
+- heimserver-service-gate
 
 Allowed:
 - observe repository state read-only
@@ -53,6 +57,7 @@ Allowed:
 - emit runbook-step-trace.v1 JSONL
 - include evidence paths and short assessment
 - collect a read-only host/runtime snapshot and write `server-facts.json` alongside result and trace (server-facts-snapshot only)
+- load explicit hash-bound service-gate input artifacts, derive an artifact-only assessment, and write `heimserver-service-gate-assessment.json` alongside result and trace (heimserver-service-gate only)
 
 Forbidden:
 - git switch
@@ -166,12 +171,48 @@ Do not soften blocked or inconclusive into permissive language.
 
 `server-facts-snapshot` is the fifth concrete read-only runbook kind (Phase 11E), implemented.
 
-Heimserver-Service-Gate remains future-gated and design-only.
-See `docs/heimserver-service-gate-model.md`.
+`heimserver-service-gate` is the sixth concrete read-only runbook kind (Phase 11F-K), implemented over the existing artifact adapter, pure producer, and assessment writer. See `docs/heimserver-service-gate-model.md`.
 
-It must not be confused with `server-facts-snapshot`: server-facts observes host/runtime facts; a future service gate would evaluate service readiness under a separately approved contract.
+It must not be confused with `server-facts-snapshot`: server-facts observes host/runtime metadata; the service gate consumes an explicit three-artifact set and derives an artifact-only assessment. Neither performs a live service-manager check.
 
-Additional runbook kinds beyond `server-facts-snapshot` remain future-gated.
+Additional runbook kinds and any live-check service-gate extension remain future-gated.
+
+
+## heimserver-service-gate semantics
+
+The runbook answers:
+"Do the three explicitly referenced and hash-bound artifacts satisfy the Heimserver-Service-Gate assessment contract?"
+
+It calls the existing safe adapter and writer boundaries. It does not reimplement their path, hash, strict-JSON, schema, producer, or deterministic-serialization contracts.
+
+Input:
+- `service_gate_inputs.artifact_root`
+- `service_gate_inputs.input_refs`, passed unchanged to `derive_heimserver_service_gate_assessment_from_refs()`
+
+Output:
+- `runbook-result.v1`
+- `runbook-step-trace.v1` JSONL
+- `heimserver-service-gate-assessment.v1`, written to `heimserver-service-gate-assessment.json` in the same directory as the trace output
+
+Status rules:
+- `passed`: the adapter derived a valid `passed` assessment and the complete output set was written.
+- `blocked`: the adapter derived a valid `blocked` assessment and the complete output set was written.
+- `inconclusive`: the assessment itself is inconclusive, or a technical adapter/writer failure prevented a trustworthy assessment artifact.
+
+Technical adapter/writer codes remain technical diagnostics. They are not mapped into the assessment's `service_gate_*` reason-code namespace. Untrusted payload values are not copied into runbook diagnostics.
+
+Output collision protection:
+- `heimserver-service-gate-assessment.json` must not collide with result or trace;
+- every target must be outside the repository worktree;
+- existing files, directories, symlinks, and dangling symlinks at the assessment target are rejected before execution;
+- a later result/trace failure removes an already committed assessment so no incomplete output set remains.
+
+Boundary:
+- artifact-derived only; no automatic artifact discovery
+- no live service probe, network probe, port scan, service-manager query, subprocess, shell, SSH, Tailscale CLI/API, or `systemctl`
+- no service mutation or repair
+- no Stage-D action or action authorisation
+- `passed` does not prove live service state, reachability, runtime correctness, or service-role fulfilment
 
 ## server-facts-snapshot semantics
 

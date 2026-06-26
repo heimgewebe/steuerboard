@@ -147,6 +147,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "runbooks/dns-gate.json",
     "runbooks/ssh-gate.json",
     "runbooks/tailscale-preflight.json",
+    "runbooks/heimserver-service-gate.json",
     "runbook-results/repo-sync-gate-passed.json",
     "runbook-results/repo-sync-gate-blocked.json",
     "runbook-results/repo-sync-gate-inconclusive.json",
@@ -159,6 +160,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "runbook-results/tailscale-preflight-passed.json",
     "runbook-results/tailscale-preflight-blocked.json",
     "runbook-results/tailscale-preflight-inconclusive.json",
+    "runbook-results/heimserver-service-gate-passed.json",
 }
 
 FORBIDDEN_ASSESSMENT_EXPLANATION_KEYS = {

@@ -1,0 +1,36 @@
+{
+  "schema_version": "runbook-plan.v1",
+  "runbook_id": "runbook-heimserver-service-gate-example",
+  "runbook_kind": "heimserver-service-gate",
+  "created_at": "2026-06-26T18:45:00Z",
+  "repo_path": "/srv/repos/steuerboard",
+  "mode": "read_only",
+  "source_refs": [
+    "examples/server-facts/golden-passed-single-service-fresh.json",
+    "examples/heimserver-service-expectations/golden-passed-single-service-fresh.json",
+    "examples/heimserver-service-evidence/golden-passed-single-service-fresh.json"
+  ],
+  "service_gate_inputs": {
+    "artifact_root": ".",
+    "input_refs": {
+      "server_facts_ref": {
+        "path": "examples/server-facts/golden-passed-single-service-fresh.json",
+        "sha256": "81f6d2ac9dac514ca193c45efa5a41e5a4243a7a9e60d2adb1e9403fe1356c4a"
+      },
+      "expectation_ref": {
+        "path": "examples/heimserver-service-expectations/golden-passed-single-service-fresh.json",
+        "sha256": "4ef0837b5243cb7f2a18c2072690002d93da8845e3ade4f9100699e33547a954"
+      },
+      "service_evidence_ref": {
+        "path": "examples/heimserver-service-evidence/golden-passed-single-service-fresh.json",
+        "sha256": "57275925f63b2be79ab5866bfded2d94b13b49dbc1ce9590aafc5caa93a2de8a"
+      }
+    }
+  },
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

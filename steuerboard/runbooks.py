@@ -5,6 +5,8 @@ Implements read-only runbook kinds:
 - dns-gate
 - ssh-gate
 - tailscale-preflight
+- server-facts-snapshot
+- heimserver-service-gate
 
 Architecture rule (Observation != Derivation != Decision != Action):
 - A runbook sequences observations and derivations only.
@@ -41,6 +43,14 @@ from typing import Any
 
 from .assessment import assess_repo
 from .observation import observe_repo
+from .heimserver_service_gate_artifacts import (
+    HeimserverServiceGateArtifactError,
+    derive_heimserver_service_gate_assessment_from_refs,
+)
+from .heimserver_service_gate_writer import (
+    HeimserverServiceGateWriteError,
+    write_heimserver_service_gate_assessment,
+)
 
 try:
     from jsonschema import ValidationError as SchemaValidationError
@@ -55,9 +65,14 @@ _RUNBOOK_RESULT_SCHEMA: dict[str, Any] | None = None
 _RUNBOOK_STEP_TRACE_SCHEMA: dict[str, Any] | None = None
 _SERVER_FACTS_SCHEMA: dict[str, Any] | None = None
 
-# Allowed runbook kinds in Phase 11E.
+# Allowed runbook kinds through Phase 11F-K.
 SUPPORTED_RUNBOOK_KINDS: frozenset[str] = frozenset({
-    "repo-sync-gate", "dns-gate", "ssh-gate", "tailscale-preflight", "server-facts-snapshot",
+    "repo-sync-gate",
+    "dns-gate",
+    "ssh-gate",
+    "tailscale-preflight",
+    "server-facts-snapshot",
+    "heimserver-service-gate",
 })
 
 
@@ -185,19 +200,44 @@ def _resolve_git_marker_worktree_root(repo_path_raw: str) -> Path:
     return repo_path
 
 
+def _ensure_output_outside_worktree(
+    repo_worktree_root: Path,
+    label: str,
+    output_path: Path,
+) -> None:
+    try:
+        output_path.relative_to(repo_worktree_root)
+    except ValueError:
+        return
+    raise ValueError(
+        f"{label} must be outside repository worktree for read_only runbook: {output_path}"
+    )
+
+
 def _ensure_outputs_outside_worktree(
     repo_worktree_root: Path,
     result_out: Path,
     command_trace_out: Path,
 ) -> None:
-    for label, output_path in (("result_out", result_out), ("command_trace_out", command_trace_out)):
-        try:
-            output_path.relative_to(repo_worktree_root)
-        except ValueError:
-            continue
-        raise ValueError(
-            f"{label} must be outside repository worktree for read_only runbook: {output_path}"
-        )
+    _ensure_output_outside_worktree(repo_worktree_root, "result_out", result_out)
+    _ensure_output_outside_worktree(
+        repo_worktree_root, "command_trace_out", command_trace_out
+    )
+
+
+def _require_additional_output_path(
+    candidate: Path,
+    label: str,
+    conflicts: tuple[Path, ...],
+) -> Path:
+    """Validate one runner-derived output path before execution begins."""
+    parent = candidate.parent.resolve(strict=True)
+    target = parent / candidate.name
+    if os.path.lexists(target):
+        raise ValueError(f"{label} must not already exist: {target}")
+    if target in conflicts:
+        raise ValueError(f"{label} must not collide with another output path")
+    return target
 
 
 def _validate_plan_preconditions(
@@ -1449,6 +1489,285 @@ def _run_server_facts_snapshot(
     return steps, step_traces, overall_status, short, server_facts_out
 
 
+# ---------------------------------------------------------------------------
+# Heimserver-Service-Gate artifact workflow
+# (artifact-derived read_only/derivation_only; no live service checks)
+# ---------------------------------------------------------------------------
+
+
+def _run_heimserver_service_gate(
+    runbook_plan: dict[str, Any],
+    assessment_out: Path,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    str,
+    str,
+    Path | None,
+]:
+    """Derive and persist one artifact-only service-gate assessment.
+
+    Technical adapter or writer failures become an inconclusive runbook result.
+    They are never translated into the producer's domain reason codes and no
+    untrusted artifact value is copied into diagnostics.
+    """
+    runbook_id = runbook_plan["runbook_id"]
+    inputs = runbook_plan["service_gate_inputs"]
+    artifact_root = inputs["artifact_root"]
+    input_refs = inputs["input_refs"]
+    source_ref = "heimserver-service-gate-assessment.v1"
+    steps: list[dict[str, Any]] = []
+    step_traces: list[dict[str, Any]] = []
+
+    # Step 1: safe artifact loading plus pure assessment derivation.
+    step_id_derive = "step-service-gate-derive"
+    t0 = _utc_now()
+    try:
+        assessment = derive_heimserver_service_gate_assessment_from_refs(
+            artifact_root=artifact_root,
+            input_refs=input_refs,
+        )
+    except HeimserverServiceGateArtifactError as exc:
+        t1 = _utc_now()
+        label = (
+            "Service-gate input loading or derivation was inconclusive "
+            f"(technical_code={exc.code}, stage={exc.stage})."
+        )
+        steps.append({
+            "step_id": step_id_derive,
+            "label": label,
+            "status": "inconclusive",
+            "source_ref": source_ref,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_derive),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_derive,
+            "operation": (
+                "steuerboard.heimserver_service_gate_artifacts."
+                "derive_heimserver_service_gate_assessment_from_refs"
+            ),
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Heimserver-Service-Gate inconclusive because the artifact adapter "
+            f"failed (technical_code={exc.code}, stage={exc.stage}). "
+            "No assessment artifact was written."
+        )
+        return steps, step_traces, "inconclusive", short, None
+    except Exception as exc:  # noqa: BLE001
+        t1 = _utc_now()
+        label = (
+            "Service-gate derivation was inconclusive "
+            f"(technical_code=unexpected_{type(exc).__name__})."
+        )
+        steps.append({
+            "step_id": step_id_derive,
+            "label": label,
+            "status": "inconclusive",
+            "source_ref": source_ref,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_derive),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_derive,
+            "operation": (
+                "steuerboard.heimserver_service_gate_artifacts."
+                "derive_heimserver_service_gate_assessment_from_refs"
+            ),
+            "capability_class": "derivation_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Heimserver-Service-Gate inconclusive because assessment derivation "
+            "failed unexpectedly. No assessment artifact was written."
+        )
+        return steps, step_traces, "inconclusive", short, None
+
+    t1 = _utc_now()
+    steps.append({
+        "step_id": step_id_derive,
+        "label": "Load referenced artifacts and derive a schema-valid assessment",
+        "status": "passed",
+        "source_ref": source_ref,
+    })
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_derive),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_derive,
+        "operation": (
+            "steuerboard.heimserver_service_gate_artifacts."
+            "derive_heimserver_service_gate_assessment_from_refs"
+        ),
+        "capability_class": "derivation_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": "passed",
+        "redaction_verified": True,
+    })
+
+    # Step 2: persist through the dedicated writer boundary.
+    step_id_write = "step-service-gate-write"
+    t0 = _utc_now()
+    try:
+        assessment_path = write_heimserver_service_gate_assessment(
+            assessment=assessment,
+            output_path=assessment_out,
+        )
+    except HeimserverServiceGateWriteError as exc:
+        t1 = _utc_now()
+        label = (
+            "Service-gate assessment write was inconclusive "
+            f"(technical_code={exc.code}, stage={exc.stage})."
+        )
+        steps.append({
+            "step_id": step_id_write,
+            "label": label,
+            "status": "inconclusive",
+            "source_ref": source_ref,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_write),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_write,
+            "operation": (
+                "steuerboard.heimserver_service_gate_writer."
+                "write_heimserver_service_gate_assessment"
+            ),
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Heimserver-Service-Gate inconclusive because the assessment writer "
+            f"failed (technical_code={exc.code}, stage={exc.stage}). "
+            "No assessment artifact was committed."
+        )
+        return steps, step_traces, "inconclusive", short, None
+    except Exception as exc:  # noqa: BLE001
+        if os.path.lexists(assessment_out):
+            try:
+                os.unlink(assessment_out)
+            except OSError:
+                pass
+        t1 = _utc_now()
+        label = (
+            "Service-gate assessment write was inconclusive "
+            f"(technical_code=unexpected_{type(exc).__name__})."
+        )
+        steps.append({
+            "step_id": step_id_write,
+            "label": label,
+            "status": "inconclusive",
+            "source_ref": source_ref,
+        })
+        step_traces.append({
+            "schema_version": "runbook-step-trace.v1",
+            "trace_id": _trace_id(step_id_write),
+            "runbook_ref": runbook_id,
+            "step_id": step_id_write,
+            "operation": (
+                "steuerboard.heimserver_service_gate_writer."
+                "write_heimserver_service_gate_assessment"
+            ),
+            "capability_class": "read_only",
+            "started_at": t0,
+            "finished_at": t1,
+            "status": "inconclusive",
+            "redaction_verified": True,
+        })
+        short = (
+            "Heimserver-Service-Gate inconclusive because assessment persistence "
+            "failed unexpectedly. No assessment artifact was committed."
+        )
+        return steps, step_traces, "inconclusive", short, None
+
+    t1 = _utc_now()
+    steps.append({
+        "step_id": step_id_write,
+        "label": "Write the validated service-gate assessment artifact",
+        "status": "passed",
+        "source_ref": source_ref,
+        "evidence_path": str(assessment_path),
+    })
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_write),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_write,
+        "operation": (
+            "steuerboard.heimserver_service_gate_writer."
+            "write_heimserver_service_gate_assessment"
+        ),
+        "capability_class": "read_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": "passed",
+        "redaction_verified": True,
+    })
+
+    # Step 3: bind the runbook status to the assessment status.
+    step_id_status = "step-service-gate-status"
+    t0 = _utc_now()
+    assessment_status = assessment.get("status")
+    if assessment_status not in {"passed", "blocked", "inconclusive"}:
+        assessment_status = "inconclusive"
+    t1 = _utc_now()
+    steps.append({
+        "step_id": step_id_status,
+        "label": "Bind the runbook status to the assessment status",
+        "status": assessment_status,
+        "source_ref": source_ref,
+        "evidence_path": str(assessment_path),
+    })
+    step_traces.append({
+        "schema_version": "runbook-step-trace.v1",
+        "trace_id": _trace_id(step_id_status),
+        "runbook_ref": runbook_id,
+        "step_id": step_id_status,
+        "operation": "steuerboard.runbooks._run_heimserver_service_gate",
+        "capability_class": "derivation_only",
+        "started_at": t0,
+        "finished_at": t1,
+        "status": assessment_status,
+        "redaction_verified": True,
+    })
+
+    reason_codes_raw = assessment.get("reason_codes")
+    reason_codes = (
+        [item for item in reason_codes_raw if isinstance(item, str)]
+        if isinstance(reason_codes_raw, list)
+        else []
+    )
+    short = (
+        f"Heimserver-Service-Gate {assessment_status}. "
+        f"Assessment artifact={assessment_path.name!r}, "
+        f"reason_codes={reason_codes!r}. "
+        "The result is artifact-derived and does not prove live service state, "
+        "reachability, runtime correctness, or role fulfilment."
+    )
+    return (
+        steps,
+        step_traces,
+        _derive_overall_status(steps),
+        short,
+        assessment_path,
+    )
+
+
 def run_runbook(
     runbook_plan: dict[str, Any],
     result_out: str,
@@ -1489,6 +1808,19 @@ def run_runbook(
         repo_worktree_root = _resolve_git_marker_worktree_root(str(runbook_plan["repo_path"]))
     _ensure_outputs_outside_worktree(repo_worktree_root, result_path, trace_path)
 
+    service_gate_assessment_out: Path | None = None
+    if runbook_kind == "heimserver-service-gate":
+        service_gate_assessment_out = _require_additional_output_path(
+            trace_path.parent / "heimserver-service-gate-assessment.json",
+            "service_gate_assessment_out",
+            (result_path, trace_path),
+        )
+        _ensure_output_outside_worktree(
+            repo_worktree_root,
+            "service_gate_assessment_out",
+            service_gate_assessment_out,
+        )
+
     # --- Execution begins here ---
     runbook_id = runbook_plan["runbook_id"]
     repo_path_str = runbook_plan["repo_path"]
@@ -1496,6 +1828,7 @@ def run_runbook(
     steps: list[dict[str, Any]] = []
     step_traces: list[dict[str, Any]] = []
     facts_path: Path | None = None
+    service_gate_assessment_path: Path | None = None
 
     BOUNDARY = {
         "does_not_execute_mutating_actions": True,
@@ -1752,6 +2085,34 @@ def run_runbook(
             runbook_plan.get("source_refs", []),
             ["server-facts.v1"],
         )
+    elif runbook_kind == "heimserver-service-gate":
+        if service_gate_assessment_out is None:  # pragma: no cover - preflight sets it
+            raise ValueError("service_gate_assessment_out was not prepared")
+        try:
+            (
+                steps,
+                step_traces,
+                overall_status,
+                short_assessment,
+                service_gate_assessment_path,
+            ) = _run_heimserver_service_gate(
+                runbook_plan=runbook_plan,
+                assessment_out=service_gate_assessment_out,
+            )
+        except Exception:
+            # The helper normally converts adapter/writer failures into an
+            # inconclusive result. This guard covers an unexpected failure after
+            # the writer committed but before the helper returned its path.
+            if os.path.lexists(service_gate_assessment_out):
+                try:
+                    os.unlink(service_gate_assessment_out)
+                except OSError:
+                    pass
+            raise
+        all_source_refs = _merge_source_refs(
+            runbook_plan.get("source_refs", []),
+            ["heimserver-service-gate-assessment.v1"],
+        )
     else:  # pragma: no cover - schema/preconditions already guard this path
         raise ValueError(f"unsupported runbook_kind {runbook_kind!r}")
 
@@ -1761,6 +2122,11 @@ def run_runbook(
     evidence_paths: list[str] = [str(trace_path)]
     if runbook_kind == "server-facts-snapshot" and facts_path is not None:
         evidence_paths.append(str(facts_path))
+    if (
+        runbook_kind == "heimserver-service-gate"
+        and service_gate_assessment_path is not None
+    ):
+        evidence_paths.append(str(service_gate_assessment_path))
     result: dict[str, Any] = {
         "schema_version": "runbook-result.v1",
         "result_id": _result_id(),
@@ -1783,6 +2149,10 @@ def run_runbook(
     # initialise here so the except-block can reference it unconditionally.
     server_facts_out = trace_path.parent / "server-facts.json"
     facts_committed = facts_path is not None and facts_path.exists()
+    service_gate_assessment_committed = (
+        service_gate_assessment_path is not None
+        and service_gate_assessment_path.exists()
+    )
 
     # --- Atomic write: temp files -> os.replace ---
     trace_tmp_path: Path | None = None
@@ -1847,6 +2217,15 @@ def run_runbook(
         if facts_committed and server_facts_out.exists():
             try:
                 os.unlink(server_facts_out)
+            except OSError:
+                pass
+        if (
+            service_gate_assessment_committed
+            and service_gate_assessment_path is not None
+            and os.path.lexists(service_gate_assessment_path)
+        ):
+            try:
+                os.unlink(service_gate_assessment_path)
             except OSError:
                 pass
         raise
