@@ -2,40 +2,93 @@
 
 from __future__ import annotations
 
-import importlib.util
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
+from steuerboard import heimserver_service_gate_artifacts as adapter_module
 from steuerboard.heimserver_service_gate_artifacts import (
     HeimserverServiceGateArtifactError,
     derive_heimserver_service_gate_assessment_from_refs,
 )
-from steuerboard import heimserver_service_gate_artifacts as adapter_module
+from steuerboard.heimserver_service_gate import (
+    derive_heimserver_service_gate_assessment,
+)
 
-_EXISTING_TEST_FILE = Path(__file__).with_name(
-    "test_heimserver_service_gate_artifacts.py"
-)
-_SPEC = importlib.util.spec_from_file_location(
-    "_steuerboard_existing_artifact_adapter_tests",
-    _EXISTING_TEST_FILE,
-)
-assert _SPEC is not None and _SPEC.loader is not None
-_existing = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(_existing)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCHEMAS_DIR = REPO_ROOT / "schemas"
+CASES_DIR = REPO_ROOT / "examples" / "heimserver-service-gate-derivation-cases"
+BASE_CASE_ID = "golden-passed-single-service-fresh"
+EVIDENCE_SCHEMA_FILE = adapter_module._INPUT_SCHEMAS["service_evidence_ref"]
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _base_payloads() -> tuple[dict, dict, dict]:
+    case = _read_json(CASES_DIR / f"{BASE_CASE_ID}.json")
+    inputs = case["inputs"]
+    return (
+        _read_json(REPO_ROOT / inputs["server_facts_ref"]["path"]),
+        _read_json(REPO_ROOT / inputs["expectation_ref"]["path"]),
+        _read_json(REPO_ROOT / inputs["service_evidence_ref"]["path"]),
+    )
+
+
+def _write_artifact(root: Path, name: str, payload: dict, raw: bytes | None = None):
+    data = raw if raw is not None else (json.dumps(payload, indent=2) + "\n").encode()
+    (root / name).write_bytes(data)
+    return {"path": name, "sha256": hashlib.sha256(data).hexdigest()}
+
+
+def _build_valid_root(root: Path, *, evidence_bytes: bytes) -> dict:
+    facts, expectation, evidence = _base_payloads()
+    return {
+        "server_facts_ref": _write_artifact(root, "server-facts.json", facts),
+        "expectation_ref": _write_artifact(root, "expectation.json", expectation),
+        "service_evidence_ref": _write_artifact(
+            root, "evidence.json", evidence, evidence_bytes
+        ),
+    }
+
+
+def _patch_evidence_schema(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    out = tmp_path / "schemas"
+    out.mkdir()
+    for filename in adapter_module._CANONICAL_SCHEMA_FILENAMES:
+        source = SCHEMAS_DIR / filename
+        (out / filename).write_bytes(
+            b"{}" if filename == EVIDENCE_SCHEMA_FILE else source.read_bytes()
+        )
+    monkeypatch.setattr(adapter_module, "_SCHEMAS_DIR", out)
+
+
+class _ProducerSpy:
+    def __init__(self) -> None:
+        self.called = False
+
+    def __call__(self, *, server_facts, expectation, service_evidence, input_refs):
+        self.called = True
+        return derive_heimserver_service_gate_assessment(
+            server_facts=server_facts,
+            expectation=expectation,
+            service_evidence=service_evidence,
+            input_refs=input_refs,
+        )
 
 
 @pytest.mark.parametrize("bad_evidence", [7, None])
 def test_evidence_non_list_rejected_before_producer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, bad_evidence: object
 ) -> None:
-    spy = _existing.install_spy(monkeypatch)
-    _existing._patch_schemas(
-        tmp_path,
-        monkeypatch,
-        {_existing.EVIDENCE_SCHEMA_FILE: b"{}"},
+    spy = _ProducerSpy()
+    monkeypatch.setattr(
+        adapter_module, "derive_heimserver_service_gate_assessment", spy
     )
+    _patch_evidence_schema(tmp_path, monkeypatch)
     payload = {
         "host": "heimserver-golden",
         "observed_at": "2026-01-01T00:00:00Z",
@@ -48,9 +101,9 @@ def test_evidence_non_list_rejected_before_producer(
             }
         ],
     }
-    refs = _existing.build_valid_root(
+    refs = _build_valid_root(
         tmp_path,
-        ev_bytes=json.dumps(payload).encode(),
+        evidence_bytes=json.dumps(payload).encode(),
     )
 
     with pytest.raises(HeimserverServiceGateArtifactError) as exc_info:
@@ -61,7 +114,7 @@ def test_evidence_non_list_rejected_before_producer(
 
     assert exc_info.value.code == "contract_schema_invalid"
     assert exc_info.value.stage == "contract_schema"
-    assert exc_info.value.path == _existing.EVIDENCE_SCHEMA_FILE
+    assert exc_info.value.path == EVIDENCE_SCHEMA_FILE
     assert exc_info.value.input_name == "service_evidence_ref"
     assert spy.called is False
 
@@ -91,7 +144,7 @@ def test_preimage_guard_rejects_non_list_evidence(bad_evidence: object) -> None:
 
     assert exc_info.value.code == "contract_schema_invalid"
     assert exc_info.value.stage == "contract_schema"
-    assert exc_info.value.path == _existing.EVIDENCE_SCHEMA_FILE
+    assert exc_info.value.path == EVIDENCE_SCHEMA_FILE
     assert exc_info.value.input_name == "service_evidence_ref"
 
 
