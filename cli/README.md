@@ -659,7 +659,7 @@ The plan supplies `service_gate_inputs.artifact_root` and `service_gate_inputs.i
 - the standard `runbook-step-trace.v1` JSONL at `--command-trace-out`;
 - `heimserver-service-gate-assessment.json` in the trace output directory.
 
-All three targets must be outside the repository worktree and absent before execution. The assessment target must not collide with result or trace. A later result/trace publication failure removes an already written assessment.
+`repo_path` must resolve inside a path with a concrete `.git` worktree marker. All three targets must be outside that resolved `.git`-marked worktree, distinct, and absent before execution; regular files, directories, symlinks, and dangling symlinks are rejected without following the final entry. A later publication failure triggers cleanup of all temporary and committed outputs, and any cleanup failure is surfaced explicitly.
 
 Status binding is exact: assessment `passed`, `blocked`, or `inconclusive` becomes the runbook status of the same name. Adapter or writer technical failures produce an inconclusive runbook result and no assessment artifact.
 

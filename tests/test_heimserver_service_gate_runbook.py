@@ -245,3 +245,118 @@ def test_generic_runbook_cli_executes_service_gate(
     assert result_path.exists()
     assert trace_path.exists()
     assert (tmp_path / "heimserver-service-gate-assessment.json").exists()
+
+
+@pytest.mark.parametrize("output_name", ["result.json", "trace.jsonl"])
+def test_dangling_symlink_output_is_rejected_without_following_target(
+    tmp_path: Path,
+    output_name: str,
+) -> None:
+    missing_target = tmp_path / f"missing-{output_name}"
+    symlink_path = tmp_path / output_name
+    symlink_path.symlink_to(missing_target)
+    result_path = (
+        symlink_path if output_name == "result.json" else tmp_path / "result.json"
+    )
+    trace_path = (
+        symlink_path if output_name == "trace.jsonl" else tmp_path / "trace.jsonl"
+    )
+
+    with pytest.raises(ValueError, match="must not already exist"):
+        run_runbook(
+            runbook_plan=_plan("golden-passed-single-service-fresh"),
+            result_out=str(result_path),
+            command_trace_out=str(trace_path),
+        )
+
+    assert os.path.lexists(symlink_path)
+    assert symlink_path.is_symlink()
+    assert not missing_target.exists()
+    assert not os.path.lexists(tmp_path / "heimserver-service-gate-assessment.json")
+
+
+def test_non_git_repo_path_is_rejected_before_any_output(tmp_path: Path) -> None:
+    fake_repo = tmp_path / "not-a-git-worktree"
+    outputs = tmp_path / "outputs"
+    fake_repo.mkdir()
+    outputs.mkdir()
+    plan = _plan("golden-passed-single-service-fresh")
+    plan["repo_path"] = str(fake_repo)
+
+    with pytest.raises(ValueError, match="repo_path must resolve inside a Git worktree"):
+        run_runbook(
+            runbook_plan=plan,
+            result_out=str(outputs / "result.json"),
+            command_trace_out=str(outputs / "trace.jsonl"),
+        )
+
+    assert list(outputs.iterdir()) == []
+
+
+def test_unexpected_adapter_failure_propagates_without_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_adapter(**_kwargs: object) -> dict:
+        raise RuntimeError("unexpected adapter regression")
+
+    monkeypatch.setattr(
+        runbooks,
+        "derive_heimserver_service_gate_assessment_from_refs",
+        fail_adapter,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected adapter regression"):
+        _run(tmp_path, _plan("golden-passed-single-service-fresh"))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_unexpected_writer_failure_propagates_and_rolls_back_assessment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_writer(*, assessment: dict, output_path: Path) -> Path:
+        del assessment
+        Path(output_path).write_text("partial\n", encoding="utf-8")
+        raise RuntimeError("unexpected writer regression")
+
+    monkeypatch.setattr(
+        runbooks,
+        "write_heimserver_service_gate_assessment",
+        fail_writer,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected writer regression"):
+        _run(tmp_path, _plan("golden-passed-single-service-fresh"))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_rollback_failure_is_reported_instead_of_silenced(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assessment_path = tmp_path / "heimserver-service-gate-assessment.json"
+    original_unlink = runbooks.os.unlink
+
+    def fail_result_validation(_result: dict) -> None:
+        raise RuntimeError("simulated result validation failure")
+
+    def fail_assessment_unlink(path: str | os.PathLike[str]) -> None:
+        if Path(path) == assessment_path:
+            raise PermissionError("simulated rollback denial")
+        original_unlink(path)
+
+    monkeypatch.setattr(runbooks, "_validate_result", fail_result_validation)
+    monkeypatch.setattr(runbooks.os, "unlink", fail_assessment_unlink)
+
+    with pytest.raises(
+        RuntimeError,
+        match="runbook output rollback failed after RuntimeError",
+    ):
+        _run(tmp_path, _plan("golden-passed-single-service-fresh"))
+
+    assert assessment_path.exists()
+    assert not (tmp_path / "result.json").exists()
+    assert not (tmp_path / "trace.jsonl").exists()

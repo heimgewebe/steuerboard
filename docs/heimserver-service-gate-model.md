@@ -582,7 +582,7 @@ runbook-plan.v1
 - `artifact_root`: the root from which the adapter resolves the three relative artifact paths;
 - `input_refs`: passed unchanged to the adapter. The adapter and the canonical assessment `inputs` subschema remain the authority for the exact three-reference contract; the runbook schema does not duplicate that detailed contract.
 
-`service_gate_inputs` is forbidden for all other runbook kinds. The existing `repo_path` remains a context/worktree boundary anchor; the service-gate derivation does not inspect or mutate that repository.
+`service_gate_inputs` is forbidden for all other runbook kinds. For this runbook, `repo_path` must resolve inside a path with a concrete `.git` worktree marker and is used only as a non-spoofable output-boundary anchor; the service-gate derivation does not inspect or mutate that repository.
 
 ### Execution and status binding
 
@@ -602,7 +602,7 @@ The successful output set consists of:
 - `runbook-step-trace.v1` JSONL;
 - `heimserver-service-gate-assessment.v1` at `heimserver-service-gate-assessment.json`.
 
-All output targets must be outside the repository worktree, distinct, and absent before execution. A pre-existing regular file, directory, symlink, or dangling symlink at the assessment path blocks the run before output is written. If the assessment has been committed but result or trace publication later fails, the assessment is removed together with any already-published standard output so that no incomplete output set remains.
+All output targets must be outside the resolved `.git`-marked worktree, distinct, and absent before execution. A pre-existing regular file, directory, symlink, or dangling symlink at any final output path blocks the run before output is written. If publication later fails, the runner attempts cleanup of every temporary and committed output. A cleanup failure is raised explicitly instead of being silently treated as a complete rollback.
 
 ### Capability and authority boundary
 

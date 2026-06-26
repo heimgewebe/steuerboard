@@ -203,9 +203,9 @@ Technical adapter/writer codes remain technical diagnostics. They are not mapped
 
 Output collision protection:
 - `heimserver-service-gate-assessment.json` must not collide with result or trace;
-- every target must be outside the repository worktree;
-- existing files, directories, symlinks, and dangling symlinks at the assessment target are rejected before execution;
-- a later result/trace failure removes an already committed assessment so no incomplete output set remains.
+- `repo_path` must resolve inside a path with a concrete `.git` worktree marker, and every target must be outside that resolved `.git`-marked worktree;
+- existing files, directories, symlinks, and dangling symlinks at any final output target are rejected before execution;
+- a later publication failure triggers cleanup of temporary and committed outputs; cleanup failures are raised explicitly rather than silently reported as a complete rollback.
 
 Boundary:
 - artifact-derived only; no automatic artifact discovery

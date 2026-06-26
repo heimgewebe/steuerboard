@@ -149,15 +149,18 @@ def _merge_source_refs(*groups: Any) -> list[str]:
 
 
 def _require_output_path(raw: str, label: str) -> Path:
-    """Return resolved Path; raise ValueError if parent missing or target exists."""
+    """Return a parent-resolved no-clobber target without following its final entry."""
     candidate = Path(raw).expanduser()
-    target = candidate.resolve()
-    parent = target.parent
-    if not parent.exists() or not parent.is_dir():
+    try:
+        parent = candidate.parent.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError(f"{label} parent directory must exist") from exc
+    if not parent.is_dir():
         raise ValueError(f"{label} parent directory must exist")
-    if target.exists():
+    target = parent / candidate.name
+    if os.path.lexists(target):
         raise ValueError(f"{label} must not already exist")
-    return parent.resolve(strict=True) / target.name
+    return target
 
 
 def _resolve_repo_worktree_root(repo_path_raw: str) -> Path:
@@ -198,6 +201,21 @@ def _resolve_git_marker_worktree_root(repo_path_raw: str) -> Path:
         if (candidate / ".git").exists():
             return candidate
     return repo_path
+
+
+def _require_git_worktree_root(repo_path_raw: str) -> Path:
+    """Resolve the closest concrete ``.git`` worktree marker or reject the plan."""
+    try:
+        repo_path = Path(repo_path_raw).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError("repo_path must resolve inside a Git worktree") from exc
+
+    cursor = repo_path if repo_path.is_dir() else repo_path.parent
+    for candidate in (cursor, *cursor.parents):
+        marker = candidate / ".git"
+        if marker.is_dir() or marker.is_file():
+            return candidate
+    raise ValueError("repo_path must resolve inside a Git worktree")
 
 
 def _ensure_output_outside_worktree(
@@ -1560,39 +1578,6 @@ def _run_heimserver_service_gate(
             "No assessment artifact was written."
         )
         return steps, step_traces, "inconclusive", short, None
-    except Exception as exc:  # noqa: BLE001
-        t1 = _utc_now()
-        label = (
-            "Service-gate derivation was inconclusive "
-            f"(technical_code=unexpected_{type(exc).__name__})."
-        )
-        steps.append({
-            "step_id": step_id_derive,
-            "label": label,
-            "status": "inconclusive",
-            "source_ref": source_ref,
-        })
-        step_traces.append({
-            "schema_version": "runbook-step-trace.v1",
-            "trace_id": _trace_id(step_id_derive),
-            "runbook_ref": runbook_id,
-            "step_id": step_id_derive,
-            "operation": (
-                "steuerboard.heimserver_service_gate_artifacts."
-                "derive_heimserver_service_gate_assessment_from_refs"
-            ),
-            "capability_class": "derivation_only",
-            "started_at": t0,
-            "finished_at": t1,
-            "status": "inconclusive",
-            "redaction_verified": True,
-        })
-        short = (
-            "Heimserver-Service-Gate inconclusive because assessment derivation "
-            "failed unexpectedly. No assessment artifact was written."
-        )
-        return steps, step_traces, "inconclusive", short, None
-
     t1 = _utc_now()
     steps.append({
         "step_id": step_id_derive,
@@ -1657,44 +1642,6 @@ def _run_heimserver_service_gate(
             "No assessment artifact was committed."
         )
         return steps, step_traces, "inconclusive", short, None
-    except Exception as exc:  # noqa: BLE001
-        if os.path.lexists(assessment_out):
-            try:
-                os.unlink(assessment_out)
-            except OSError:
-                pass
-        t1 = _utc_now()
-        label = (
-            "Service-gate assessment write was inconclusive "
-            f"(technical_code=unexpected_{type(exc).__name__})."
-        )
-        steps.append({
-            "step_id": step_id_write,
-            "label": label,
-            "status": "inconclusive",
-            "source_ref": source_ref,
-        })
-        step_traces.append({
-            "schema_version": "runbook-step-trace.v1",
-            "trace_id": _trace_id(step_id_write),
-            "runbook_ref": runbook_id,
-            "step_id": step_id_write,
-            "operation": (
-                "steuerboard.heimserver_service_gate_writer."
-                "write_heimserver_service_gate_assessment"
-            ),
-            "capability_class": "read_only",
-            "started_at": t0,
-            "finished_at": t1,
-            "status": "inconclusive",
-            "redaction_verified": True,
-        })
-        short = (
-            "Heimserver-Service-Gate inconclusive because assessment persistence "
-            "failed unexpectedly. No assessment artifact was committed."
-        )
-        return steps, step_traces, "inconclusive", short, None
-
     t1 = _utc_now()
     steps.append({
         "step_id": step_id_write,
@@ -1804,6 +1751,8 @@ def run_runbook(
     runbook_kind = runbook_plan["runbook_kind"]
     if runbook_kind == "repo-sync-gate":
         repo_worktree_root = _resolve_repo_worktree_root(str(runbook_plan["repo_path"]))
+    elif runbook_kind == "heimserver-service-gate":
+        repo_worktree_root = _require_git_worktree_root(str(runbook_plan["repo_path"]))
     else:
         repo_worktree_root = _resolve_git_marker_worktree_root(str(runbook_plan["repo_path"]))
     _ensure_outputs_outside_worktree(repo_worktree_root, result_path, trace_path)
@@ -2099,15 +2048,18 @@ def run_runbook(
                 runbook_plan=runbook_plan,
                 assessment_out=service_gate_assessment_out,
             )
-        except Exception:
-            # The helper normally converts adapter/writer failures into an
-            # inconclusive result. This guard covers an unexpected failure after
-            # the writer committed but before the helper returned its path.
+        except Exception as original_exc:
+            # Expected adapter/writer failures are converted by the helper. An
+            # unexpected failure must remain visible, while any committed
+            # assessment is rolled back before the exception is re-raised.
             if os.path.lexists(service_gate_assessment_out):
                 try:
                     os.unlink(service_gate_assessment_out)
-                except OSError:
-                    pass
+                except OSError as cleanup_exc:
+                    raise RuntimeError(
+                        "service-gate assessment rollback failed after "
+                        f"{type(original_exc).__name__}"
+                    ) from cleanup_exc
             raise
         all_source_refs = _merge_source_refs(
             runbook_plan.get("source_refs", []),
@@ -2197,37 +2149,47 @@ def run_runbook(
         result_tmp_path = None
         committed_targets.append(result_path)
 
-    except Exception:
+    except Exception as original_exc:
+        cleanup_failures: list[tuple[str, Path, OSError]] = []
+
+        def _attempt_unlink(label: str, path: Path) -> None:
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                return
+            except OSError as exc:
+                cleanup_failures.append((label, path, exc))
+
         # Clean up temp files that were never promoted.
         for tmp in (trace_tmp_path, result_tmp_path):
-            if tmp is not None and tmp.exists():
-                try:
-                    tmp.unlink()
-                except OSError:
-                    pass
+            if tmp is not None and os.path.lexists(tmp):
+                _attempt_unlink("temporary output", tmp)
+
         # Clean up any already-committed target files so no partial output
         # remains on disk when the overall operation fails.
         for target in committed_targets:
-            try:
-                os.unlink(target)
-            except OSError:
-                pass
-        # P2: Clean up facts artefact if it was committed before a later
-        # failure — a partial output set must not leave facts behind.
-        if facts_committed and server_facts_out.exists():
-            try:
-                os.unlink(server_facts_out)
-            except OSError:
-                pass
+            _attempt_unlink("committed output", target)
+
+        # Clean up auxiliary artifacts committed before a later failure.
+        if facts_committed and os.path.lexists(server_facts_out):
+            _attempt_unlink("server facts output", server_facts_out)
         if (
             service_gate_assessment_committed
             and service_gate_assessment_path is not None
             and os.path.lexists(service_gate_assessment_path)
         ):
-            try:
-                os.unlink(service_gate_assessment_path)
-            except OSError:
-                pass
+            _attempt_unlink(
+                "service-gate assessment output", service_gate_assessment_path
+            )
+
+        if cleanup_failures:
+            labels = ", ".join(
+                f"{label}={path}" for label, path, _exc in cleanup_failures
+            )
+            raise RuntimeError(
+                "runbook output rollback failed after "
+                f"{type(original_exc).__name__}: {labels}"
+            ) from cleanup_failures[0][2]
         raise
 
     return result

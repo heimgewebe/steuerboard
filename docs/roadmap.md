@@ -1419,8 +1419,9 @@ Scope:
 - derives through `derive_heimserver_service_gate_assessment_from_refs()` and persists through `write_heimserver_service_gate_assessment()`.
 - writes `heimserver-service-gate-assessment.json` beside the trace and maps assessment status exactly to runbook status.
 - technical adapter/writer failures remain technical and produce `inconclusive`, without inventing assessment reason codes.
-- assessment, result, and trace form one rollback-protected output set; no partial set remains after a later publication failure.
-- examples and tests cover passed, blocked, inconclusive, adapter failure, collision preflight, and rollback.
+- assessment, result, and trace form one rollback-protected output set; later publication failures trigger cleanup, and cleanup failures are surfaced explicitly.
+- `repo_path` must resolve inside a path with a concrete `.git` worktree marker so the outside-worktree boundary cannot be spoofed.
+- examples and tests cover passed, blocked, inconclusive, adapter failure, dangling-symlink collision preflight, false `repo_path`, unexpected internal failures, rollback, and rollback-cleanup failure.
 
 Non-goals:
 - no specialized top-level CLI command, live service check, service manager, network probe, subprocess, shell, repair, automatic artifact discovery, Runtime/Stage-D integration, or evidence-internal provenance.
