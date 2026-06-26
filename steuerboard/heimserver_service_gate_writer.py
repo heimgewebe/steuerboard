@@ -330,14 +330,14 @@ def _serialize_snapshot(snapshot: _Any, output_path: str) -> bytes:
             )
             + "\n"
         )
+        return text.encode("utf-8")
     except (TypeError, ValueError, OverflowError) as exc:
         raise _error(
             code="output_serialize_failed",
             stage="output_serialize",
             path=output_path,
-            detail="assessment could not be serialized as strict JSON",
+            detail="assessment could not be serialized as strict UTF-8 JSON",
         ) from exc
-    return text.encode("utf-8")
 
 
 def _write_bytes_to_fd(fd: int, payload: bytes) -> None:
