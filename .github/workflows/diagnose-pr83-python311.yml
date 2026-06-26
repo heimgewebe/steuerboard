@@ -1,0 +1,45 @@
+name: diagnose-pr83-python311
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'feat/heimserver-service-gate-runbook'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+      - name: Capture deploy-check result
+        shell: bash
+        run: |
+          set +e
+          make PYTHON=python deploy-check > /tmp/deploy-check.log 2>&1
+          status=$?
+          printf '%s\n' "$status" > /tmp/status.txt
+          tail -n 400 /tmp/deploy-check.log > /tmp/deploy-check-tail.log
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr83-python311-diagnostic
+          path: |
+            /tmp/status.txt
+            /tmp/deploy-check-tail.log
+          if-no-files-found: error
