@@ -29,32 +29,47 @@ jobs:
           test "$(git merge-base HEAD origin/main)" = "87f0b2202a06a3924d715562fdc451da5872f86b"
           test -d .github/phase-11f-k-transfer
 
-      - name: Verify encoded transfer
+      - name: Reconstruct encoded transfer
+        shell: bash
+        run: cat .github/phase-11f-k-transfer/part-* > /tmp/phase-11f-k.patch.gz.b64
+
+      - name: Verify encoded length
+        shell: bash
+        run: test "$(wc -c < /tmp/phase-11f-k.patch.gz.b64)" = "17492"
+
+      - name: Verify encoded checksum
         shell: bash
         run: |
-          set -euo pipefail
-          cat .github/phase-11f-k-transfer/part-* > /tmp/phase-11f-k.patch.gz.b64
-          test "$(wc -c < /tmp/phase-11f-k.patch.gz.b64)" = "17492"
           printf '%s  %s\n' \
             '4244c9c7313f5bb8235b6aae58c918fd34e59181ce20f7ca8c595f54c1538cbd' \
             '/tmp/phase-11f-k.patch.gz.b64' | sha256sum -c -
 
-      - name: Verify compressed transfer
+      - name: Decode compressed transfer
+        shell: bash
+        run: base64 --decode /tmp/phase-11f-k.patch.gz.b64 > /tmp/phase-11f-k.patch.gz
+
+      - name: Verify compressed length
+        shell: bash
+        run: test "$(wc -c < /tmp/phase-11f-k.patch.gz)" = "13117"
+
+      - name: Verify compressed checksum
         shell: bash
         run: |
-          set -euo pipefail
-          base64 --decode /tmp/phase-11f-k.patch.gz.b64 > /tmp/phase-11f-k.patch.gz
-          test "$(wc -c < /tmp/phase-11f-k.patch.gz)" = "13117"
           printf '%s  %s\n' \
             '145431ecaf4b9d589d66297f804d4501f271e3f5c81dce4fdd460869ab407077' \
             '/tmp/phase-11f-k.patch.gz' | sha256sum -c -
 
-      - name: Verify decoded patch
+      - name: Decode patch
+        shell: bash
+        run: gzip -dc /tmp/phase-11f-k.patch.gz > /tmp/phase-11f-k.patch
+
+      - name: Verify patch length
+        shell: bash
+        run: test "$(wc -c < /tmp/phase-11f-k.patch)" = "57062"
+
+      - name: Verify patch checksum
         shell: bash
         run: |
-          set -euo pipefail
-          gzip -dc /tmp/phase-11f-k.patch.gz > /tmp/phase-11f-k.patch
-          test "$(wc -c < /tmp/phase-11f-k.patch)" = "57063"
           printf '%s  %s\n' \
             '5f467e4c16f1ab672f1f73044bd2059efaaa33867f2eeba59929ae81d8fca666' \
             '/tmp/phase-11f-k.patch' | sha256sum -c -
