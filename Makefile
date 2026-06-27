@@ -37,6 +37,7 @@ smoke:
 	json_smoke "inventory duplicates" $(CLI) inventory duplicates --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "omnipull-report show mixed-run" $(CLI) omnipull-report show examples/omnipull-reports/mixed-run.json --json; \
 	json_smoke "omnipull-report latest multiple-runs" $(CLI) omnipull-report latest examples/omnipull-run-indexes/multiple-runs.json --json; \
+	json_smoke "omnipull-report recent-problems" $(CLI) omnipull-report recent-problems examples/omnipull-reports/non-default-branch.json examples/omnipull-reports/dirty-worktree.json examples/omnipull-reports/mixed-run.json --limit 3 --json; \
 	json_smoke "plan git-pull-ff-only preview" $(CLI) plan git-pull-ff-only examples/assessments/pull-preflight-local-clear-evidence-missing.json --json; \
 	echo "--- smoke: assess repo . -> assess explain -> plan switch-main ---"; \
 	tmp_assessment="$$(mktemp)"; \

@@ -27,6 +27,7 @@ from .inventory import (
 from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
+from .recent_problem_repos import build_recent_problem_repos
 from .remote_refresh import run_fetch_origin_prune
 from .runbooks import run_runbook
 
@@ -584,6 +585,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit omnipull-report-ref.v1 JSON.",
     )
 
+    omnipull_report_recent_problems_parser = omnipull_report_subparsers.add_parser(
+        "recent-problems",
+        help=(
+            "Select the latest problem occurrence per repository from explicit "
+            "omnipull-report.v1 artifacts."
+        ),
+    )
+    omnipull_report_recent_problems_parser.add_argument(
+        "report_json",
+        nargs="+",
+        help="One or more explicit omnipull-report.v1 JSON artifact paths.",
+    )
+    omnipull_report_recent_problems_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum repositories to return (1..100; default: 20).",
+    )
+    omnipull_report_recent_problems_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit recent-problem-repos.v1 JSON.",
+    )
+
     action_parser = subparsers.add_parser(
         "action",
         help="Bounded action runner commands.",
@@ -1138,6 +1164,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         print(json.dumps(report_ref, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if (
+        args.command == "omnipull-report"
+        and args.omnipull_report_command == "recent-problems"
+    ):
+        try:
+            reports = [
+                load_omnipull_report(Path(path), source_path_ref=path)
+                for path in args.report_json
+            ]
+            recent_problems = build_recent_problem_repos(reports, limit=args.limit)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(recent_problems, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "approval" and args.approval_command == "validate":

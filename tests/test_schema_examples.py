@@ -88,6 +88,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "assessments/scope-backup-blocked.json",
     "duplicates/minimal-duplicates.json",
     "favorites/mixed.json",
+    "recent-problem-repos/multiple-reports.json",
     "evidence/command-trace-redacted.json",
     "inventories/minimal-inventory.json",
     "local-configs/heim-pc.json",

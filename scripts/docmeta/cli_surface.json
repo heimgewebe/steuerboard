@@ -16,6 +16,7 @@
     "assess explain": "read_only",
     "omnipull-report show": "read_only",
     "omnipull-report latest": "read_only",
+    "omnipull-report recent-problems": "read_only",
     "action run-read-only": "read_only",
     "action postcheck-read-only": "read_only",
     "runbook run": "read_only",

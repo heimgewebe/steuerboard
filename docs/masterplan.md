@@ -983,15 +983,15 @@ Ein Runbook erzeugt:
 
 ### Phase 12 — Komfortschicht
 
-Status: Phase 12A implemented.
+Status: Phase 12A and Phase 12B implemented.
 
 Implemented:
 
 - Favoriten (Phase 12A)
+- letzte Problem-Repos aus expliziten Omnipull-Berichten (Phase 12B)
 
 Future:
 
-- letzte Problem-Repos
 - Warnung bei vielen Nicht-main-Repos
 - manuelle PR-Links
 - Verlauf pro Repo
@@ -1028,6 +1028,33 @@ The report:
 Non-goals: no favorite mutation command, no persistence beyond
 `local-config.v1`, no history, no recent-problem ranking, no PR lookup, no
 notification, no backend, no TUI, and no action authorization.
+
+#### Phase 12B — Recent Problem Repositories
+
+The command
+
+```bash
+python -m steuerboard omnipull-report recent-problems \
+  <report-json> [<report-json> ...] --limit 20 --json
+```
+
+consumes one or more explicitly named, validated `omnipull-report.v1` artifacts.
+It groups problem occurrences by `repo_id`, keeps the newest occurrence per
+repository, and returns the selected repositories newest-report-first. Equal
+report timestamps use descending `run_id`, `report_id`, and `source_path`
+tie-breakers; repositories selected from the same report preserve that report's
+input order. `occurrence_count` counts appearances only in the supplied reports.
+
+Boundary:
+
+- no directory scan, glob, run-index expansion, or automatic latest lookup;
+- no implicit report loading from references;
+- no Git, network, repository mutation, action plan, or authorisation;
+- no severity ranking is invented; source-report order resolves same-report ties;
+- no claim that the explicitly supplied reports are complete or globally latest.
+
+Non-goals: automatic history retention, warning thresholds, PR lookup, desktop
+notification, backend, TUI, and action execution.
 
 ---
 
