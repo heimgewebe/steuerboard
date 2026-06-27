@@ -40,16 +40,18 @@ _ALLOWED_REPO_KEYS = {
     "missing_evidence",
 }
 
-_ALLOWED_STATUSES = {
-    "non_default_branch",
-    "dirty_worktree",
-    "no_upstream",
-    "remote_unreachable",
-    "ff_only_not_possible",
-    "default_branch_unknown",
-    "repo_not_in_scope",
-    "permission_denied",
-}
+OMNIPULL_REPORT_STATUSES = frozenset(
+    {
+        "non_default_branch",
+        "dirty_worktree",
+        "no_upstream",
+        "remote_unreachable",
+        "ff_only_not_possible",
+        "default_branch_unknown",
+        "repo_not_in_scope",
+        "permission_denied",
+    }
+)
 
 _RFC3339_DATE_TIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -181,8 +183,8 @@ def load_omnipull_report(path: Path, *, source_path_ref: str | None = None) -> d
         _validate_known_keys(item, _ALLOWED_REPO_KEYS, field_prefix)
 
         status = _require_non_blank_string(item.get("status"), f"{field_prefix}.status")
-        if status not in _ALLOWED_STATUSES:
-            raise ValueError(f"{field_prefix}.status must be one of {sorted(_ALLOWED_STATUSES)}")
+        if status not in OMNIPULL_REPORT_STATUSES:
+            raise ValueError(f"{field_prefix}.status must be one of {sorted(OMNIPULL_REPORT_STATUSES)}")
 
         repo = {
             "repo_id": _require_non_blank_string(item.get("repo_id"), f"{field_prefix}.repo_id"),

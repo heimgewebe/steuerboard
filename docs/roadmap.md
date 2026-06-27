@@ -1455,3 +1455,37 @@ Architecture boundary:
 Non-goals:
 - no history, problem-repository ranking, warning engine, PR lookup, desktop
   notification, backend, TUI, or favorite-management command.
+
+## Phase 12B — Read-only Recent Problem Repositories
+
+Status: implemented.
+
+Adds a bounded history view over explicitly supplied `omnipull-report.v1`
+artifacts.
+
+Command:
+
+```bash
+python -m steuerboard omnipull-report recent-problems \
+  <report-json> [<report-json> ...] --limit 20 --json
+```
+
+Scope:
+- new `recent-problem-repos.v1` derived report contract and validated example;
+- one or more explicit Omnipull report paths are required;
+- newest occurrence per `repo_id` is selected from only those reports;
+- deterministic report tie-breakers and source-report order for same-report ties;
+- bounded `--limit` from 1 through 100;
+- total distinct and returned counts remain explicit;
+- repeated occurrences are exposed as `occurrence_count`.
+
+Architecture boundary:
+- no file discovery, globbing, directory walk, or automatic latest lookup;
+- no run-index expansion or implicit loading of referenced reports;
+- no claim that supplied reports are complete or globally latest;
+- no severity or remediation ranking;
+- no Git, network, mutation, planning, authorisation, or action execution.
+
+Non-goals:
+- no persistent history store, warning engine, manual PR links, desktop
+  notification, backend, TUI, or action command.

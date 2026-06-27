@@ -1,0 +1,114 @@
+{
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true
+  },
+  "distinct_problem_repo_count": 5,
+  "input_report_count": 3,
+  "limit": 3,
+  "problem_repos": [
+    {
+      "falsification_refs": [
+        "failure-case.feature_branch_unmerged"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_branch.current_invocation"
+      ],
+      "last_problem_at": "2026-05-16T09:32:00Z",
+      "missing_evidence": [
+        "branch_contains_origin_main_or_pr_merged",
+        "fresh_origin_main"
+      ],
+      "occurrence_count": 3,
+      "path": "/home/alex/repos/steuerboard",
+      "repo_id": "heimgewebe/steuerboard",
+      "report_id": "omnipull-report-example-mixed-run",
+      "report_source_path": "examples/omnipull-reports/mixed-run.json",
+      "run_id": "run-2026-05-16-003",
+      "skip_reasons": [
+        "non_default_branch"
+      ],
+      "source_refs": [
+        "git.current_branch",
+        "git.default_branch_candidate"
+      ],
+      "status": "non_default_branch"
+    },
+    {
+      "falsification_refs": [
+        "failure-case.missing_upstream"
+      ],
+      "freshness_refs": [
+        "freshness.local_git_branch.current_invocation"
+      ],
+      "last_problem_at": "2026-05-16T09:32:00Z",
+      "missing_evidence": [
+        "upstream_tracking_branch"
+      ],
+      "occurrence_count": 1,
+      "path": "/home/alex/repos/legacy-no-upstream",
+      "repo_id": "heimgewebe/legacy-no-upstream",
+      "report_id": "omnipull-report-example-mixed-run",
+      "report_source_path": "examples/omnipull-reports/mixed-run.json",
+      "run_id": "run-2026-05-16-003",
+      "skip_reasons": [
+        "no_upstream"
+      ],
+      "source_refs": [
+        "git.upstream"
+      ],
+      "status": "no_upstream"
+    },
+    {
+      "falsification_refs": [
+        "failure-case.backup_repo_accidentally_used"
+      ],
+      "freshness_refs": [
+        "freshness.local_scope_config.current_invocation"
+      ],
+      "last_problem_at": "2026-05-16T09:32:00Z",
+      "missing_evidence": [
+        "scope_classification_allow_canonical"
+      ],
+      "occurrence_count": 1,
+      "path": "/home/alex/backups/fleet-shadow-copy",
+      "repo_id": "heimgewebe/fleet-shadow-copy",
+      "report_id": "omnipull-report-example-mixed-run",
+      "report_source_path": "examples/omnipull-reports/mixed-run.json",
+      "run_id": "run-2026-05-16-003",
+      "skip_reasons": [
+        "repo_not_in_scope",
+        "permission_denied"
+      ],
+      "source_refs": [
+        "filesystem.path",
+        "local_config.excluded_repo_roots"
+      ],
+      "status": "repo_not_in_scope"
+    }
+  ],
+  "returned_problem_repo_count": 3,
+  "schema_version": "recent-problem-repos.v1",
+  "selected_by": "latest_problem_per_repo.generated_at_desc",
+  "source_reports": [
+    {
+      "generated_at": "2026-05-16T09:32:00Z",
+      "report_id": "omnipull-report-example-mixed-run",
+      "run_id": "run-2026-05-16-003",
+      "source_path": "examples/omnipull-reports/mixed-run.json"
+    },
+    {
+      "generated_at": "2026-05-16T09:31:00Z",
+      "report_id": "omnipull-report-example-dirty-worktree",
+      "run_id": "run-2026-05-16-002",
+      "source_path": "examples/omnipull-reports/dirty-worktree.json"
+    },
+    {
+      "generated_at": "2026-05-16T09:30:00Z",
+      "report_id": "omnipull-report-example-non-default-branch",
+      "run_id": "run-2026-05-16-001",
+      "source_path": "examples/omnipull-reports/non-default-branch.json"
+    }
+  ]
+}

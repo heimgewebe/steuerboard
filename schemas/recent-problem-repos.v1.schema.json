@@ -1,0 +1,214 @@
+{
+  "title": "Recent Problem Repositories v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "selected_by",
+    "limit",
+    "input_report_count",
+    "distinct_problem_repo_count",
+    "returned_problem_repo_count",
+    "source_reports",
+    "problem_repos",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "recent-problem-repos.v1"
+    },
+    "selected_by": {
+      "const": "latest_problem_per_repo.generated_at_desc"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "input_report_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "distinct_problem_repo_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "returned_problem_repo_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "source_reports": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "report_id",
+          "run_id",
+          "generated_at",
+          "source_path"
+        ],
+        "properties": {
+          "report_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?:\\S.*\\S|\\S)$"
+          }
+        }
+      }
+    },
+    "problem_repos": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "repo_id",
+          "path",
+          "status",
+          "skip_reasons",
+          "source_refs",
+          "freshness_refs",
+          "falsification_refs",
+          "missing_evidence",
+          "last_problem_at",
+          "report_id",
+          "run_id",
+          "report_source_path",
+          "occurrence_count"
+        ],
+        "properties": {
+          "repo_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "non_default_branch",
+              "dirty_worktree",
+              "no_upstream",
+              "remote_unreachable",
+              "ff_only_not_possible",
+              "default_branch_unknown",
+              "repo_not_in_scope",
+              "permission_denied"
+            ]
+          },
+          "skip_reasons": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          },
+          "freshness_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          },
+          "falsification_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^failure-case\\.[A-Za-z0-9_.-]+$"
+            }
+          },
+          "missing_evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          },
+          "last_problem_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "report_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "report_source_path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?:\\S.*\\S|\\S)$"
+          },
+          "occurrence_count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/recent-problem-repos.v1.schema.json"
+}
