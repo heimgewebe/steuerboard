@@ -90,7 +90,59 @@
               "null"
             ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "inventory_status": {
+                  "const": "present"
+                }
+              },
+              "required": [
+                "inventory_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "is_git_repo": {
+                  "type": "boolean"
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "scope_canonical",
+                    "scope_shadow",
+                    "scope_backup",
+                    "scope_gdrive",
+                    "scope_unknown",
+                    "scope_excluded"
+                  ]
+                },
+                "scope_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "is_git_repo": {
+                  "const": null
+                },
+                "scope": {
+                  "const": null
+                },
+                "scope_reason": {
+                  "const": null
+                },
+                "git_toplevel": {
+                  "const": null
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "missing_favorite_paths": {
