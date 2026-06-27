@@ -42,3 +42,16 @@ def test_missing_favorite_forbids_observed_inventory_details() -> None:
 
     with pytest.raises(ValidationError):
         VALIDATOR.validate(payload)
+
+
+def test_present_favorite_rejects_unknown_scope() -> None:
+    payload = copy.deepcopy(EXAMPLE)
+    present = next(
+        favorite
+        for favorite in payload["favorites"]
+        if favorite["inventory_status"] == "present"
+    )
+    present["scope"] = "scope_invalid"
+
+    with pytest.raises(ValidationError):
+        VALIDATOR.validate(payload)

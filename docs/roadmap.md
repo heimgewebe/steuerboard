@@ -1442,7 +1442,9 @@ Scope:
 - configuration order is preserved;
 - normalized duplicate preferences are rejected;
 - configured paths outside the inventory are reported as `not_in_inventory`;
-- no discovery or Git probing is added for missing favorites.
+- no discovery or Git probing is added for missing favorites;
+- an empty favorites configuration stops before inventory construction and
+  records only the preference source.
 
 Architecture boundary:
 - favorites are explicit user preferences, not observed repository facts;

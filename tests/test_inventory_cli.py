@@ -514,3 +514,41 @@ def test_scope_explain_cli_emits_schema_valid_json(tmp_path: Path):
         _scope_explanation_schema(),
         Path("scope-cli.json"),
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["inventory", "--json"],
+        ["inventory", "duplicates", "--json"],
+        ["scope", "explain", ".", "--json"],
+    ],
+)
+def test_config_consumers_report_invalid_preferences_without_traceback(
+    tmp_path: Path,
+    command: list[str],
+) -> None:
+    config_path = _write_local_config(tmp_path, [tmp_path / "repos"], [])
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["preferences"] = None
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            *command,
+            "--config",
+            str(config_path),
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode == 2
+    assert "local-config preferences must be an object" in result.stderr
+    assert "Traceback" not in result.stderr

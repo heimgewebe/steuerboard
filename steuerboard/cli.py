@@ -1016,7 +1016,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         try:
             duplicates = build_duplicates_report(config_path=config_path)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(duplicates, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
@@ -1036,7 +1036,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         try:
             inventory = build_inventory(config_path=config_path)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(inventory, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
@@ -1114,7 +1114,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         try:
             explanation = explain_scope(Path(args.path), config_path=config_path)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(explanation, indent=2, ensure_ascii=False, sort_keys=True))
         return 0

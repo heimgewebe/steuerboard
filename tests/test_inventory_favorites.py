@@ -65,7 +65,10 @@ def _validate(report: dict, name: str) -> None:
     validate_instance(report, _schema(), Path(name))
 
 
-def test_favorites_report_is_empty_when_preferences_are_absent(tmp_path: Path) -> None:
+def test_favorites_report_is_empty_when_preferences_are_absent(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     canonical_root = tmp_path / "repos"
     _init_repo(canonical_root / "project")
     config_path = _write_config(
@@ -74,12 +77,20 @@ def test_favorites_report_is_empty_when_preferences_are_absent(tmp_path: Path) -
         favorites=None,
     )
 
+    def fail_if_inventory_is_built(_config: object) -> dict:
+        pytest.fail("empty favorites must not build or scan the repository inventory")
+
+    monkeypatch.setattr(
+        "steuerboard.inventory._build_inventory_from_config",
+        fail_if_inventory_is_built,
+    )
+
     report = build_favorites_report(config_path=config_path)
 
     _validate(report, "favorites-empty.json")
     assert report["favorites"] == []
     assert report["missing_favorite_paths"] == []
-    assert report["source_refs"][0] == "local_config.preferences.favorite_repo_paths"
+    assert report["source_refs"] == ["local_config.preferences.favorite_repo_paths"]
 
 
 def test_favorites_preserve_config_order_and_mark_missing(tmp_path: Path) -> None:
@@ -123,6 +134,14 @@ def test_favorites_reject_normalized_duplicates(monkeypatch, tmp_path: Path) -> 
         tmp_path,
         canonical_roots=[canonical_root],
         favorites=["~/repos/project", str(repo.absolute())],
+    )
+
+    def fail_if_inventory_is_built(_config: object) -> dict:
+        pytest.fail("duplicate favorites must fail before inventory discovery")
+
+    monkeypatch.setattr(
+        "steuerboard.inventory._build_inventory_from_config",
+        fail_if_inventory_is_built,
     )
 
     with pytest.raises(ValueError, match="duplicate normalized paths"):
@@ -204,6 +223,9 @@ def test_favorites_parser_preserves_parent_config_argument(tmp_path: Path) -> No
     child_config = tmp_path / "child-config.json"
     parser = build_parser()
 
+    default_args = parser.parse_args(["inventory", "favorites", "--json"])
+    assert default_args.config is None
+
     parent_args = parser.parse_args(
         ["inventory", "--config", str(parent_config), "favorites", "--json"]
     )
@@ -221,3 +243,80 @@ def test_favorites_parser_preserves_parent_config_argument(tmp_path: Path) -> No
         ]
     )
     assert child_args.config == str(child_config)
+
+
+@pytest.mark.parametrize(
+    ("preferences", "message"),
+    [
+        (None, "local-config preferences must be an object"),
+        ([], "local-config preferences must be an object"),
+        (
+            {"favorite_repo_paths": "/tmp/repository"},
+            "local-config preferences.favorite_repo_paths must be an array",
+        ),
+        (
+            {"favorite_repo_paths": [""]},
+            "local-config preferences.favorite_repo_paths[0] must be a non-empty string",
+        ),
+    ],
+)
+def test_favorites_reject_invalid_preference_shapes_before_inventory_scan(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    preferences: object,
+    message: str,
+) -> None:
+    config_path = _write_config(
+        tmp_path,
+        canonical_roots=[tmp_path / "repos"],
+        favorites=None,
+    )
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["preferences"] = preferences
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    def fail_if_inventory_is_built(_config: object) -> dict:
+        pytest.fail("invalid preferences must fail before inventory discovery")
+
+    monkeypatch.setattr(
+        "steuerboard.inventory._build_inventory_from_config",
+        fail_if_inventory_is_built,
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_favorites_report(config_path=config_path)
+
+    assert str(exc_info.value) == message
+
+
+def test_favorites_cli_reports_invalid_preferences_without_traceback(tmp_path: Path) -> None:
+    config_path = _write_config(
+        tmp_path,
+        canonical_roots=[tmp_path / "repos"],
+        favorites=None,
+    )
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["preferences"] = None
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "steuerboard",
+            "inventory",
+            "favorites",
+            "--config",
+            str(config_path),
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert result.returncode == 2
+    assert "local-config preferences must be an object" in result.stderr
+    assert "Traceback" not in result.stderr

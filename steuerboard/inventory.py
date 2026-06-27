@@ -98,7 +98,21 @@ def _load_local_config(config_path: Path | None) -> LocalConfig:
         Path(item).expanduser().absolute() for item in paths.get("excluded_repo_roots", [])
     )
     preferences = data.get("preferences", {})
-    favorite_repo_paths = tuple(preferences.get("favorite_repo_paths", []))
+    if not isinstance(preferences, dict):
+        raise ValueError("local-config preferences must be an object")
+
+    raw_favorite_repo_paths = preferences.get("favorite_repo_paths", [])
+    if not isinstance(raw_favorite_repo_paths, list):
+        raise ValueError("local-config preferences.favorite_repo_paths must be an array")
+
+    favorite_repo_paths_list: list[str] = []
+    for index, item in enumerate(raw_favorite_repo_paths):
+        if not isinstance(item, str) or not item:
+            raise ValueError(
+                f"local-config preferences.favorite_repo_paths[{index}] must be a non-empty string"
+            )
+        favorite_repo_paths_list.append(item)
+    favorite_repo_paths = tuple(favorite_repo_paths_list)
 
     return LocalConfig(
         host_name=host_name,
@@ -339,12 +353,25 @@ def build_favorites_report(config_path: Path | None = None) -> dict[str, Any]:
     the order declared in ``favorite_repo_paths``.
     """
     config = _load_local_config(config_path)
+    favorite_paths = _normalize_favorite_paths(config)
+
+    if not favorite_paths:
+        return {
+            "schema_version": "repo-favorites.v1",
+            "favorites_id": _favorites_id(),
+            "source_refs": ["local_config.preferences.favorite_repo_paths"],
+            "observed_at": _rfc3339_now(),
+            "host": config.host_name,
+            "favorites": [],
+            "missing_favorite_paths": [],
+        }
+
     inventory = _build_inventory_from_config(config)
     repos_by_path = {repo["path"]: repo for repo in inventory["repos"]}
 
     favorites: list[dict[str, Any]] = []
     missing_favorite_paths: list[str] = []
-    for favorite_path in _normalize_favorite_paths(config):
+    for favorite_path in favorite_paths:
         path_text = str(favorite_path)
         repo = repos_by_path.get(path_text)
         if repo is None:

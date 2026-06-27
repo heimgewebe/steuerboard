@@ -1021,7 +1021,9 @@ The report:
 - rejects paths that collapse to duplicate normalized values;
 - marks exact inventory matches as `present`;
 - reports all other configured paths as `not_in_inventory`;
-- performs no discovery beyond the already configured inventory roots.
+- performs no discovery beyond the already configured inventory roots;
+- skips inventory construction when no favorites are configured;
+- records only the preference source when the inventory was not built.
 
 Non-goals: no favorite mutation command, no persistence beyond
 `local-config.v1`, no history, no recent-problem ranking, no PR lookup, no
