@@ -237,11 +237,11 @@ def test_unique_items_on_reason_codes():
     assert_invalid(instance, schema, str(MINIMAL_EXAMPLE))
 
 
-def test_no_runbook_leak():
-    """Phase 11F-E must not turn the service gate into a runbook kind or runtime."""
+def test_evidence_contract_does_not_become_a_runbook_kind():
+    """11F-K integrates the gate, not the evidence artifact as its own runner."""
     from steuerboard.runbooks import SUPPORTED_RUNBOOK_KINDS
 
-    assert "heimserver-service-gate" not in SUPPORTED_RUNBOOK_KINDS
+    assert "heimserver-service-gate" in SUPPORTED_RUNBOOK_KINDS
     assert "heimserver-service-evidence" not in SUPPORTED_RUNBOOK_KINDS
 
     plan_kinds = load_json(Path("schemas/runbook-plan.v1.schema.json"))[
@@ -251,7 +251,7 @@ def test_no_runbook_leak():
         "properties"
     ]["runbook_kind"]["enum"]
     for kinds in (plan_kinds, result_kinds):
-        assert "heimserver-service-gate" not in kinds
+        assert "heimserver-service-gate" in kinds
         assert "heimserver-service-evidence" not in kinds
 
 

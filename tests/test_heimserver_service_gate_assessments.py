@@ -76,18 +76,24 @@ def test_artifact_derived_scope_is_visible():
     instance["subject"]["scope"] = "live"
     assert_invalid(instance, schema, str(PASSED_EXAMPLE))
 
-def test_no_runbook_kind_added():
-    """Ensure we haven't accidentally added heimserver-service-gate as a runbook kind."""
+def test_runbook_kind_uses_gate_boundary_not_assessment_schema_name():
+    """11F-K exposes the gate runner without turning its assessment into a runner."""
     from steuerboard.runbooks import SUPPORTED_RUNBOOK_KINDS
-    assert "heimserver-service-gate" not in SUPPORTED_RUNBOOK_KINDS
+
+    expected_kind = "heimserver-service-gate"
+    forbidden_kind = "heimserver-service-gate-assessment"
+    assert expected_kind in SUPPORTED_RUNBOOK_KINDS
+    assert forbidden_kind not in SUPPORTED_RUNBOOK_KINDS
 
     runbook_plan_schema = load_json(Path("schemas/runbook-plan.v1.schema.json"))
     kinds = runbook_plan_schema["properties"]["runbook_kind"]["enum"]
-    assert "heimserver-service-gate" not in kinds
+    assert expected_kind in kinds
+    assert forbidden_kind not in kinds
 
     runbook_result_schema = load_json(Path("schemas/runbook-result.v1.schema.json"))
     result_kinds = runbook_result_schema["properties"]["runbook_kind"]["enum"]
-    assert "heimserver-service-gate" not in result_kinds
+    assert expected_kind in result_kinds
+    assert forbidden_kind not in result_kinds
 
 
 def test_doc_preserves_producer_preimage_boundary():

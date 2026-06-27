@@ -1,8 +1,8 @@
 # Heimserver-Service-Gate Model
 
-Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter that makes the producer reachable through explicit, hash-bound, artifact-root-relative artifact references. Phase 11F-J implements a safe single-assessment JSON artifact writer for an already produced assessment. CLI, runbook, runtime, live-check, and Stage-D integration remain future-gated. Evidence-internal provenance remains future work.
+Status: Phase 11F-B implements the assessment contract. Phases 11F-C through 11F-F define and complete the producer preimage and input contract boundaries. Phase 11F-G implements the derivation contract, golden cases, cross-artifact validation, and the independent reference oracle. Phase 11F-H implements the pure in-memory producer. Phase 11F-I implements the safe artifact input adapter. Phase 11F-J implements the safe single-assessment writer. Phase 11F-K integrates those boundaries as the artifact-derived, read-only `heimserver-service-gate` runbook kind reachable through the existing generic `runbook run` CLI. Runtime live checks, service-manager interaction, Stage-D execution, and evidence-internal provenance remain future-gated.
 
-Phase 11F-B implements only the artifact-derived assessment schema contract. It does not implement a runbook kind, CLI command, action, service probe, runtime executor, or Stage-D executor.
+The current runbook is an orchestration layer over existing artifacts. It does not add a specialized top-level CLI command, a live service probe, an action, a repair path, a runtime executor, or a Stage-D executor.
 
 ## Purpose
 
@@ -16,12 +16,11 @@ It is an assessment/gate concept, not a repair mechanism.
 - It only collects host/runtime facts.
 - It does not evaluate services.
 - It is not a service gate.
-- It might at most serve as one of several possible inputs for a future service gate logic.
+- Its `server-facts.v1` output may be one of the three explicitly referenced input artifacts for the implemented artifact-derived service-gate runbook.
 
-## Open design question
+## Design decision and remaining extension question
 
-Open question:
-Should a future Heimserver-Service-Gate evaluate only existing artifacts, or may it perform bounded local live checks?
+The implemented v1 runbook uses Option A only: it evaluates explicitly referenced, hash-bound existing artifacts. Whether a later version may perform bounded local live checks remains an open, separately gated extension question.
 
 ### Option A — artifact-derived gate
 
@@ -42,14 +41,13 @@ Should a future Heimserver-Service-Gate evaluate only existing artifacts, or may
 - would need to either continue prohibiting `systemctl`, subprocess, network probes, or explicitly contract them
 - higher risk
 
-Recommendation for next steps:
-For the first implementation (Phase 11F-B), Option A (artifact-derived) is the selected path and its contract is now explicitly defined. There is no runbook kind, no runtime execution, and no Stage-D action involved yet. Option B (bounded local live check) remains future-gated and requires explicit design approval.
+Current decision:
+Option A is implemented through Phase 11F-K. The runbook loads only the three declared artifacts through the safe adapter, derives the assessment through the pure producer, persists it through the safe writer, and maps the assessment status into `runbook-result.v1`. Option B remains future-gated and requires explicit design approval.
 
 ## Forbidden in current state
 
-- no Runtime implementation
-- no schema enum addition
-- no CLI
+- no live-check Runtime implementation
+- no specialized service-gate CLI outside the existing generic `runbook run` entrypoint
 - no Stage-D action
 - no `systemctl`
 - no SSH
@@ -59,12 +57,12 @@ For the first implementation (Phase 11F-B), Option A (artifact-derived) is the s
 - no network probe
 - no port scan
 - no service start/stop/restart/reload
-- no mutation
+- no host, service, network, or repository state mutation; only diagnostic artifact output is written
 - no action authorization
 
-## Required before implementation
+## Required before any live-check or Stage-D extension
 
-Any future implementation PR must provide:
+Any future extension beyond the artifact-derived read-only runbook must provide:
 - Contract/Semantic decision: artifact-derived vs live-check
 - Schema changes
 - Examples
@@ -79,9 +77,9 @@ Any future implementation PR must provide:
 
 ## Naming discipline
 
-Preferred future name: `heimserver-service-gate`
-Alternatives: `service-gate`, `heimserver-readiness-gate`
-The decision is still open because the exact scope must be defined first.
+Canonical runbook kind: `heimserver-service-gate`
+
+The shorter alternatives `service-gate` and `heimserver-readiness-gate` are not accepted schema values.
 
 ## Phase 11F-C — Producer Preimage Boundary
 
@@ -562,3 +560,56 @@ Stabile Fehlercodes:
 ### Non-Goals
 
 Keine Producer- oder Adapteraufrufe, keine Inputrefs, keine Eingabeartefakt-Ladegrenze, keine Hashprüfung der Inputs, keine fachliche Reason-Code-Erzeugung, keine Statusumdeutung, keine Standarddatei, kein Parent-`mkdir`, keine CLI- oder Runbook-Integration, keine Runtime-/Stage-D-Integration, keine neuen Schemas, keine Änderung an `SCHEMA_MAP`, keine neue Abhängigkeit, keine race-free No-Clobber-Garantie und keine Crash-Durability-Garantie.
+
+
+## Phase 11F-K — Artifact-derived Read-only Runbook Integration
+
+Status: implemented (generic CLI integration through the existing `runbook run` command)
+
+11F-K connects the existing safe boundaries without duplicating them:
+
+```text
+runbook-plan.v1
+→ derive_heimserver_service_gate_assessment_from_refs
+→ write_heimserver_service_gate_assessment
+→ runbook-result.v1 + runbook-step-trace.v1 JSONL
+```
+
+### Plan contract
+
+`runbook-plan.v1` accepts the sixth kind `heimserver-service-gate`. For this kind, `service_gate_inputs` is required and contains:
+
+- `artifact_root`: the root from which the adapter resolves the three relative artifact paths;
+- `input_refs`: passed unchanged to the adapter. The adapter and the canonical assessment `inputs` subschema remain the authority for the exact three-reference contract; the runbook schema does not duplicate that detailed contract.
+
+`service_gate_inputs` is forbidden for all other runbook kinds. For this runbook, `repo_path` must resolve inside a path with a concrete `.git` worktree marker and is used only as a non-spoofable output-boundary anchor; the service-gate derivation does not inspect or mutate that repository.
+
+### Execution and status binding
+
+The runbook performs three logical steps:
+
+1. load the three referenced artifacts and derive a schema-valid assessment through the 11F-I adapter;
+2. write the assessment through the 11F-J writer to `heimserver-service-gate-assessment.json` beside `command_trace_out`;
+3. bind the runbook status exactly to the assessment status (`passed`, `blocked`, or `inconclusive`).
+
+Adapter and writer technical failures produce an `inconclusive` runbook result and remain technical codes in the short assessment; they are never converted into `service_gate_*` domain reason codes. Diagnostics do not copy untrusted artifact values.
+
+### Output-set integrity
+
+The successful output set consists of:
+
+- `runbook-result.v1`;
+- `runbook-step-trace.v1` JSONL;
+- `heimserver-service-gate-assessment.v1` at `heimserver-service-gate-assessment.json`.
+
+All output targets must be outside the resolved `.git`-marked worktree, distinct, and absent before execution. A pre-existing regular file, directory, symlink, or dangling symlink at any final output path blocks the run before output is written. If publication later fails, the runner attempts cleanup of every temporary and committed output. A cleanup failure is raised explicitly instead of being silently treated as a complete rollback.
+
+### Capability and authority boundary
+
+The adapter/producer step is traced as `derivation_only`; assessment persistence is traced as `read_only`; status binding is `derivation_only`. The generic CLI gains the new behavior only through the new runbook kind; no second service-gate-specific command is introduced.
+
+A passed result proves only that the referenced artifact set satisfied the artifact-derived contract at derivation time. It does not prove `live_service_running`, `service_reachable`, `runtime_correctness`, or `service_role_fulfilled`, and it does not authorise any action.
+
+### Non-goals
+
+No live service observation, `systemctl`, SSH, Tailscale CLI/API, socket probe, subprocess, shell, service start/stop/restart/reload, repair, automatic artifact discovery, Stage-D action, action authorisation, evidence-internal provenance, or specialized top-level CLI command.

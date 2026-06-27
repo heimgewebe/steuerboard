@@ -1405,3 +1405,23 @@ Non-goals:
 - keine CLI, kein Runbook-Kind, keine Runtime-Integration, keine Live-Prüfung, keine Stage-D-Action.
 - kein neues Schema, keine `SCHEMA_MAP`-Änderung, keine neue Abhängigkeit, keine strukturierte Output-Ref-Metadaten.
 - kein race-free No-Clobber gegen parallele Writer zwischen Vorprüfung und `os.replace()` und keine `fsync`-/Stromausfall-Durability-Garantie.
+
+
+## Phase 11F-K — Artifact-derived Read-only Runbook Integration
+
+Status: implemented (sixth read-only runbook kind)
+
+Connects the existing 11F-I adapter and 11F-J writer through the generic `runbook run` entrypoint.
+
+Scope:
+- `heimserver-service-gate` added to `runbook-plan.v1`, `runbook-result.v1`, and `SUPPORTED_RUNBOOK_KINDS`.
+- kind-specific `service_gate_inputs` carries `artifact_root` and opaque `input_refs`; the adapter remains the authority for the exact three-ref contract.
+- derives through `derive_heimserver_service_gate_assessment_from_refs()` and persists through `write_heimserver_service_gate_assessment()`.
+- writes `heimserver-service-gate-assessment.json` beside the trace and maps assessment status exactly to runbook status.
+- technical adapter/writer failures remain technical and produce `inconclusive`, without inventing assessment reason codes.
+- assessment, result, and trace form one rollback-protected output set; later publication failures trigger cleanup, and cleanup failures are surfaced explicitly.
+- `repo_path` must resolve inside a path with a concrete `.git` worktree marker so the outside-worktree boundary cannot be spoofed.
+- examples and tests cover passed, blocked, inconclusive, adapter failure, dangling-symlink collision preflight, false `repo_path`, unexpected internal failures, rollback, and rollback-cleanup failure.
+
+Non-goals:
+- no specialized top-level CLI command, live service check, service manager, network probe, subprocess, shell, repair, automatic artifact discovery, Runtime/Stage-D integration, or evidence-internal provenance.

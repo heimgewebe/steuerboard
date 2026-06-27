@@ -933,14 +933,14 @@ Phase 10A erfüllt dies bereits für statische `ui-view-model.v1`-Artefakte:
 
 ### Phase 11 — Runbook-Starter
 
-Status: Phase 11A + 11B + 11C + 11D + 11E implemented.
+Status: Phase 11A + 11B + 11C + 11D + 11E + 11F-K implemented.
 
 Phase 11A introduces the first read-only runbook starter, repo-sync-gate.
 Phase 11B extends the same read-only model with dns-gate as a second concrete runbook kind.
 Phase 11C extends the same read-only model with ssh-gate as a third concrete runbook kind. ssh-gate checks configured host/port reachability via Python stdlib sockets only. It does not invoke ssh, does not authenticate, does not read SSH keys, does not execute remote commands, and does not authorise actions. For ssh-gate, `repo_path` is currently a context anchor only; it is not a Git gate precondition.
 Phase 11D extends the same read-only model with tailscale-preflight as a fourth concrete runbook kind for local overlay reachability diagnostics (resolver + optional TCP checks) using Python stdlib sockets only. It does not invoke the tailscale CLI, does not access Tailscale APIs/auth/key/state material, and does not authorise actions.
 Phase 11E extends the same read-only model with server-facts-snapshot as a fifth concrete runbook kind for read-only host/runtime facts snapshot. It uses Python stdlib metadata access only (`platform`, `sys`, and bounded `os` process-context calls). It does not use subprocess, shell, network probes, `socket.getfqdn()`, SSH, Tailscale, `systemctl`, or any service evaluation. It writes a `server-facts.v1` artifact to `server-facts.json` alongside the standard result and trace, with collision protection and rollback cleanup for the facts artifact. No Stage-D actions, backend, server, or UI trigger.
-All five phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
+The first five concrete runner phases add contracts, schemas, examples, CLI runner support, and tests without adding Stage-D actions, backend, server, or UI trigger.
 Phase 11F-B adds an artifact-derived contract for the Heimserver-Service-Gate. Runtime execution and runbook kinds remain future-gated. The task fixes the contract boundary before any runtime, runbook, CLI, or Stage-D implementation.
 Phase 11F-C fixes the producer *preimage* and field lineage before any later implementation: it documents how a future artifact-derived producer may derive a `heimserver-service-gate-assessment.v1` from `server_facts_ref` and `expectation_ref` (and fixed contract rules), and which fields must never claim live truth — without introducing a runtime producer, runbook kind, CLI, Stage-D action, or any live check. It remains design/decision-prep (documentation and guard tests only).
 Phase 11F-D closes the asymmetry 11F-C surfaced by contracting the expectation *input*: it adds `heimserver-service-expectation.v1` (schema + validator wiring + tests), so both producer inputs (`server-facts.v1` and the expectation) are reproducibly typed. Decision: a `schema_version`-only envelope without a top-level `kind`, consistent with the co-input `server-facts.v1`. Contract only — still no producer, runbook kind, CLI, Stage-D, or live check.
@@ -950,6 +950,7 @@ Phase 11F-G: Contract + Golden Oracle
 Phase 11F-H: pure production derivation
 Phase 11F-I: safe artifact input adapter (explicit artifact-root-relative refs, root-safe path resolution, raw-byte SHA-256 binding, strict UTF-8/JSON, full Draft 2020-12 validation; the producer stays pure and unchanged). CLI, Runbook, Runtime, Live-Checks und Stage D bleiben future-gated.
 Phase 11F-J: safe assessment artifact writer (single already-produced assessment, canonical checkout schema validation, deterministic strict JSON bytes, explicit no-clobber target precheck, temp file plus `os.replace()` publication, cleanup on failure; no Producer/Adapter call, no CLI/Runbook/Runtime/Stage-D integration, no race-free No-Clobber or crash-durability claim).
+Phase 11F-K: artifact-derived read-only runbook integration. The sixth runbook kind `heimserver-service-gate` reuses the generic `runbook run` CLI, requires `repo_path` to resolve to an actual Git worktree, delegates artifact loading/derivation to 11F-I and persistence to 11F-J, writes `heimserver-service-gate-assessment.json` beside trace output, maps assessment status exactly to runbook status, rejects all pre-existing final entries including dangling symlinks, and surfaces rollback-cleanup failures instead of silently claiming a complete rollback. No live check, specialized CLI, service mutation, repair, Runtime, or Stage-D action is added.
 
 #### Ziel
 

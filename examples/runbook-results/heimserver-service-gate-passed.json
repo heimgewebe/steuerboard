@@ -1,0 +1,50 @@
+{
+  "schema_version": "runbook-result.v1",
+  "result_id": "rbresult-heimserver-service-gate-example",
+  "runbook_ref": "runbook-heimserver-service-gate-example",
+  "runbook_kind": "heimserver-service-gate",
+  "status": "passed",
+  "started_at": "2026-06-26T18:45:01Z",
+  "finished_at": "2026-06-26T18:45:02Z",
+  "repo_path": "/srv/repos/steuerboard",
+  "short_assessment": "Heimserver-Service-Gate passed. Assessment artifact='heimserver-service-gate-assessment.json', reason_codes=['service_gate_artifact_only_scope']. The result is artifact-derived and does not prove live service state, reachability, runtime correctness, or role fulfilment.",
+  "steps": [
+    {
+      "step_id": "step-service-gate-derive",
+      "label": "Load referenced artifacts and derive a schema-valid assessment",
+      "status": "passed",
+      "source_ref": "heimserver-service-gate-assessment.v1"
+    },
+    {
+      "step_id": "step-service-gate-write",
+      "label": "Write the validated service-gate assessment artifact",
+      "status": "passed",
+      "source_ref": "heimserver-service-gate-assessment.v1",
+      "evidence_path": "/tmp/steuerboard/heimserver-service-gate-assessment.json"
+    },
+    {
+      "step_id": "step-service-gate-status",
+      "label": "Bind the runbook status to the assessment status",
+      "status": "passed",
+      "source_ref": "heimserver-service-gate-assessment.v1",
+      "evidence_path": "/tmp/steuerboard/heimserver-service-gate-assessment.json"
+    }
+  ],
+  "evidence_paths": [
+    "/tmp/steuerboard/heimserver-service-gate-trace.jsonl",
+    "/tmp/steuerboard/heimserver-service-gate-assessment.json"
+  ],
+  "source_refs": [
+    "examples/server-facts/golden-passed-single-service-fresh.json",
+    "examples/heimserver-service-expectations/golden-passed-single-service-fresh.json",
+    "examples/heimserver-service-evidence/golden-passed-single-service-fresh.json",
+    "heimserver-service-gate-assessment.v1"
+  ],
+  "redaction_verified": true,
+  "boundary": {
+    "does_not_execute_mutating_actions": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "read_only_or_dry_run_only": true
+  }
+}

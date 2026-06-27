@@ -30,7 +30,8 @@
         "dns-gate",
         "ssh-gate",
         "tailscale-preflight",
-        "server-facts-snapshot"
+        "server-facts-snapshot",
+        "heimserver-service-gate"
       ]
     },
     "created_at": {
@@ -238,6 +239,25 @@
       },
       "maxItems": 8,
       "description": "TCP probes are network-observable diagnostics and may create connection logs on the target. They are read-only with respect to steuerboard artifacts, but not side-effect-free on the network."
+    },
+    "service_gate_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_root",
+        "input_refs"
+      ],
+      "properties": {
+        "artifact_root": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Filesystem root that contains the three referenced input artifacts. Relative paths are resolved by the adapter from the current process directory."
+        },
+        "input_refs": {
+          "type": "object",
+          "description": "Passed unchanged to the canonical Heimserver-Service-Gate artifact adapter, which owns the exact reference contract."
+        }
+      }
     }
   },
   "allOf": [
@@ -327,9 +347,45 @@
       "then": {
         "not": {
           "anyOf": [
-            { "required": ["dns_checks"] },
-            { "required": ["ssh_checks"] },
-            { "required": ["tailscale_checks"] }
+            {
+              "required": [
+                "dns_checks"
+              ]
+            },
+            {
+              "required": [
+                "ssh_checks"
+              ]
+            },
+            {
+              "required": [
+                "tailscale_checks"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runbook_kind": {
+            "const": "heimserver-service-gate"
+          }
+        },
+        "required": [
+          "runbook_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "service_gate_inputs"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "service_gate_inputs"
           ]
         }
       }

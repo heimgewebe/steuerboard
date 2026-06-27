@@ -640,3 +640,27 @@ Boundary for Phase 8E:
 - no `shell=True`
 - no merge, rebase, reset, or clean
 - three output artifacts written atomically with rollback on partial failure
+
+
+## Phase 11F-K: runbook run — Heimserver-Service-Gate
+
+The existing generic runner accepts `runbook_kind: "heimserver-service-gate"`:
+
+```bash
+python -m steuerboard runbook run examples/runbooks/heimserver-service-gate.json \
+  --result-out /tmp/steuerboard/service-gate-result.json \
+  --command-trace-out /tmp/steuerboard/service-gate-trace.jsonl \
+  --json
+```
+
+The plan supplies `service_gate_inputs.artifact_root` and `service_gate_inputs.input_refs`. The runner passes those references to the safe artifact adapter, writes the resulting assessment through the dedicated writer, and emits:
+
+- the standard `runbook-result.v1` at `--result-out`;
+- the standard `runbook-step-trace.v1` JSONL at `--command-trace-out`;
+- `heimserver-service-gate-assessment.json` in the trace output directory.
+
+`repo_path` must resolve inside a path with a concrete `.git` worktree marker. All three targets must be outside that resolved `.git`-marked worktree, distinct, and absent before execution; regular files, directories, symlinks, and dangling symlinks are rejected without following the final entry. A later publication failure triggers cleanup of all temporary and committed outputs, and any cleanup failure is surfaced explicitly.
+
+Status binding is exact: assessment `passed`, `blocked`, or `inconclusive` becomes the runbook status of the same name. Adapter or writer technical failures produce an inconclusive runbook result and no assessment artifact.
+
+This is artifact-derived diagnostic execution only. It performs no live service check, service-manager operation, network probe, subprocess, shell, SSH, Tailscale CLI/API, repair, or Stage-D action, and it grants no action authorisation.
