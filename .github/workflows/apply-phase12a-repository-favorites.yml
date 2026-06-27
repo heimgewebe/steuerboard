@@ -32,6 +32,7 @@ jobs:
           test "$(git hash-object schemas/local-config.v1.schema.json)" = "ee8702133270207a4ba382ef91d20db5a9656f73"
           test "$(git hash-object docs/masterplan.md)" = "9c68b1935bb1f177274e08ec2617d5567cfb7d7b"
           test "$(git hash-object docs/roadmap.md)" = "6348a5d073255db887d5491cb97782b0439a3be9"
+          test "$(git hash-object examples/ui-view-models/cli-surface-summary.json)" = "eb66cb4e5e7398950a1714d971f6fe8c505ff474"
           test -d .github/phase12a-transfer
 
       - name: Reconstruct verified change script
@@ -62,6 +63,20 @@ jobs:
       - name: Apply Phase 12A
         run: python /tmp/apply-phase12a.py
 
+      - name: Synchronize CLI summary UI example
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('examples/ui-view-models/cli-surface-summary.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          values = {'Total commands': '22', 'read_only': '12'}
+          for row in data['summary']:
+              if row['label'] in values:
+                  row['value'] = values[row['label']]
+          path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          PY
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -81,7 +96,8 @@ jobs:
             tests/test_inventory_favorites.py \
             tests/test_inventory_cli.py \
             tests/test_schema_examples.py \
-            tests/test_cli_surface_docs.py
+            tests/test_cli_surface_docs.py \
+            tests/test_ui_view_models.py
           python scripts/validate_examples.py
           git diff --check
 
