@@ -18,7 +18,12 @@ from .assessment import assess_repo
 from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
 from .assessment_explanations import explain_assessment
-from .inventory import build_duplicates_report, build_inventory, explain_scope
+from .inventory import (
+    build_duplicates_report,
+    build_favorites_report,
+    build_inventory,
+    explain_scope,
+)
 from .observation import observe_repo
 from .omnipull_reports import load_omnipull_report
 from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
@@ -378,6 +383,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         required=True,
         help="Emit repo-duplicates.v1 JSON.",
+    )
+
+    favorites_parser = inventory_subparsers.add_parser(
+        "favorites",
+        help="Join configured repository favorites with the read-only inventory.",
+    )
+    favorites_parser.add_argument(
+        "--config",
+        default=argparse.SUPPRESS,
+        help=(
+            "Path to local-config.v1 JSON. Defaults to "
+            "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
+        ),
+    )
+    favorites_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit repo-favorites.v1 JSON.",
     )
 
     assess_parser = subparsers.add_parser("assess", help="Read-only assessment commands.")
@@ -992,9 +1016,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         try:
             duplicates = build_duplicates_report(config_path=config_path)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(duplicates, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "inventory" and args.inventory_command == "favorites":
+        config_path = Path(args.config) if args.config else None
+        try:
+            favorites = build_favorites_report(config_path=config_path)
+        except (FileNotFoundError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(favorites, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "inventory":
@@ -1003,7 +1036,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         try:
             inventory = build_inventory(config_path=config_path)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(inventory, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
@@ -1081,7 +1114,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config_path = Path(args.config) if args.config else None
         try:
             explanation = explain_scope(Path(args.path), config_path=config_path)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(explanation, indent=2, ensure_ascii=False, sort_keys=True))
         return 0

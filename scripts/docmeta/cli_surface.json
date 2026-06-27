@@ -10,6 +10,7 @@
     "observe repo": "read_only",
     "inventory": "read_only",
     "inventory duplicates": "read_only",
+    "inventory favorites": "read_only",
     "scope explain": "read_only",
     "assess repo": "read_only",
     "assess explain": "read_only",

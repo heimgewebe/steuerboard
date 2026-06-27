@@ -1,0 +1,159 @@
+{
+  "title": "Repository Favorites v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "favorites_id",
+    "source_refs",
+    "observed_at",
+    "host",
+    "favorites",
+    "missing_favorite_paths"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "repo-favorites.v1"
+    },
+    "favorites_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1
+    },
+    "favorites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "inventory_status",
+          "is_git_repo",
+          "scope",
+          "scope_reason",
+          "git_toplevel"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inventory_status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "not_in_inventory"
+            ]
+          },
+          "is_git_repo": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "scope_canonical",
+              "scope_shadow",
+              "scope_backup",
+              "scope_gdrive",
+              "scope_unknown",
+              "scope_excluded",
+              null
+            ]
+          },
+          "scope_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "git_toplevel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "inventory_status": {
+                  "const": "present"
+                }
+              },
+              "required": [
+                "inventory_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "is_git_repo": {
+                  "type": "boolean"
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "scope_canonical",
+                    "scope_shadow",
+                    "scope_backup",
+                    "scope_gdrive",
+                    "scope_unknown",
+                    "scope_excluded"
+                  ]
+                },
+                "scope_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "is_git_repo": {
+                  "const": null
+                },
+                "scope": {
+                  "const": null
+                },
+                "scope_reason": {
+                  "const": null
+                },
+                "git_toplevel": {
+                  "const": null
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "missing_favorite_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/repo-favorites.v1.schema.json"
+}

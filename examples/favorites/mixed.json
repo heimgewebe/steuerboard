@@ -1,0 +1,34 @@
+{
+  "schema_version": "repo-favorites.v1",
+  "favorites_id": "fav-20260627-060000Z",
+  "source_refs": [
+    "local_config.preferences.favorite_repo_paths",
+    "local_config.canonical_repo_roots",
+    "local_config.excluded_repo_roots",
+    "filesystem.walk",
+    "git.rev_parse.worktree"
+  ],
+  "observed_at": "2026-06-27T06:00:00Z",
+  "host": "heim-pc",
+  "favorites": [
+    {
+      "path": "/home/alex/repos/steuerboard",
+      "inventory_status": "present",
+      "is_git_repo": true,
+      "scope": "scope_canonical",
+      "scope_reason": "under canonical_repo_roots",
+      "git_toplevel": "/home/alex/repos/steuerboard"
+    },
+    {
+      "path": "/home/alex/repos/not-yet-cloned",
+      "inventory_status": "not_in_inventory",
+      "is_git_repo": null,
+      "scope": null,
+      "scope_reason": null,
+      "git_toplevel": null
+    }
+  ],
+  "missing_favorite_paths": [
+    "/home/alex/repos/not-yet-cloned"
+  ]
+}

@@ -28,6 +28,7 @@ SCHEMA_MAP = {
     "assessment-explanations": SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json",
     "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",
     "duplicates": SCHEMAS_DIR / "repo-duplicates.v1.schema.json",
+    "favorites": SCHEMAS_DIR / "repo-favorites.v1.schema.json",
     "evidence": SCHEMAS_DIR / "command-trace.v1.schema.json",
     "failure-cases": SCHEMAS_DIR / "falsification-case.v1.schema.json",
     "inventories": SCHEMAS_DIR / "repo-inventory.v1.schema.json",

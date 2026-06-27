@@ -983,9 +983,14 @@ Ein Runbook erzeugt:
 
 ### Phase 12 — Komfortschicht
 
-Erst jetzt:
+Status: Phase 12A implemented.
 
-- Favoriten
+Implemented:
+
+- Favoriten (Phase 12A)
+
+Future:
+
 - letzte Problem-Repos
 - Warnung bei vielen Nicht-main-Repos
 - manuelle PR-Links
@@ -994,6 +999,35 @@ Erst jetzt:
 - TUI optional
 
 Keine Automagie. Automagie ist nur Magie, die später ein Issue öffnet.
+
+#### Phase 12A — Read-only Repository Favorites
+
+`local-config.v1` accepts an optional `preferences.favorite_repo_paths` list.
+The command
+
+```bash
+python -m steuerboard inventory favorites --config <local-config.json> --json
+```
+
+joins those explicit user preferences with the existing `repo-inventory.v1`
+view. A favorite is not an observed Git fact and therefore is not written into
+`repo-inventory.v1`.
+
+The report:
+
+- preserves configuration order;
+- normalizes paths with the same `expanduser()` plus absolute-path convention
+  as inventory configuration paths;
+- rejects paths that collapse to duplicate normalized values;
+- marks exact inventory matches as `present`;
+- reports all other configured paths as `not_in_inventory`;
+- performs no discovery beyond the already configured inventory roots;
+- skips inventory construction when no favorites are configured;
+- records only the preference source when the inventory was not built.
+
+Non-goals: no favorite mutation command, no persistence beyond
+`local-config.v1`, no history, no recent-problem ranking, no PR lookup, no
+notification, no backend, no TUI, and no action authorization.
 
 ---
 
