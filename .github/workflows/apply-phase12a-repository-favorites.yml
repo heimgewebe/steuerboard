@@ -85,14 +85,33 @@ jobs:
           python scripts/validate_examples.py
           git diff --check
 
-      - name: Run full deploy-check
+      - name: Capture full deploy-check
         shell: bash
         run: |
           set +e
           make PYTHON=python deploy-check > /tmp/deploy-check.log 2>&1
           status=$?
-          tail -n 350 /tmp/deploy-check.log
-          exit "$status"
+          printf '%s\n' "$status" > /tmp/deploy-check.status
+          tail -n 400 /tmp/deploy-check.log > /tmp/deploy-check-tail.log
+          exit 0
+
+      - name: Upload deploy-check diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase12a-deploy-check-diagnostic
+          path: |
+            /tmp/deploy-check.status
+            /tmp/deploy-check-tail.log
+          if-no-files-found: error
+
+      - name: Require successful deploy-check
+        shell: bash
+        run: |
+          status="$(cat /tmp/deploy-check.status)"
+          if [ "$status" != "0" ]; then
+            cat /tmp/deploy-check-tail.log
+            exit "$status"
+          fi
 
       - name: Commit verified implementation
         shell: bash
