@@ -1,0 +1,102 @@
+{
+  "title": "Operational Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "host",
+    "config_path",
+    "policy",
+    "effective_operations",
+    "source_refs",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "operational-profile.v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "config_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allow_mutating_actions",
+        "allow_branch_switch",
+        "allow_network_fetch"
+      ],
+      "properties": {
+        "allow_mutating_actions": {
+          "type": "boolean"
+        },
+        "allow_branch_switch": {
+          "type": "boolean"
+        },
+        "allow_network_fetch": {
+          "type": "boolean"
+        }
+      }
+    },
+    "effective_operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "remote-refresh.fetch-origin-prune",
+        "action.run-git-pull-ff-only",
+        "action.run-switch-main"
+      ],
+      "properties": {
+        "remote-refresh.fetch-origin-prune": {
+          "type": "boolean"
+        },
+        "action.run-git-pull-ff-only": {
+          "type": "boolean"
+        },
+        "action.run-switch-main": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "const": [
+        "local-config.v1.policy"
+      ]
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/operational-profile.v1.schema.json"
+}

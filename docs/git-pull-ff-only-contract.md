@@ -119,6 +119,7 @@ Phase 8E implements the execution contract for `git-pull-ff-only`.
 ```
 steuerboard action run-git-pull-ff-only \
   <action_plan_json> \
+  --config <local-config-json> \
   --approval-validation <path> \
   --run-evidence-chain <path> \
   --preflight-binding <path> \
@@ -131,6 +132,7 @@ steuerboard action run-git-pull-ff-only \
 
 ### Security contract
 
+- The loaded `local-config.v1` must set both `allow_mutating_actions=true` and `allow_network_fetch=true`; denial occurs before artifact loading or output creation.
 - The runner verifies `preflight_binding.preflight_for_action_plan.plan_ref`,
   `plan_action`, and `plan_content_sha256` against the supplied `action_plan`
   directly — not delegated to `validate_execution_readiness()`.

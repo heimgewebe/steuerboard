@@ -1002,6 +1002,7 @@ Command:
 
 ```bash
 python -m steuerboard action run-switch-main <action-plan-json> \
+  --config <local-config-json> \
   --approval-validation <action-approval-validation-json> \
   --switch-main-readiness <switch-main-readiness-json> \
   --repo-path <repo-path> \
@@ -1489,3 +1490,23 @@ Architecture boundary:
 Non-goals:
 - no persistent history store, warning engine, manual PR links, desktop
   notification, backend, TUI, or action command.
+
+## Phase 13A — Operational Profile v1
+
+Status: implemented.
+
+Turns the existing `local-config.v1.policy` booleans into fail-closed CLI preconditions.
+
+Scope:
+- `profile show [--config] --json` emits `operational-profile.v1`;
+- policy fields are all required booleans;
+- remote refresh requires `allow_network_fetch`;
+- fast-forward pull requires mutation plus network permission;
+- branch switching requires mutation plus branch-switch permission;
+- denials occur before Git probes, artifact loading, or output creation;
+- one loaded configuration snapshot is reused for remote-refresh policy and scope checks.
+
+Boundary:
+- an effective gate is a prerequisite, never action authorisation;
+- all existing plan, approval, evidence, readiness, live-state, and postcheck gates remain mandatory;
+- no daemon, scheduler, updater, policy editor, or automatic action execution.

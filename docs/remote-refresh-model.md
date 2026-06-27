@@ -43,6 +43,7 @@ python -m steuerboard remote-refresh fetch-origin-prune <repo-path> \
 
 Producer constraints in this slice:
 
+- the loaded `local-config.v1` must set `allow_network_fetch=true`; denial occurs before Git probing or output creation
 - exactly one productive Git command:
   - `git -C <repo-toplevel> fetch origin --prune`
 - no pull, merge, switch, reset, clean, or action authorisation

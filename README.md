@@ -18,6 +18,7 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 - [Masterplan](docs/masterplan.md)
 - [Vision](docs/vision.md)
 - [Roadmap](docs/roadmap.md)
+- [Operational Profile](docs/operational-profile.md)
 - [Falsification cases](docs/falsification-cases.md)
 
 ## Current scope
@@ -30,6 +31,8 @@ It intentionally does **not** contain a productive fleet scanner, backend, UI be
 Phase 10A adds a **read-only UI display contract** ([docs/ui-readonly-contract.md](docs/ui-readonly-contract.md)), a schema-validated UI view model (`ui-view-model.v1`) with examples derived from existing CLI/example artifacts, and a minimal dependency-free read-only frontend scaffold. It does **not** add a productive backend, a server, or any action/approval/execute UI. A UI view model is display material, not canonical repository state and not an action approval.
 
 Phase 12A adds a **read-only repository favorites report**. Favorites are explicit local user preferences joined with the existing repository inventory; they are not observed Git facts, do not trigger additional path discovery, and do not authorise or execute actions.
+
+Phase 13A adds a **fail-closed operational profile**. `local-config.v1.policy` is now enforced for bounded network refresh and both Stage-D mutation commands. `profile show` exposes effective operation gates, but never authorises an action.
 
 Architecture rule:
 
@@ -51,6 +54,7 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |
 | `omnipull-report recent-problems` | `read_only` | `python -m steuerboard omnipull-report recent-problems <report-json> [--limit <limit>] --json` |
 | `omnipull-report show` | `read_only` | `python -m steuerboard omnipull-report show <report-json> --json` |
+| `profile show` | `read_only` | `python -m steuerboard profile show [--config <config>] --json` |
 | `runbook run` | `read_only` | `python -m steuerboard runbook run <runbook-plan-json> --result-out <result-out> --command-trace-out <command-trace-out> --json` |
 | `scope explain` | `read_only` | `python -m steuerboard scope explain <path> [--config <config>] --json` |
 | `action bind-preflight-to-action` | `derivation_only` | `python -m steuerboard action bind-preflight-to-action <action-plan-json> --run-evidence-chain <run-evidence-chain> --binding-out <binding-out> --json` |
@@ -61,8 +65,8 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `plan git-pull-ff-only` | `derivation_only` | `python -m steuerboard plan git-pull-ff-only <assessment-json> [--remote-refresh-result <remote-refresh-result>] --json` |
 | `plan switch-main` | `derivation_only` | `python -m steuerboard plan switch-main <assessment-json> --json` |
 | `remote-refresh fetch-origin-prune` | `fetch_only` | `python -m steuerboard remote-refresh fetch-origin-prune <repo-path> --config <config> --assessment-id <assessment-id> --command-trace-out <command-trace-out> --json` |
-| `action run-git-pull-ff-only` | `mutating_stage_d` | `python -m steuerboard action run-git-pull-ff-only <action-plan-json> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --preflight-binding <preflight-binding> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
-| `action run-switch-main` | `mutating_stage_d` | `python -m steuerboard action run-switch-main <action-plan-json> --approval-validation <approval-validation> --switch-main-readiness <switch-main-readiness> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
+| `action run-git-pull-ff-only` | `mutating_stage_d` | `python -m steuerboard action run-git-pull-ff-only <action-plan-json> --config <config> --approval-validation <approval-validation> --run-evidence-chain <run-evidence-chain> --preflight-binding <preflight-binding> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
+| `action run-switch-main` | `mutating_stage_d` | `python -m steuerboard action run-switch-main <action-plan-json> --config <config> --approval-validation <approval-validation> --switch-main-readiness <switch-main-readiness> --repo-path <repo-path> --command-trace-out <command-trace-out> --run-result-out <run-result-out> --postcheck-out <postcheck-out> --json` |
 <!-- END GENERATED: cli-surface -->
 
 Observation, scope, inventory, and assessment commands are read-only: they must not plan actions, switch branches, pull, fetch, push, or mutate repositories.

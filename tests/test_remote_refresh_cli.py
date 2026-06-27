@@ -84,7 +84,7 @@ def _init_bare_origin_and_clone(tmp_path: Path) -> tuple[Path, Path]:
     return origin, clone
 
 
-def _write_local_config(path: Path, canonical_roots: list[Path], excluded_roots: list[Path]) -> Path:
+def _write_local_config(path: Path, canonical_roots: list[Path], excluded_roots: list[Path], *, allow_network_fetch: bool = True) -> Path:
     config = {
         "schema_version": "local-config.v1",
         "host": {"name": "test-host"},
@@ -95,7 +95,7 @@ def _write_local_config(path: Path, canonical_roots: list[Path], excluded_roots:
         "policy": {
             "allow_mutating_actions": False,
             "allow_branch_switch": False,
-            "allow_network_fetch": False,
+            "allow_network_fetch": allow_network_fetch,
         },
     }
     config_path = path / "local-config.json"
@@ -558,7 +558,7 @@ def test_remote_refresh_negative_fetch_exit_code_normalized_in_artifacts(tmp_pat
     trace_path = tmp_path / "artifacts" / "trace-signal.json"
     trace_path.parent.mkdir(parents=True, exist_ok=True)
 
-    monkeypatch.setattr(remote_refresh, "explain_scope", lambda _repo, config_path: {"scope": "scope_canonical"})
+    monkeypatch.setattr(remote_refresh, "explain_scope_from_config", lambda _repo, _config: {"scope": "scope_canonical"})
 
     def _fake_run_git(path: Path, *args: str) -> subprocess.CompletedProcess[str]:
         if args == ("rev-parse", "--is-inside-work-tree"):

@@ -1,0 +1,22 @@
+{
+  "schema_version": "operational-profile.v1",
+  "generated_at": "2026-06-27T12:00:00Z",
+  "host": "heim-pc",
+  "config_path": "/home/alex/.config/steuerboard/local-config.json",
+  "policy": {
+    "allow_mutating_actions": false,
+    "allow_branch_switch": false,
+    "allow_network_fetch": true
+  },
+  "effective_operations": {
+    "remote-refresh.fetch-origin-prune": true,
+    "action.run-git-pull-ff-only": false,
+    "action.run-switch-main": false
+  },
+  "source_refs": ["local-config.v1.policy"],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true
+  }
+}

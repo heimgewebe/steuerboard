@@ -8,17 +8,20 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All ten read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
+- All thirteen read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
   - `steuerboard inventory duplicates --json`
+  - `steuerboard inventory favorites --json`
+  - `steuerboard profile show --json`
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
   - `steuerboard plan switch-main <assessment-json> --json`
   - `steuerboard plan git-pull-ff-only <assessment-json> --json`
   - `steuerboard omnipull-report show <report-json> --json`
   - `steuerboard omnipull-report latest <run-index-json> --json`
+  - `steuerboard omnipull-report recent-problems <report-json>... --json`
 - Plan preview commands are derivation-only and do not run Git subprocesses or network requests.
 - All JSON Schemas validate against all checked-in examples.
 - The full test suite passes.
@@ -80,7 +83,8 @@ make PYTHON=python3 smoke
 ## Config in smoke
 
 The `smoke` target passes `examples/local-configs/heim-pc.json` explicitly via `--config`
-to `scope explain`, `inventory`, `inventory duplicates`, and `assess repo`. This config is
+to `scope explain`, `inventory`, `inventory duplicates`, `inventory favorites`,
+`profile show`, and `assess repo`. This config is
 checked in and declares `/home/alex/repos` as canonical root.
 
 On other machines this path may not exist. Inventory output is therefore machine-specific
@@ -95,6 +99,8 @@ exercises the explicit scope-config path.
 The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 
 - No mutation of any target repository.
+- `profile show` reads one local configuration and derives policy gates only; it does not authorise an operation.
+- The smoke profile keeps both Stage-D mutation gates disabled.
 - No `git fetch`, `git pull`, `git switch`, `git reset`, or `git clean`.
 - No network requests.
 - No action execution, no action authorization.

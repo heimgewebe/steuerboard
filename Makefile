@@ -35,6 +35,8 @@ smoke:
 	json_smoke "scope explain ." $(CLI) scope explain . --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory" $(CLI) inventory --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory duplicates" $(CLI) inventory duplicates --json --config $(EXAMPLE_CONFIG); \
+	json_smoke "inventory favorites" $(CLI) inventory favorites --json --config $(EXAMPLE_CONFIG); \
+	json_smoke "profile show" $(CLI) profile show --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "omnipull-report show mixed-run" $(CLI) omnipull-report show examples/omnipull-reports/mixed-run.json --json; \
 	json_smoke "omnipull-report latest multiple-runs" $(CLI) omnipull-report latest examples/omnipull-run-indexes/multiple-runs.json --json; \
 	json_smoke "omnipull-report recent-problems" $(CLI) omnipull-report recent-problems examples/omnipull-reports/non-default-branch.json examples/omnipull-reports/dirty-worktree.json examples/omnipull-reports/mixed-run.json --limit 3 --json; \
