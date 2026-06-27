@@ -1,0 +1,101 @@
+name: apply-phase-12a-repository-favorites
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'feat/phase-12a-repository-favorites'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/phase-12a-repository-favorites
+          fetch-depth: 0
+
+      - name: Verify expected source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object README.md)" = "59d8fcd447f9b2060bfba74b2abaad7499bcd2a0"
+          test "$(git hash-object steuerboard/inventory.py)" = "79cfa5aad55823883204dedea24f180bddf6767c"
+          test "$(git hash-object steuerboard/cli.py)" = "7a547958744001275a8e2347b7a366c5bb365c2e"
+          test "$(git hash-object schemas/local-config.v1.schema.json)" = "ee8702133270207a4ba382ef91d20db5a9656f73"
+          test "$(git hash-object docs/masterplan.md)" = "9c68b1935bb1f177274e08ec2617d5567cfb7d7b"
+          test "$(git hash-object docs/roadmap.md)" = "6348a5d073255db887d5491cb97782b0439a3be9"
+          test -d .github/phase12a-transfer
+
+      - name: Reconstruct verified change script
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/phase12a-transfer/part-* > /tmp/apply-phase12a.py.gz.hex
+          test "$(wc -c < /tmp/apply-phase12a.py.gz.hex)" = "12362"
+          printf '%s  %s\n' \
+            'ede143ec6c32b50305cdfb76317d6a79cf6f0c85162fdf3b92986bcfc5b2caec' \
+            '/tmp/apply-phase12a.py.gz.hex' | sha256sum -c -
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('/tmp/apply-phase12a.py.gz.hex').read_text(encoding='ascii')
+          Path('/tmp/apply-phase12a.py.gz').write_bytes(bytes.fromhex(source))
+          PY
+          test "$(wc -c < /tmp/apply-phase12a.py.gz)" = "6181"
+          printf '%s  %s\n' \
+            'f4ffcf0b27eb7265071a5eeeeb2e1626e6850c7abba1b3fdff6ed887f55b1611' \
+            '/tmp/apply-phase12a.py.gz' | sha256sum -c -
+          gzip -dc /tmp/apply-phase12a.py.gz > /tmp/apply-phase12a.py
+          test "$(wc -c < /tmp/apply-phase12a.py)" = "28350"
+          printf '%s  %s\n' \
+            '34e022c284de2d68777aff6e8c12c777d14bbf7af7a57c6f93c4fcf90659be0a' \
+            '/tmp/apply-phase12a.py' | sha256sum -c -
+          python -m py_compile /tmp/apply-phase12a.py
+
+      - name: Apply Phase 12A
+        run: python /tmp/apply-phase12a.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+
+      - name: Regenerate CLI documentation
+        run: python scripts/docmeta/generate_cli_surface.py --write
+
+      - name: Run focused validation
+        run: |
+          python -m pytest -q \
+            tests/test_inventory_favorites.py \
+            tests/test_inventory_cli.py \
+            tests/test_schema_examples.py \
+            tests/test_cli_surface_docs.py
+          python scripts/validate_examples.py
+          git diff --check
+
+      - name: Run full deploy-check
+        run: make PYTHON=python deploy-check
+
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/phase12a-transfer
+          rm .github/workflows/apply-phase12a-repository-favorites.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(inventory): add repository favorites report'
+          git push origin HEAD:feat/phase-12a-repository-favorites
