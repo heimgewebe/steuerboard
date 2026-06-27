@@ -1056,6 +1056,37 @@ Boundary:
 Non-goals: automatic history retention, warning thresholds, PR lookup, desktop
 notification, backend, TUI, and action execution.
 
+### Phase 13A — Operational Profile v1
+
+Status: implemented.
+
+The three policy values in `local-config.v1` are no longer descriptive metadata.
+They are loaded once per command and enforced at the first productive boundary:
+
+```text
+remote-refresh.fetch-origin-prune
+  requires allow_network_fetch
+
+action.run-git-pull-ff-only
+  requires allow_mutating_actions + allow_network_fetch
+
+action.run-switch-main
+  requires allow_mutating_actions + allow_branch_switch
+```
+
+`steuerboard profile show --json` renders the raw policy and effective operation
+gates as `operational-profile.v1`. The report is read-only and explicitly does
+not authorise an action. A positive operational gate only permits evaluation of
+the existing downstream plan, approval, evidence, readiness, live-state, and
+postcheck contracts.
+
+Policy denial is fail-closed and precedes artifact loading, repository probing,
+network access, and output creation. For remote refresh, scope classification
+and policy evaluation use the same loaded configuration snapshot.
+
+Future phases may add a reproducible runtime updater and a scheduled read-only
+report. They must consume this profile rather than invent independent policy.
+
 ---
 
 ## 6. Statusmodell v3

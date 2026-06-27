@@ -95,7 +95,7 @@ def _write_local_config(path: Path, canonical_roots: list[Path], excluded_roots:
         "policy": {
             "allow_mutating_actions": False,
             "allow_branch_switch": False,
-            "allow_network_fetch": False,
+            "allow_network_fetch": True,
         },
     }
     config_path = path / "local-config.json"

@@ -45,6 +45,7 @@ from steuerboard.cli import build_parser
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SWITCH_MAIN_PLAN_PATH = EXAMPLES_DIR / "action-plans" / "switch-main-blocked.json"
+_SWITCH_ENABLED_CONFIG_PATH = Path(__file__).resolve().parent / "fixtures" / "test-local-config-switch-enabled.json"
 
 # Git subcommands this executor must never contain as command tokens.
 _FORBIDDEN_GIT_SUBCOMMANDS = {
@@ -714,6 +715,7 @@ def test_cli_run_switch_main_success(tmp_path):
 
     proc = _cli([
         "action", "run-switch-main", str(_SWITCH_MAIN_PLAN_PATH),
+        "--config", str(_SWITCH_ENABLED_CONFIG_PATH),
         "--approval-validation", str(approval_path),
         "--switch-main-readiness", str(readiness_path),
         "--repo-path", str(repo),
@@ -740,6 +742,7 @@ def test_cli_run_switch_main_blocked_sentinel_writes_no_files(tmp_path):
 
     proc = _cli([
         "action", "run-switch-main", str(_SWITCH_MAIN_PLAN_PATH),
+        "--config", str(_SWITCH_ENABLED_CONFIG_PATH),
         "--approval-validation", str(approval_path),
         "--switch-main-readiness", str(tmp_path / "does-not-exist.json"),
         "--repo-path", str(repo),
@@ -836,6 +839,7 @@ def test_cli_run_switch_main_via_real_approval_validate_path(tmp_path):
 
     proc = _cli([
         "action", "run-switch-main", str(_SWITCH_MAIN_PLAN_PATH),
+        "--config", str(_SWITCH_ENABLED_CONFIG_PATH),
         "--approval-validation", str(approval_validation_file),
         "--switch-main-readiness", str(readiness_path),
         "--repo-path", str(repo),

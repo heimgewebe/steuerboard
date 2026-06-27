@@ -21,7 +21,8 @@
       "properties": {
         "name": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         }
       }
     },
@@ -32,13 +33,17 @@
         "canonical_repo_roots": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
           }
         },
         "excluded_repo_roots": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
           }
         }
       }
@@ -52,7 +57,8 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
           }
         }
       }
@@ -70,7 +76,12 @@
         "allow_network_fetch": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "allow_mutating_actions",
+        "allow_branch_switch",
+        "allow_network_fetch"
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

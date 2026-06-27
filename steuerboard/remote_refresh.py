@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .inventory import explain_scope
+from .inventory import explain_scope_from_config
+from .local_config import load_local_config, require_operation_allowed
 
 
 _BLOCKED_SCOPES = {
@@ -110,6 +111,9 @@ def run_fetch_origin_prune(
     if not assessment_id.strip():
         raise ValueError("assessment_id must be a non-empty string")
 
+    config = load_local_config(Path(config_path))
+    require_operation_allowed(config, "remote-refresh.fetch-origin-prune")
+
     trace_target = _require_existing_parent_and_nonexistent_target(command_trace_out)
 
     repo_input = Path(repo_path).expanduser().resolve()
@@ -132,7 +136,7 @@ def run_fetch_origin_prune(
         # trace_abs is inside repo_abs, which would mutate the worktree after postcheck
         raise ValueError("command_trace_out must be outside the target repository worktree")
 
-    scope_explanation = explain_scope(repo_toplevel, config_path=Path(config_path))
+    scope_explanation = explain_scope_from_config(repo_toplevel, config)
     scope = scope_explanation["scope"]
     if scope in _BLOCKED_SCOPES:
         raise ValueError(f"repository scope is blocked for remote refresh: {scope}")

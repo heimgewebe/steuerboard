@@ -594,6 +594,7 @@ The boundary is explicit and layered:
 
 ```bash
 python -m steuerboard action run-switch-main <action-plan-json> \
+  --config <local-config-json> \
   --approval-validation <action-approval-validation-json> \
   --switch-main-readiness <switch-main-readiness-json> \
   --repo-path <repo-path> \
@@ -608,6 +609,7 @@ python -m steuerboard action run-switch-main <action-plan-json> \
 Given a `switch-main` `action-plan.v1`, an `action-approval-validation.v1`, and a
 Phase 9A `switch-main-readiness.v1`, the runner:
 
+0. Requires `allow_mutating_actions=true` and `allow_branch_switch=true` from the loaded `local-config.v1`; denial precedes artifact loading and output creation.
 1. Schema-validates all three input artifacts.
 2. Asserts `action_plan.action == "switch-main"`.
 3. Requires `approval_validation.binding_state == "binding_valid"` and that its

@@ -204,6 +204,7 @@ The boundary is layered and explicit:
 
 ```bash
 python -m steuerboard action run-switch-main <action-plan-json> \
+  --config <local-config-json> \
   --approval-validation <action-approval-validation-json> \
   --switch-main-readiness <switch-main-readiness-json> \
   --repo-path <repo-path> \
@@ -216,6 +217,8 @@ python -m steuerboard action run-switch-main <action-plan-json> \
 Classified `mutating_stage_d`.
 
 ### Inputs and gates
+
+The runner first requires `allow_mutating_actions=true` and `allow_branch_switch=true` from the loaded `local-config.v1`; denial occurs before artifact loading or output creation.
 
 The runner consumes three artifacts, all pinned to the same plan:
 

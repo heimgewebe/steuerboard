@@ -1,0 +1,10 @@
+{
+  "schema_version": "local-config.v1",
+  "host": {"name": "test-host"},
+  "paths": {"canonical_repo_roots": ["/tmp"], "excluded_repo_roots": []},
+  "policy": {
+    "allow_mutating_actions": true,
+    "allow_branch_switch": true,
+    "allow_network_fetch": false
+  }
+}

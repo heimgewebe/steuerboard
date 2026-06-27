@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .local_config import LocalConfig, load_local_config
 
 
 ALLOWED_SCOPES = {
@@ -20,42 +21,9 @@ ALLOWED_SCOPES = {
 
 
 @dataclass(frozen=True)
-class LocalConfig:
-    host_name: str
-    canonical_repo_roots: tuple[Path, ...]
-    excluded_repo_roots: tuple[Path, ...]
-    favorite_repo_paths: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class GitProbe:
     is_git_repo: bool
     git_toplevel: str | None
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def _user_config_path() -> Path:
-    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
-    config_home = Path(xdg_config_home).expanduser() if xdg_config_home else Path.home() / ".config"
-    return config_home / "steuerboard" / "local-config.json"
-
-
-def _checkout_example_config_path() -> Path:
-    return _repo_root() / "examples" / "local-configs" / "heim-pc.json"
-
-
-def _default_config_candidates() -> tuple[Path, ...]:
-    return (_user_config_path(), _checkout_example_config_path())
-
-
-def _default_config_path() -> Path:
-    for candidate in _default_config_candidates():
-        if candidate.exists():
-            return candidate
-    return _user_config_path()
 
 
 def _rfc3339_now() -> str:
@@ -76,50 +44,6 @@ def _favorites_id() -> str:
 
 def _scope_explanation_id() -> str:
     return f"scope-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%SZ')}"
-
-
-def _load_local_config(config_path: Path | None) -> LocalConfig:
-    path = config_path.expanduser().absolute() if config_path else _default_config_path()
-    if not path.exists():
-        candidates = ", ".join(str(candidate) for candidate in _default_config_candidates())
-        raise FileNotFoundError(
-            "local-config.v1 JSON not found; pass --config or create one of: "
-            f"{candidates}"
-        )
-
-    data = json.loads(path.read_text(encoding="utf-8"))
-
-    host_name = data["host"]["name"]
-    paths = data.get("paths", {})
-    canonical_repo_roots = tuple(
-        Path(item).expanduser().absolute() for item in paths.get("canonical_repo_roots", [])
-    )
-    excluded_repo_roots = tuple(
-        Path(item).expanduser().absolute() for item in paths.get("excluded_repo_roots", [])
-    )
-    preferences = data.get("preferences", {})
-    if not isinstance(preferences, dict):
-        raise ValueError("local-config preferences must be an object")
-
-    raw_favorite_repo_paths = preferences.get("favorite_repo_paths", [])
-    if not isinstance(raw_favorite_repo_paths, list):
-        raise ValueError("local-config preferences.favorite_repo_paths must be an array")
-
-    favorite_repo_paths_list: list[str] = []
-    for index, item in enumerate(raw_favorite_repo_paths):
-        if not isinstance(item, str) or not item:
-            raise ValueError(
-                f"local-config preferences.favorite_repo_paths[{index}] must be a non-empty string"
-            )
-        favorite_repo_paths_list.append(item)
-    favorite_repo_paths = tuple(favorite_repo_paths_list)
-
-    return LocalConfig(
-        host_name=host_name,
-        canonical_repo_roots=canonical_repo_roots,
-        excluded_repo_roots=excluded_repo_roots,
-        favorite_repo_paths=favorite_repo_paths,
-    )
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:
@@ -329,7 +253,7 @@ def _build_inventory_from_config(config: LocalConfig) -> dict[str, Any]:
 
 
 def build_inventory(config_path: Path | None = None) -> dict[str, Any]:
-    return _build_inventory_from_config(_load_local_config(config_path))
+    return _build_inventory_from_config(load_local_config(config_path))
 
 
 def _normalize_favorite_paths(config: LocalConfig) -> list[Path]:
@@ -352,7 +276,7 @@ def build_favorites_report(config_path: Path | None = None) -> dict[str, Any]:
     performs no discovery beyond the inventory's configured roots and preserves
     the order declared in ``favorite_repo_paths``.
     """
-    config = _load_local_config(config_path)
+    config = load_local_config(config_path)
     favorite_paths = _normalize_favorite_paths(config)
 
     if not favorite_paths:
@@ -457,8 +381,7 @@ def build_duplicates_report(config_path: Path | None = None) -> dict[str, Any]:
     }
 
 
-def explain_scope(path: Path, config_path: Path | None = None) -> dict[str, Any]:
-    config = _load_local_config(config_path)
+def explain_scope_from_config(path: Path, config: LocalConfig) -> dict[str, Any]:
     normalized = path.expanduser().absolute()
     probe = _probe_git(normalized)
     scope, scope_reason = _classify_scope(normalized, config)
@@ -482,3 +405,7 @@ def explain_scope(path: Path, config_path: Path | None = None) -> dict[str, Any]
         "scope_reason": scope_reason,
         "matched_policy": _matched_policy(normalized, config),
     }
+
+
+def explain_scope(path: Path, config_path: Path | None = None) -> dict[str, Any]:
+    return explain_scope_from_config(path, load_local_config(config_path))

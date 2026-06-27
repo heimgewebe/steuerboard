@@ -18,6 +18,7 @@ from .assessment import assess_repo
 from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
 from .assessment_explanations import explain_assessment
+from .local_config import build_operational_profile, load_local_config, require_operation_allowed
 from .inventory import (
     build_duplicates_report,
     build_favorites_report,
@@ -403,6 +404,32 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         required=True,
         help="Emit repo-favorites.v1 JSON.",
+    )
+
+    profile_parser = subparsers.add_parser(
+        "profile",
+        help="Read-only operational profile commands.",
+    )
+    profile_subparsers = profile_parser.add_subparsers(
+        dest="profile_command",
+        required=True,
+    )
+    profile_show_parser = profile_subparsers.add_parser(
+        "show",
+        help="Show effective local operational policy gates without executing them.",
+    )
+    profile_show_parser.add_argument(
+        "--config",
+        help=(
+            "Path to local-config.v1 JSON. Defaults to "
+            "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
+        ),
+    )
+    profile_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit operational-profile.v1 JSON.",
     )
 
     assess_parser = subparsers.add_parser("assess", help="Read-only assessment commands.")
@@ -863,6 +890,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to an action-plan.v1 JSON file (action must be git-pull-ff-only).",
     )
     action_run_git_pull_ff_only_parser.add_argument(
+        "--config",
+        required=True,
+        help=(
+            "Path to local-config.v1 JSON whose operational policy must allow "
+            "mutation and network fetch."
+        ),
+    )
+    action_run_git_pull_ff_only_parser.add_argument(
         "--approval-validation",
         required=True,
         help="Path to an action-approval-validation.v1 JSON file.",
@@ -919,6 +954,14 @@ def build_parser() -> argparse.ArgumentParser:
     action_run_switch_main_parser.add_argument(
         "action_plan_json",
         help="Path to an action-plan.v1 JSON file (action must be switch-main).",
+    )
+    action_run_switch_main_parser.add_argument(
+        "--config",
+        required=True,
+        help=(
+            "Path to local-config.v1 JSON whose operational policy must allow "
+            "mutation and branch switching."
+        ),
     )
     action_run_switch_main_parser.add_argument(
         "--approval-validation",
@@ -1065,6 +1108,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(inventory, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "profile" and args.profile_command == "show":
+        config_path = Path(args.config) if args.config else None
+        try:
+            profile = build_operational_profile(config_path)
+        except (FileNotFoundError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(profile, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "assess" and args.assess_command == "repo":
@@ -1451,6 +1503,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "action" and args.action_command == "run-git-pull-ff-only":
         try:
+            config = load_local_config(Path(args.config))
+            require_operation_allowed(config, "action.run-git-pull-ff-only")
+        except (FileNotFoundError, ValueError) as exc:
+            return _emit_pull_blocked(str(exc))
+
+        try:
             with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
                 action_plan_data = json.load(handle)
         except (OSError, json.JSONDecodeError) as exc:
@@ -1491,6 +1549,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "action" and args.action_command == "run-switch-main":
+        try:
+            config = load_local_config(Path(args.config))
+            require_operation_allowed(config, "action.run-switch-main")
+        except (FileNotFoundError, ValueError) as exc:
+            return _emit_switch_main_blocked(str(exc))
+
         try:
             with Path(args.action_plan_json).open("r", encoding="utf-8") as handle:
                 action_plan_data = json.load(handle)
