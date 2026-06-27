@@ -13,6 +13,11 @@
       "/home/alex/_rollout_wgx_baseline"
     ]
   },
+  "preferences": {
+    "favorite_repo_paths": [
+      "/home/alex/repos/steuerboard"
+    ]
+  },
   "policy": {
     "allow_mutating_actions": false,
     "allow_branch_switch": false,

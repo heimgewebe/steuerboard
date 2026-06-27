@@ -1425,3 +1425,31 @@ Scope:
 
 Non-goals:
 - no specialized top-level CLI command, live service check, service manager, network probe, subprocess, shell, repair, automatic artifact discovery, Runtime/Stage-D integration, or evidence-internal provenance.
+
+
+## Phase 12A — Read-only Repository Favorites
+
+Status: implemented.
+
+Adds a preference-derived comfort view without changing repository observation
+semantics.
+
+Scope:
+- optional `preferences.favorite_repo_paths` in `local-config.v1`;
+- new `repo-favorites.v1` report contract and validated example;
+- new `inventory favorites` read-only CLI command;
+- exact-path join against the existing configured inventory;
+- configuration order is preserved;
+- normalized duplicate preferences are rejected;
+- configured paths outside the inventory are reported as `not_in_inventory`;
+- no discovery or Git probing is added for missing favorites.
+
+Architecture boundary:
+- favorites are explicit user preferences, not observed repository facts;
+- `repo-inventory.v1` remains unchanged;
+- the command does not mutate repositories, configuration, or preferences;
+- the report does not plan, authorize, or execute actions.
+
+Non-goals:
+- no history, problem-repository ranking, warning engine, PR lookup, desktop
+  notification, backend, TUI, or favorite-management command.

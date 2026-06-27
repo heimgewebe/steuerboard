@@ -87,6 +87,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "assessments/pull-preflight-local-clear-evidence-missing.json",
     "assessments/scope-backup-blocked.json",
     "duplicates/minimal-duplicates.json",
+    "favorites/mixed.json",
     "evidence/command-trace-redacted.json",
     "inventories/minimal-inventory.json",
     "local-configs/heim-pc.json",

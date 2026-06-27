@@ -43,6 +43,20 @@
         }
       }
     },
+    "preferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "favorite_repo_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
     "policy": {
       "type": "object",
       "additionalProperties": false,
