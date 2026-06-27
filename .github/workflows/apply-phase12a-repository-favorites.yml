@@ -86,7 +86,13 @@ jobs:
           git diff --check
 
       - name: Run full deploy-check
-        run: make PYTHON=python deploy-check
+        shell: bash
+        run: |
+          set +e
+          make PYTHON=python deploy-check > /tmp/deploy-check.log 2>&1
+          status=$?
+          tail -n 350 /tmp/deploy-check.log
+          exit "$status"
 
       - name: Commit verified implementation
         shell: bash
