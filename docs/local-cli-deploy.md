@@ -8,12 +8,13 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All thirteen read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
+- All fourteen read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
   - `steuerboard inventory duplicates --json`
   - `steuerboard inventory favorites --json`
+  - `steuerboard inventory branch-drift --warning-threshold <count> --json`
   - `steuerboard profile show --json`
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
@@ -84,7 +85,7 @@ make PYTHON=python3 smoke
 
 The `smoke` target passes `examples/local-configs/heim-pc.json` explicitly via `--config`
 to `scope explain`, `inventory`, `inventory duplicates`, `inventory favorites`,
-`profile show`, and `assess repo`. This config is
+`inventory branch-drift`, `profile show`, and `assess repo`. This config is
 checked in and declares `/home/alex/repos` as canonical root.
 
 On other machines this path may not exist. Inventory output is therefore machine-specific

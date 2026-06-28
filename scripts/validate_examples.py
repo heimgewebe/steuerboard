@@ -27,6 +27,7 @@ SCHEMA_MAP = {
     "action-preflight-bindings": SCHEMAS_DIR / "action-preflight-binding.v1.schema.json",
     "assessment-explanations": SCHEMAS_DIR / "repo-assessment-explanation.v1.schema.json",
     "assessments": SCHEMAS_DIR / "repo-assessment.v1.schema.json",
+    "branch-drift": SCHEMAS_DIR / "repo-branch-drift.v1.schema.json",
     "duplicates": SCHEMAS_DIR / "repo-duplicates.v1.schema.json",
     "favorites": SCHEMAS_DIR / "repo-favorites.v1.schema.json",
     "evidence": SCHEMAS_DIR / "command-trace.v1.schema.json",

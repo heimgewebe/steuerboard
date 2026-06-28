@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/repo-branch-drift.v1.schema.json",
+  "title": "Repository Branch Drift v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "observed_at",
+    "host",
+    "warning_threshold",
+    "warning_triggered",
+    "counts",
+    "repos",
+    "source_refs",
+    "does_not_prove",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "repo-branch-drift.v1"
+    },
+    "report_id": {
+      "type": "string",
+      "pattern": "^branch-drift-[0-9]{8}-[0-9]{6}Z$"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1
+    },
+    "warning_threshold": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "warning_triggered": {
+      "type": "boolean"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluated_repository_count",
+        "on_default_branch_count",
+        "non_default_branch_count",
+        "detached_head_count",
+        "default_branch_unknown_count",
+        "observation_failed_count"
+      ],
+      "properties": {
+        "evaluated_repository_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "on_default_branch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_default_branch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "detached_head_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "default_branch_unknown_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_failed_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "git_toplevel",
+          "repo_id",
+          "current_branch",
+          "default_branch_candidate",
+          "default_branch_candidate_source",
+          "dirty",
+          "ahead",
+          "behind",
+          "classification"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "git_toplevel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repo_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default_branch_candidate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default_branch_candidate_source": {
+            "enum": [
+              "remote_origin_head",
+              "local_branch_heuristic",
+              "unavailable",
+              null
+            ]
+          },
+          "dirty": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "ahead": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "behind": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "classification": {
+            "enum": [
+              "on_default_branch",
+              "non_default_branch",
+              "detached_head",
+              "default_branch_unknown",
+              "observation_failed"
+            ]
+          }
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "does_not_prove": {
+      "const": [
+        "remote_freshness",
+        "branch_safety",
+        "remediation_required"
+      ]
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions",
+        "does_not_recommend_actions"
+      ],
+      "properties": {
+        "does_not_execute": {
+          "const": true
+        },
+        "does_not_mutate": {
+          "const": true
+        },
+        "does_not_authorise_actions": {
+          "const": true
+        },
+        "does_not_recommend_actions": {
+          "const": true
+        }
+      }
+    }
+  }
+}

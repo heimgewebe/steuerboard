@@ -1491,6 +1491,12 @@ Non-goals:
 - no persistent history store, warning engine, manual PR links, desktop
   notification, backend, TUI, or action command.
 
+## Phase 12C — Read-only Repository Branch Drift
+
+Status: implemented.
+
+The command `inventory branch-drift --warning-threshold N --json` summarizes canonical Git repositories against each locally available default branch. Detached, unknown-default, and failed observations remain separate. The mandatory threshold counts only non-default branches. Local remote references do not establish remote freshness. No network access, mutation, repair recommendation, planning, or action authorisation is added.
+
 ## Phase 13A — Operational Profile v1
 
 Status: implemented.

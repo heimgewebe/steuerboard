@@ -11,7 +11,7 @@ marked block in `README.md`. Classification lives in
 `scripts/docmeta/cli_surface.json` and is declared explicitly, never inferred
 from help text.
 
-Capability counts: read_only=14, derivation_only=7, fetch_only=1, mutating_stage_d=2.
+Capability counts: read_only=15, derivation_only=7, fetch_only=1, mutating_stage_d=2.
 
 <!-- BEGIN GENERATED: cli-surface -->
 | Command | Capability class | Invocation |
@@ -21,6 +21,7 @@ Capability counts: read_only=14, derivation_only=7, fetch_only=1, mutating_stage
 | `assess explain` | `read_only` | `python -m steuerboard assess explain <assessment-json> --json` |
 | `assess repo` | `read_only` | `python -m steuerboard assess repo <path> [--config <config>] --json` |
 | `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] --json` |
+| `inventory branch-drift` | `read_only` | `python -m steuerboard inventory branch-drift [--config <config>] --warning-threshold <warning-threshold> --json` |
 | `inventory duplicates` | `read_only` | `python -m steuerboard inventory duplicates [--config <config>] --json` |
 | `inventory favorites` | `read_only` | `python -m steuerboard inventory favorites [--config <config>] --json` |
 | `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |
