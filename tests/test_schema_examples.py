@@ -86,6 +86,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "assessments/not-git-repo-blocked.json",
     "assessments/pull-preflight-local-clear-evidence-missing.json",
     "assessments/scope-backup-blocked.json",
+    "branch-drift/mixed.json",
     "duplicates/minimal-duplicates.json",
     "favorites/mixed.json",
     "recent-problem-repos/multiple-reports.json",

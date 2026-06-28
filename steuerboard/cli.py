@@ -15,6 +15,7 @@ from .action_runs import run_read_only_action
 from .action_switch_main import run_switch_main
 from .action_switch_main_readiness import validate_switch_main_readiness
 from .assessment import assess_repo
+from .branch_drift import build_branch_drift_report
 from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
 from .assessment_explanations import explain_assessment
@@ -31,6 +32,16 @@ from .omnipull_run_indexes import load_omnipull_run_index, select_latest_report
 from .recent_problem_repos import build_recent_problem_repos
 from .remote_refresh import run_fetch_origin_prune
 from .runbooks import run_runbook
+
+
+def _warning_threshold(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("warning threshold must be an integer") from exc
+    if not 1 <= parsed <= 1000:
+        raise argparse.ArgumentTypeError("warning threshold must be between 1 and 1000")
+    return parsed
 
 
 def _sanitize_sentinel_reason(reason: str | object) -> str:
@@ -404,6 +415,31 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         required=True,
         help="Emit repo-favorites.v1 JSON.",
+    )
+
+    branch_drift_parser = inventory_subparsers.add_parser(
+        "branch-drift",
+        help="Summarise local repositories that are not on their observed default branch.",
+    )
+    branch_drift_parser.add_argument(
+        "--config",
+        default=argparse.SUPPRESS,
+        help=(
+            "Path to local-config.v1 JSON. Defaults to "
+            "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
+        ),
+    )
+    branch_drift_parser.add_argument(
+        "--warning-threshold",
+        type=_warning_threshold,
+        required=True,
+        help="Trigger the report warning at this many non-default-branch repositories (1..1000).",
+    )
+    branch_drift_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit repo-branch-drift.v1 JSON.",
     )
 
     profile_parser = subparsers.add_parser(
@@ -1097,6 +1133,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(favorites, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "inventory" and args.inventory_command == "branch-drift":
+        config_path = Path(args.config) if args.config else None
+        try:
+            branch_drift = build_branch_drift_report(
+                config_path=config_path,
+                warning_threshold=args.warning_threshold,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(branch_drift, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "inventory":

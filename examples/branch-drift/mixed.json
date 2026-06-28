@@ -1,0 +1,71 @@
+{
+  "schema_version": "repo-branch-drift.v1",
+  "report_id": "branch-drift-20260628-060000Z",
+  "observed_at": "2026-06-28T06:00:00Z",
+  "host": "heim-pc",
+  "warning_threshold": 2,
+  "warning_triggered": false,
+  "counts": {
+    "on_default_branch_count": 1,
+    "non_default_branch_count": 1,
+    "detached_head_count": 0,
+    "default_branch_unknown_count": 1,
+    "observation_failed_count": 0,
+    "evaluated_repository_count": 3
+  },
+  "repos": [
+    {
+      "path": "/home/alex/repos/infra",
+      "git_toplevel": "/home/alex/repos/infra",
+      "repo_id": "heimgewebe/infra",
+      "current_branch": "main",
+      "default_branch_candidate": "main",
+      "default_branch_candidate_source": "remote_origin_head",
+      "dirty": false,
+      "ahead": 0,
+      "behind": 0,
+      "classification": "on_default_branch"
+    },
+    {
+      "path": "/home/alex/repos/steuerboard",
+      "git_toplevel": "/home/alex/repos/steuerboard",
+      "repo_id": "heimgewebe/steuerboard",
+      "current_branch": "feat/example",
+      "default_branch_candidate": "main",
+      "default_branch_candidate_source": "local_branch_heuristic",
+      "dirty": true,
+      "ahead": null,
+      "behind": null,
+      "classification": "non_default_branch"
+    },
+    {
+      "path": "/home/alex/repos/unborn",
+      "git_toplevel": "/home/alex/repos/unborn",
+      "repo_id": null,
+      "current_branch": "topic",
+      "default_branch_candidate": null,
+      "default_branch_candidate_source": "unavailable",
+      "dirty": false,
+      "ahead": null,
+      "behind": null,
+      "classification": "default_branch_unknown"
+    }
+  ],
+  "source_refs": [
+    "local_config.paths.canonical_repo_roots",
+    "repo-inventory.v1",
+    "repo-observation.v1",
+    "git.default_branch_candidate"
+  ],
+  "does_not_prove": [
+    "remote_freshness",
+    "branch_safety",
+    "remediation_required"
+  ],
+  "boundary": {
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_authorise_actions": true,
+    "does_not_recommend_actions": true
+  }
+}

@@ -23,7 +23,7 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 
 ## Current scope
 
-This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, inventory, favorites, and assessment CLI surfaces, plus a Phase 10A read-only UI display contract and schema-validated UI view models.
+This repository contains documentation, JSON Schemas, examples, example validation, and read-only observation, scope, inventory, favorites, branch-drift, and assessment CLI surfaces, plus a Phase 10A read-only UI display contract and schema-validated UI view models.
 Runbook scope is read-only: `runbook run` supports `repo-sync-gate`, `dns-gate`, `ssh-gate`, `tailscale-preflight`, `server-facts-snapshot`, and `heimserver-service-gate` diagnostics that emit artifacts, not repair actions.
 
 It intentionally does **not** contain a productive fleet scanner, backend, UI beyond the Phase 10A read-only display scaffold, production fleet planner, evidence archival system, or general mutating action executor. The only mutating capabilities are exactly two bounded Stage-D executors — `action run-git-pull-ff-only` (exactly one fast-forward pull, behind a reproduced readiness gate) and `action run-switch-main` (exactly one switch to `main`, gated by a `ready` switch-main-readiness verdict plus live-state rechecks).
@@ -31,6 +31,8 @@ It intentionally does **not** contain a productive fleet scanner, backend, UI be
 Phase 10A adds a **read-only UI display contract** ([docs/ui-readonly-contract.md](docs/ui-readonly-contract.md)), a schema-validated UI view model (`ui-view-model.v1`) with examples derived from existing CLI/example artifacts, and a minimal dependency-free read-only frontend scaffold. It does **not** add a productive backend, a server, or any action/approval/execute UI. A UI view model is display material, not canonical repository state and not an action approval.
 
 Phase 12A adds a **read-only repository favorites report**. Favorites are explicit local user preferences joined with the existing repository inventory; they are not observed Git facts, do not trigger additional path discovery, and do not authorise or execute actions.
+
+Phase 12C adds a **read-only branch-drift summary** over canonical repositories. It compares each locally observed branch with that repository's locally available default-branch candidate, keeps detached/unknown/failed observations separate, and triggers only an explicit user-selected count threshold. It does not fetch remotes, prove freshness, recommend repair, or authorise actions.
 
 Phase 13A adds a **fail-closed operational profile**. `local-config.v1.policy` is now enforced for bounded network refresh and both Stage-D mutation commands. `profile show` exposes effective operation gates, but never authorises an action.
 
@@ -48,6 +50,7 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `assess explain` | `read_only` | `python -m steuerboard assess explain <assessment-json> --json` |
 | `assess repo` | `read_only` | `python -m steuerboard assess repo <path> [--config <config>] --json` |
 | `inventory` | `read_only` | `python -m steuerboard inventory [--config <config>] --json` |
+| `inventory branch-drift` | `read_only` | `python -m steuerboard inventory branch-drift [--config <config>] --warning-threshold <warning-threshold> --json` |
 | `inventory duplicates` | `read_only` | `python -m steuerboard inventory duplicates [--config <config>] --json` |
 | `inventory favorites` | `read_only` | `python -m steuerboard inventory favorites [--config <config>] --json` |
 | `observe repo` | `read_only` | `python -m steuerboard observe repo <path> --json` |

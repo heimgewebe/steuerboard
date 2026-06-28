@@ -664,3 +664,7 @@ The plan supplies `service_gate_inputs.artifact_root` and `service_gate_inputs.i
 Status binding is exact: assessment `passed`, `blocked`, or `inconclusive` becomes the runbook status of the same name. Adapter or writer technical failures produce an inconclusive runbook result and no assessment artifact.
 
 This is artifact-derived diagnostic execution only. It performs no live service check, service-manager operation, network probe, subprocess, shell, SSH, Tailscale CLI/API, repair, or Stage-D action, and it grants no action authorisation.
+
+## Phase 12C: Branch Drift
+
+`inventory branch-drift --warning-threshold N --json` summarizes canonical repositories against each locally available default-branch candidate. This means `main`, `master`, and `trunk` may each be correct for their own repository. Detached, unknown, and failed observations remain separate. The threshold is explicit; local remote references do not prove freshness.

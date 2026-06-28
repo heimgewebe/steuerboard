@@ -252,8 +252,13 @@ def _build_inventory_from_config(config: LocalConfig) -> dict[str, Any]:
     }
 
 
+def build_inventory_from_config(config: LocalConfig) -> dict[str, Any]:
+    """Build one inventory from an already loaded configuration snapshot."""
+    return _build_inventory_from_config(config)
+
+
 def build_inventory(config_path: Path | None = None) -> dict[str, Any]:
-    return _build_inventory_from_config(load_local_config(config_path))
+    return build_inventory_from_config(load_local_config(config_path))
 
 
 def _normalize_favorite_paths(config: LocalConfig) -> list[Path]:

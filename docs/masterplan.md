@@ -983,16 +983,16 @@ Ein Runbook erzeugt:
 
 ### Phase 12 — Komfortschicht
 
-Status: Phase 12A and Phase 12B implemented.
+Status: Phase 12A, Phase 12B, and Phase 12C implemented.
 
 Implemented:
 
 - Favoriten (Phase 12A)
 - letzte Problem-Repos aus expliziten Omnipull-Berichten (Phase 12B)
+- lokale Branch-Drift-Zusammenfassung mit expliziter Warnschwelle (Phase 12C)
 
 Future:
 
-- Warnung bei vielen Nicht-main-Repos
 - manuelle PR-Links
 - Verlauf pro Repo
 - Desktop Notification
@@ -1055,6 +1055,12 @@ Boundary:
 
 Non-goals: automatic history retention, warning thresholds, PR lookup, desktop
 notification, backend, TUI, and action execution.
+
+#### Phase 12C — Read-only Branch Drift
+
+`inventory branch-drift --warning-threshold N --json` evaluates only canonical Git repositories already present in the configured inventory. It reuses `repo-observation.v1` and compares `current_branch` with each repository's locally available `default_branch_candidate`; it never assumes that every repository uses `main`.
+
+The report keeps `non_default_branch`, `detached_head`, `default_branch_unknown`, and `observation_failed` separate. The warning is derived only from the explicit threshold and the non-default count. Local `origin/HEAD` state does not prove remote freshness. No fetch, mutation, repair recommendation, planning, or action authorisation is added.
 
 ### Phase 13A — Operational Profile v1
 
