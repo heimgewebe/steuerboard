@@ -552,3 +552,21 @@ def test_config_consumers_report_invalid_preferences_without_traceback(
     assert result.returncode == 2
     assert "local-config preferences must be an object" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_inventory_ignores_invalid_git_marker_without_hiding_nested_repos(tmp_path: Path):
+    canonical_root = tmp_path / "repos"
+    canonical_root.mkdir()
+    (canonical_root / ".git").mkdir()
+    repo = canonical_root / "project"
+    _init_repo(repo)
+
+    config_path = _write_local_config(tmp_path, [canonical_root], [])
+    inventory = build_inventory(config_path=config_path)
+
+    paths = [item["path"] for item in inventory["repos"]]
+    assert str(repo.absolute()) in paths
+    assert str(canonical_root.absolute()) not in paths
+    repo_entry = next(item for item in inventory["repos"] if item["path"] == str(repo.absolute()))
+    assert repo_entry["is_git_repo"] is True
+    assert repo_entry["scope"] == "scope_canonical"
