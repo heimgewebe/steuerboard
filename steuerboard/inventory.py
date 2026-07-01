@@ -151,8 +151,16 @@ def _find_git_repos_under(root: Path, excluded_roots: tuple[Path, ...]) -> list[
         ]
 
         if ".git" in dirs or ".git" in files:
-            found.append(current_path)
-            dirs[:] = []
+            probe = _probe_git(current_path)
+            if probe.is_git_repo:
+                found.append(current_path)
+                dirs[:] = []
+                continue
+
+            # A stray or corrupt .git marker at an inventory root must not hide
+            # real repositories below it. Do not descend into the invalid marker
+            # itself, but keep walking sibling directories.
+            dirs[:] = [name for name in dirs if name != ".git"]
 
     return found
 
