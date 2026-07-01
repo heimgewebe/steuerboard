@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/steuerboard/schemas/operator-report.v1.schema.json",
+  "title": "Operator Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "generated_at",
+    "host",
+    "config_path",
+    "inputs",
+    "summary",
+    "operational_profile",
+    "favorites",
+    "branch_drift",
+    "recent_problem_repos",
+    "source_refs",
+    "does_not_prove",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "operator-report.v1"
+    },
+    "report_id": {
+      "type": "string",
+      "pattern": "^operator-report-[0-9]{8}-[0-9]{6}Z$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "config_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_warning_threshold",
+        "omnipull_report_paths",
+        "recent_problem_limit"
+      ],
+      "properties": {
+        "branch_warning_threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "omnipull_report_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          }
+        },
+        "recent_problem_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effective_operations",
+        "blocked_effective_operation_count",
+        "favorite_count",
+        "missing_favorite_count",
+        "branch_drift_warning_triggered",
+        "evaluated_branch_repo_count",
+        "non_default_branch_count",
+        "detached_head_count",
+        "default_branch_unknown_count",
+        "observation_failed_count",
+        "input_omnipull_report_count",
+        "distinct_problem_repo_count",
+        "returned_problem_repo_count"
+      ],
+      "properties": {
+        "effective_operations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "remote-refresh.fetch-origin-prune",
+            "action.run-git-pull-ff-only",
+            "action.run-switch-main"
+          ],
+          "properties": {
+            "remote-refresh.fetch-origin-prune": {"type": "boolean"},
+            "action.run-git-pull-ff-only": {"type": "boolean"},
+            "action.run-switch-main": {"type": "boolean"}
+          }
+        },
+        "blocked_effective_operation_count": {"type": "integer", "minimum": 0},
+        "favorite_count": {"type": "integer", "minimum": 0},
+        "missing_favorite_count": {"type": "integer", "minimum": 0},
+        "branch_drift_warning_triggered": {"type": "boolean"},
+        "evaluated_branch_repo_count": {"type": "integer", "minimum": 0},
+        "non_default_branch_count": {"type": "integer", "minimum": 0},
+        "detached_head_count": {"type": "integer", "minimum": 0},
+        "default_branch_unknown_count": {"type": "integer", "minimum": 0},
+        "observation_failed_count": {"type": "integer", "minimum": 0},
+        "input_omnipull_report_count": {"type": "integer", "minimum": 0},
+        "distinct_problem_repo_count": {"type": "integer", "minimum": 0},
+        "returned_problem_repo_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "operational_profile": {
+      "type": "object",
+      "required": ["schema_version", "effective_operations", "boundary"],
+      "properties": {
+        "schema_version": {"const": "operational-profile.v1"}
+      },
+      "additionalProperties": true
+    },
+    "favorites": {
+      "type": "object",
+      "required": ["schema_version", "favorites", "missing_favorite_paths"],
+      "properties": {
+        "schema_version": {"const": "repo-favorites.v1"}
+      },
+      "additionalProperties": true
+    },
+    "branch_drift": {
+      "type": "object",
+      "required": ["schema_version", "counts", "repos", "boundary"],
+      "properties": {
+        "schema_version": {"const": "repo-branch-drift.v1"}
+      },
+      "additionalProperties": true
+    },
+    "recent_problem_repos": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["schema_version", "problem_repos", "boundary"],
+          "properties": {
+            "schema_version": {"const": "recent-problem-repos.v1"}
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "does_not_prove": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "does_not_execute",
+        "does_not_mutate",
+        "does_not_authorise_actions",
+        "does_not_recommend_actions"
+      ],
+      "properties": {
+        "does_not_execute": {"const": true},
+        "does_not_mutate": {"const": true},
+        "does_not_authorise_actions": {"const": true},
+        "does_not_recommend_actions": {"const": true}
+      }
+    }
+  }
+}

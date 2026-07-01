@@ -8,7 +8,7 @@ It is not a product deploy. There is no backend, no UI, no server, no cloud targ
 After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHON=python3 deploy-check` proves:
 
 - The installed `steuerboard` console script starts and parses arguments.
-- All fourteen read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
+- All fifteen read-only CLI smoke entrypoints emit valid JSON and exit with status 0:
   - `steuerboard observe repo <path> --json`
   - `steuerboard scope explain <path> --json`
   - `steuerboard inventory --json`
@@ -16,6 +16,7 @@ After installing with `python3 -m pip install -e '.[test]'`, running `make PYTHO
   - `steuerboard inventory favorites --json`
   - `steuerboard inventory branch-drift --warning-threshold <count> --json`
   - `steuerboard profile show --json`
+  - `steuerboard operator report --branch-warning-threshold <count> [--omnipull-report <report-json>] --json`
   - `steuerboard assess repo <path> --json`
   - `steuerboard assess explain <assessment-json> --json`
   - `steuerboard plan switch-main <assessment-json> --json`
@@ -85,7 +86,7 @@ make PYTHON=python3 smoke
 
 The `smoke` target passes `examples/local-configs/heim-pc.json` explicitly via `--config`
 to `scope explain`, `inventory`, `inventory duplicates`, `inventory favorites`,
-`inventory branch-drift`, `profile show`, and `assess repo`. This config is
+`inventory branch-drift`, `profile show`, `operator report`, and `assess repo`. This config is
 checked in and declares `/home/alex/repos` as canonical root.
 
 On other machines this path may not exist. Inventory output is therefore machine-specific
@@ -101,6 +102,7 @@ The CLI smoke commands exercised by `make deploy-check` are **read-only**:
 
 - No mutation of any target repository.
 - `profile show` reads one local configuration and derives policy gates only; it does not authorise an operation.
+- `operator report` aggregates profile, favorites, branch drift, and explicitly named Omnipull reports only; it does not discover reports, fetch, recommend repair, or authorise an operation.
 - The smoke profile keeps both Stage-D mutation gates disabled.
 - No `git fetch`, `git pull`, `git switch`, `git reset`, or `git clean`.
 - No network requests.

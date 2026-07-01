@@ -214,8 +214,8 @@ def require_operation_allowed(config: LocalConfig, operation: str) -> None:
         raise ValueError(f"operational policy blocks {operation}: {details}")
 
 
-def build_operational_profile(config_path: Path | None = None) -> dict[str, Any]:
-    config = load_local_config(config_path)
+def build_operational_profile_from_config(config: LocalConfig) -> dict[str, Any]:
+    """Build an operational profile from an already loaded configuration snapshot."""
     policy = config.policy
     generated_at = (
         datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -236,3 +236,7 @@ def build_operational_profile(config_path: Path | None = None) -> dict[str, Any]
             "does_not_authorise_actions": True,
         },
     }
+
+
+def build_operational_profile(config_path: Path | None = None) -> dict[str, Any]:
+    return build_operational_profile_from_config(load_local_config(config_path))

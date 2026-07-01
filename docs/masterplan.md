@@ -1093,6 +1093,28 @@ and policy evaluation use the same loaded configuration snapshot.
 Future phases may add a reproducible runtime updater and a scheduled read-only
 report. They must consume this profile rather than invent independent policy.
 
+### Phase 13B — Read-only Operator Report v1
+
+Status: implemented.
+
+`steuerboard operator report --branch-warning-threshold N --json` aggregates the
+local operational profile, favorite repository inventory status, local branch
+drift, and optional recent-problem summaries from explicitly supplied Omnipull
+reports. It is a single operator-facing readout, not a new action layer.
+
+The report intentionally keeps the source surfaces visible instead of reducing
+them to a hidden score. A blocked mutation policy, missing favorite, non-default
+branch, and stale supplied Omnipull evidence remain separate facts. The report
+therefore supports operator judgement without pretending to be permission.
+
+Boundary:
+
+- no Omnipull discovery, globbing, latest lookup, or report search;
+- no fetch, pull, switch, merge, reset, clean, scheduler, backend, or UI trigger;
+- no repair recommendation, severity ranking, action plan, or authorisation;
+- no claim of remote freshness, branch safety, action readiness, runtime
+  correctness, repository repair need, or completeness of supplied reports.
+
 ---
 
 ## 6. Statusmodell v3

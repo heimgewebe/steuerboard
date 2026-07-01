@@ -8,6 +8,7 @@
   },
   "commands": {
     "observe repo": "read_only",
+    "operator report": "read_only",
     "inventory": "read_only",
     "inventory duplicates": "read_only",
     "inventory favorites": "read_only",

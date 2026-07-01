@@ -20,6 +20,7 @@ from .run_evidence_chains import validate_run_evidence_chain
 from .run_postchecks import run_read_only_postcheck
 from .assessment_explanations import explain_assessment
 from .local_config import build_operational_profile, load_local_config, require_operation_allowed
+from .operator_report import build_operator_report
 from .inventory import (
     build_duplicates_report,
     build_favorites_report,
@@ -466,6 +467,53 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         required=True,
         help="Emit operational-profile.v1 JSON.",
+    )
+
+    operator_parser = subparsers.add_parser(
+        "operator",
+        help="Read-only operator audit and report commands.",
+    )
+    operator_subparsers = operator_parser.add_subparsers(
+        dest="operator_command",
+        required=True,
+    )
+    operator_report_parser = operator_subparsers.add_parser(
+        "report",
+        help="Build a read-only operator report from profile, favorites, branch drift, and explicit Omnipull reports.",
+    )
+    operator_report_parser.add_argument(
+        "--config",
+        help=(
+            "Path to local-config.v1 JSON. Defaults to "
+            "$XDG_CONFIG_HOME/steuerboard/local-config.json, falling back to the checkout example."
+        ),
+    )
+    operator_report_parser.add_argument(
+        "--branch-warning-threshold",
+        type=_warning_threshold,
+        required=True,
+        help="Trigger branch-drift warning at this many non-default-branch repositories (1..1000).",
+    )
+    operator_report_parser.add_argument(
+        "--omnipull-report",
+        action="append",
+        default=[],
+        help=(
+            "Explicit omnipull-report.v1 JSON artifact path to include in recent problems. "
+            "May be supplied multiple times; no discovery is performed."
+        ),
+    )
+    operator_report_parser.add_argument(
+        "--recent-problem-limit",
+        type=int,
+        default=20,
+        help="Maximum recent problem repositories to return when Omnipull reports are supplied (1..100; default: 20).",
+    )
+    operator_report_parser.add_argument(
+        "--json",
+        action="store_true",
+        required=True,
+        help="Emit operator-report.v1 JSON.",
     )
 
     assess_parser = subparsers.add_parser("assess", help="Read-only assessment commands.")
@@ -1165,6 +1213,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (FileNotFoundError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(profile, indent=2, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "operator" and args.operator_command == "report":
+        config_path = Path(args.config) if args.config else None
+        try:
+            report = build_operator_report(
+                config_path=config_path,
+                branch_warning_threshold=args.branch_warning_threshold,
+                omnipull_report_paths=args.omnipull_report,
+                recent_problem_limit=args.recent_problem_limit,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "assess" and args.assess_command == "repo":
