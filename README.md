@@ -19,6 +19,7 @@ The CI gate (`.github/workflows/validate.yml`) reproduces these checks for pushe
 - [Vision](docs/vision.md)
 - [Roadmap](docs/roadmap.md)
 - [Operational Profile](docs/operational-profile.md)
+- [Operator Report Usage Probe](docs/operator-report-usage-probe.md)
 - [Falsification cases](docs/falsification-cases.md)
 
 ## Current scope

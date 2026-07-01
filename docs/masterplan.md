@@ -1115,6 +1115,22 @@ Boundary:
 - no claim of remote freshness, branch safety, action readiness, runtime
   correctness, repository repair need, or completeness of supplied reports.
 
+### Phase 13C — Operator Report Usage Probe
+
+Status: active trial.
+
+The next step is explicitly not another automation layer. The operator report is
+tested manually across 5 to 10 real repository operations. Each trial records the
+operation, target repo, useful signal, decision impact, noise level, and follow-up.
+
+Promotion rule: integrate into Grabowski/Bureau only if the probe surfaces at
+least two concrete decision-changing signals. Stop rule: keep it manual if it
+mostly duplicates existing gates, slows work, inflates global branch-drift noise,
+or is read as permission.
+
+This phase has no code surface beyond the existing report command and no new
+storage format, scheduler, daemon, notification, repair path, or action gate.
+
 ---
 
 ## 6. Statusmodell v3

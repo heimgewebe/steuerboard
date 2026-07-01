@@ -1535,3 +1535,24 @@ Boundary:
 - no fetch, pull, switch, merge, reset, clean, subprocess action, scheduler, backend, or UI trigger;
 - no repair recommendation, severity ranking, or action authorisation;
 - does not prove remote freshness, branch safety, action readiness, runtime correctness, repository repair need, or completeness of supplied Omnipull reports.
+
+## Phase 13C — Operator Report Usage Probe
+
+Status: active trial.
+
+Before adding Bureau or Grabowski integration, `operator report` must be used as
+manual operator context for 5 to 10 real repository operations. The probe records
+whether the report changed a concrete decision, which field mattered, and whether
+it produced noise. It intentionally adds no scheduler, daemon, storage format,
+blocking preflight, notification, repair recommendation, or action authorisation.
+
+Promotion requires at least two concrete useful signals, such as a missing target
+repo in inventory, unexpected target branch state, policy denial that would have
+prevented accidental execution, or explicit Omnipull evidence changing the next
+action. General reassurance does not count.
+
+Stop criteria: keep the report manual if it mostly repeats target-specific gates,
+slows normal work, creates global branch-drift anxiety without changing target
+operations, or is mistaken for approval.
+
+See `docs/operator-report-usage-probe.md`.
