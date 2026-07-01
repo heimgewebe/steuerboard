@@ -38,6 +38,7 @@ SCHEMA_MAP = {
     "omnipull-reports": SCHEMAS_DIR / "omnipull-report.v1.schema.json",
     "omnipull-run-indexes": SCHEMAS_DIR / "omnipull-run-index.v1.schema.json",
     "operational-profiles": SCHEMAS_DIR / "operational-profile.v1.schema.json",
+    "operator-reports": SCHEMAS_DIR / "operator-report.v1.schema.json",
     "observations": SCHEMAS_DIR / "repo-observation.v1.schema.json",
     "recent-problem-repos": SCHEMAS_DIR / "recent-problem-repos.v1.schema.json",
     "redaction-policies": SCHEMAS_DIR / "redaction-policy.v1.schema.json",

@@ -11,7 +11,7 @@ marked block in `README.md`. Classification lives in
 `scripts/docmeta/cli_surface.json` and is declared explicitly, never inferred
 from help text.
 
-Capability counts: read_only=15, derivation_only=7, fetch_only=1, mutating_stage_d=2.
+Capability counts: read_only=16, derivation_only=7, fetch_only=1, mutating_stage_d=2.
 
 <!-- BEGIN GENERATED: cli-surface -->
 | Command | Capability class | Invocation |
@@ -28,6 +28,7 @@ Capability counts: read_only=15, derivation_only=7, fetch_only=1, mutating_stage
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |
 | `omnipull-report recent-problems` | `read_only` | `python -m steuerboard omnipull-report recent-problems <report-json> [--limit <limit>] --json` |
 | `omnipull-report show` | `read_only` | `python -m steuerboard omnipull-report show <report-json> --json` |
+| `operator report` | `read_only` | `python -m steuerboard operator report [--config <config>] --branch-warning-threshold <branch-warning-threshold> [--omnipull-report <omnipull-report>] [--recent-problem-limit <recent-problem-limit>] --json` |
 | `profile show` | `read_only` | `python -m steuerboard profile show [--config <config>] --json` |
 | `runbook run` | `read_only` | `python -m steuerboard runbook run <runbook-plan-json> --result-out <result-out> --command-trace-out <command-trace-out> --json` |
 | `scope explain` | `read_only` | `python -m steuerboard scope explain <path> [--config <config>] --json` |

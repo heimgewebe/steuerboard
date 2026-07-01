@@ -38,6 +38,7 @@ smoke:
 	json_smoke "inventory favorites" $(CLI) inventory favorites --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "inventory branch-drift" $(CLI) inventory branch-drift --warning-threshold 5 --json --config $(EXAMPLE_CONFIG); \
 	json_smoke "profile show" $(CLI) profile show --json --config $(EXAMPLE_CONFIG); \
+	json_smoke "operator report" $(CLI) operator report --json --config $(EXAMPLE_CONFIG) --branch-warning-threshold 5 --omnipull-report examples/omnipull-reports/non-default-branch.json --recent-problem-limit 1; \
 	json_smoke "omnipull-report show mixed-run" $(CLI) omnipull-report show examples/omnipull-reports/mixed-run.json --json; \
 	json_smoke "omnipull-report latest multiple-runs" $(CLI) omnipull-report latest examples/omnipull-run-indexes/multiple-runs.json --json; \
 	json_smoke "omnipull-report recent-problems" $(CLI) omnipull-report recent-problems examples/omnipull-reports/non-default-branch.json examples/omnipull-reports/dirty-worktree.json examples/omnipull-reports/mixed-run.json --limit 3 --json; \

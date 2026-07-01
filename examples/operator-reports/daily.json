@@ -1,0 +1,300 @@
+{
+  "boundary": {
+    "does_not_authorise_actions": true,
+    "does_not_execute": true,
+    "does_not_mutate": true,
+    "does_not_recommend_actions": true
+  },
+  "branch_drift": {
+    "boundary": {
+      "does_not_authorise_actions": true,
+      "does_not_execute": true,
+      "does_not_mutate": true,
+      "does_not_recommend_actions": true
+    },
+    "counts": {
+      "default_branch_unknown_count": 1,
+      "detached_head_count": 0,
+      "evaluated_repository_count": 3,
+      "non_default_branch_count": 1,
+      "observation_failed_count": 0,
+      "on_default_branch_count": 1
+    },
+    "does_not_prove": [
+      "remote_freshness",
+      "branch_safety",
+      "remediation_required"
+    ],
+    "host": "heim-pc",
+    "observed_at": "2026-06-28T06:00:00Z",
+    "report_id": "branch-drift-20260628-060000Z",
+    "repos": [
+      {
+        "ahead": 0,
+        "behind": 0,
+        "classification": "on_default_branch",
+        "current_branch": "main",
+        "default_branch_candidate": "main",
+        "default_branch_candidate_source": "remote_origin_head",
+        "dirty": false,
+        "git_toplevel": "/home/alex/repos/infra",
+        "path": "/home/alex/repos/infra",
+        "repo_id": "heimgewebe/infra"
+      },
+      {
+        "ahead": null,
+        "behind": null,
+        "classification": "non_default_branch",
+        "current_branch": "feat/example",
+        "default_branch_candidate": "main",
+        "default_branch_candidate_source": "local_branch_heuristic",
+        "dirty": true,
+        "git_toplevel": "/home/alex/repos/steuerboard",
+        "path": "/home/alex/repos/steuerboard",
+        "repo_id": "heimgewebe/steuerboard"
+      },
+      {
+        "ahead": null,
+        "behind": null,
+        "classification": "default_branch_unknown",
+        "current_branch": "topic",
+        "default_branch_candidate": null,
+        "default_branch_candidate_source": "unavailable",
+        "dirty": false,
+        "git_toplevel": "/home/alex/repos/unborn",
+        "path": "/home/alex/repos/unborn",
+        "repo_id": null
+      }
+    ],
+    "schema_version": "repo-branch-drift.v1",
+    "source_refs": [
+      "local_config.paths.canonical_repo_roots",
+      "repo-inventory.v1",
+      "repo-observation.v1",
+      "git.default_branch_candidate"
+    ],
+    "warning_threshold": 2,
+    "warning_triggered": false
+  },
+  "config_path": "/home/alex/.config/steuerboard/local-config.json",
+  "does_not_prove": [
+    "remote_freshness",
+    "branch_safety",
+    "action_readiness",
+    "runtime_correctness",
+    "repository_repair_required",
+    "omnipull_report_completeness"
+  ],
+  "favorites": {
+    "favorites": [
+      {
+        "git_toplevel": "/home/alex/repos/steuerboard",
+        "inventory_status": "present",
+        "is_git_repo": true,
+        "path": "/home/alex/repos/steuerboard",
+        "scope": "scope_canonical",
+        "scope_reason": "under canonical_repo_roots"
+      },
+      {
+        "git_toplevel": null,
+        "inventory_status": "not_in_inventory",
+        "is_git_repo": null,
+        "path": "/home/alex/repos/not-yet-cloned",
+        "scope": null,
+        "scope_reason": null
+      }
+    ],
+    "favorites_id": "fav-20260627-060000Z",
+    "host": "heim-pc",
+    "missing_favorite_paths": [
+      "/home/alex/repos/not-yet-cloned"
+    ],
+    "observed_at": "2026-06-27T06:00:00Z",
+    "schema_version": "repo-favorites.v1",
+    "source_refs": [
+      "local_config.preferences.favorite_repo_paths",
+      "local_config.canonical_repo_roots",
+      "local_config.excluded_repo_roots",
+      "filesystem.walk",
+      "git.rev_parse.worktree"
+    ]
+  },
+  "generated_at": "2026-06-29T06:00:00Z",
+  "host": "heim-pc",
+  "inputs": {
+    "branch_warning_threshold": 2,
+    "omnipull_report_paths": [
+      "examples/omnipull-reports/non-default-branch.json",
+      "examples/omnipull-reports/dirty-worktree.json",
+      "examples/omnipull-reports/mixed-run.json"
+    ],
+    "recent_problem_limit": 3
+  },
+  "operational_profile": {
+    "boundary": {
+      "does_not_authorise_actions": true,
+      "does_not_execute": true,
+      "does_not_mutate": true
+    },
+    "config_path": "/home/alex/.config/steuerboard/local-config.json",
+    "effective_operations": {
+      "action.run-git-pull-ff-only": false,
+      "action.run-switch-main": false,
+      "remote-refresh.fetch-origin-prune": true
+    },
+    "generated_at": "2026-06-27T12:00:00Z",
+    "host": "heim-pc",
+    "policy": {
+      "allow_branch_switch": false,
+      "allow_mutating_actions": false,
+      "allow_network_fetch": true
+    },
+    "schema_version": "operational-profile.v1",
+    "source_refs": [
+      "local-config.v1.policy"
+    ]
+  },
+  "recent_problem_repos": {
+    "boundary": {
+      "does_not_authorise_actions": true,
+      "does_not_execute": true,
+      "does_not_mutate": true
+    },
+    "distinct_problem_repo_count": 5,
+    "input_report_count": 3,
+    "limit": 3,
+    "problem_repos": [
+      {
+        "falsification_refs": [
+          "failure-case.feature_branch_unmerged"
+        ],
+        "freshness_refs": [
+          "freshness.local_git_branch.current_invocation"
+        ],
+        "last_problem_at": "2026-05-16T09:32:00Z",
+        "missing_evidence": [
+          "branch_contains_origin_main_or_pr_merged",
+          "fresh_origin_main"
+        ],
+        "occurrence_count": 3,
+        "path": "/home/alex/repos/steuerboard",
+        "repo_id": "heimgewebe/steuerboard",
+        "report_id": "omnipull-report-example-mixed-run",
+        "report_source_path": "examples/omnipull-reports/mixed-run.json",
+        "run_id": "run-2026-05-16-003",
+        "skip_reasons": [
+          "non_default_branch"
+        ],
+        "source_refs": [
+          "git.current_branch",
+          "git.default_branch_candidate"
+        ],
+        "status": "non_default_branch"
+      },
+      {
+        "falsification_refs": [
+          "failure-case.missing_upstream"
+        ],
+        "freshness_refs": [
+          "freshness.local_git_branch.current_invocation"
+        ],
+        "last_problem_at": "2026-05-16T09:32:00Z",
+        "missing_evidence": [
+          "upstream_tracking_branch"
+        ],
+        "occurrence_count": 1,
+        "path": "/home/alex/repos/legacy-no-upstream",
+        "repo_id": "heimgewebe/legacy-no-upstream",
+        "report_id": "omnipull-report-example-mixed-run",
+        "report_source_path": "examples/omnipull-reports/mixed-run.json",
+        "run_id": "run-2026-05-16-003",
+        "skip_reasons": [
+          "no_upstream"
+        ],
+        "source_refs": [
+          "git.upstream"
+        ],
+        "status": "no_upstream"
+      },
+      {
+        "falsification_refs": [
+          "failure-case.backup_repo_accidentally_used"
+        ],
+        "freshness_refs": [
+          "freshness.local_scope_config.current_invocation"
+        ],
+        "last_problem_at": "2026-05-16T09:32:00Z",
+        "missing_evidence": [
+          "scope_classification_allow_canonical"
+        ],
+        "occurrence_count": 1,
+        "path": "/home/alex/backups/fleet-shadow-copy",
+        "repo_id": "heimgewebe/fleet-shadow-copy",
+        "report_id": "omnipull-report-example-mixed-run",
+        "report_source_path": "examples/omnipull-reports/mixed-run.json",
+        "run_id": "run-2026-05-16-003",
+        "skip_reasons": [
+          "repo_not_in_scope",
+          "permission_denied"
+        ],
+        "source_refs": [
+          "filesystem.path",
+          "local_config.excluded_repo_roots"
+        ],
+        "status": "repo_not_in_scope"
+      }
+    ],
+    "returned_problem_repo_count": 3,
+    "schema_version": "recent-problem-repos.v1",
+    "selected_by": "latest_problem_per_repo.generated_at_desc",
+    "source_reports": [
+      {
+        "generated_at": "2026-05-16T09:32:00Z",
+        "report_id": "omnipull-report-example-mixed-run",
+        "run_id": "run-2026-05-16-003",
+        "source_path": "examples/omnipull-reports/mixed-run.json"
+      },
+      {
+        "generated_at": "2026-05-16T09:31:00Z",
+        "report_id": "omnipull-report-example-dirty-worktree",
+        "run_id": "run-2026-05-16-002",
+        "source_path": "examples/omnipull-reports/dirty-worktree.json"
+      },
+      {
+        "generated_at": "2026-05-16T09:30:00Z",
+        "report_id": "omnipull-report-example-non-default-branch",
+        "run_id": "run-2026-05-16-001",
+        "source_path": "examples/omnipull-reports/non-default-branch.json"
+      }
+    ]
+  },
+  "report_id": "operator-report-20260629-060000Z",
+  "schema_version": "operator-report.v1",
+  "source_refs": [
+    "local-config.v1.policy",
+    "local_config.preferences.favorite_repo_paths",
+    "local_config.paths.canonical_repo_roots",
+    "repo-inventory.v1",
+    "repo-observation.v1",
+    "omnipull-report.v1.explicit_inputs"
+  ],
+  "summary": {
+    "blocked_effective_operation_count": 2,
+    "branch_drift_warning_triggered": false,
+    "default_branch_unknown_count": 1,
+    "detached_head_count": 0,
+    "distinct_problem_repo_count": 5,
+    "effective_operations": {
+      "action.run-git-pull-ff-only": false,
+      "action.run-switch-main": false,
+      "remote-refresh.fetch-origin-prune": true
+    },
+    "evaluated_branch_repo_count": 3,
+    "favorite_count": 2,
+    "input_omnipull_report_count": 3,
+    "missing_favorite_count": 1,
+    "non_default_branch_count": 1,
+    "observation_failed_count": 0,
+    "returned_problem_repo_count": 3
+  }
+}

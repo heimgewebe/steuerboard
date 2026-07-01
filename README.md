@@ -36,6 +36,8 @@ Phase 12C adds a **read-only branch-drift summary** over canonical repositories.
 
 Phase 13A adds a **fail-closed operational profile**. `local-config.v1.policy` is now enforced for bounded network refresh and both Stage-D mutation commands. `profile show` exposes effective operation gates, but never authorises an action.
 
+Phase 13B adds a **read-only operator report**. `operator report` aggregates the effective operational profile, configured favorites, local branch drift, and optionally explicitly supplied Omnipull problem reports. It performs no Omnipull discovery, no fetch, no mutation, no repair recommendation, and no action authorisation.
+
 Architecture rule:
 
 > Observation ≠ Derivation ≠ Decision ≠ Action
@@ -57,6 +59,7 @@ The executable CLI surface is enumerated below, generated from `steuerboard.cli.
 | `omnipull-report latest` | `read_only` | `python -m steuerboard omnipull-report latest <run-index-json> --json` |
 | `omnipull-report recent-problems` | `read_only` | `python -m steuerboard omnipull-report recent-problems <report-json> [--limit <limit>] --json` |
 | `omnipull-report show` | `read_only` | `python -m steuerboard omnipull-report show <report-json> --json` |
+| `operator report` | `read_only` | `python -m steuerboard operator report [--config <config>] --branch-warning-threshold <branch-warning-threshold> [--omnipull-report <omnipull-report>] [--recent-problem-limit <recent-problem-limit>] --json` |
 | `profile show` | `read_only` | `python -m steuerboard profile show [--config <config>] --json` |
 | `runbook run` | `read_only` | `python -m steuerboard runbook run <runbook-plan-json> --result-out <result-out> --command-trace-out <command-trace-out> --json` |
 | `scope explain` | `read_only` | `python -m steuerboard scope explain <path> [--config <config>] --json` |

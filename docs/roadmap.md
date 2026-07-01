@@ -1516,3 +1516,22 @@ Boundary:
 - an effective gate is a prerequisite, never action authorisation;
 - all existing plan, approval, evidence, readiness, live-state, and postcheck gates remain mandatory;
 - no daemon, scheduler, updater, policy editor, or automatic action execution.
+
+## Phase 13B — Read-only Operator Report v1
+
+Status: implemented.
+
+`operator report --branch-warning-threshold N --json` builds a bounded operator-facing audit surface from already constrained components:
+
+- `operational-profile.v1` from the loaded local configuration;
+- `repo-favorites.v1` from configured favorite paths joined with the current inventory;
+- `repo-branch-drift.v1` from canonical inventory plus local repository observation;
+- optional `recent-problem-repos.v1` from explicitly supplied `--omnipull-report` artifacts.
+
+The command loads the local configuration once for policy, inventory, favorites, and branch-drift sections. Omnipull reports are never discovered implicitly; each report must be named with `--omnipull-report`.
+
+Boundary:
+- read-only aggregate report only;
+- no fetch, pull, switch, merge, reset, clean, subprocess action, scheduler, backend, or UI trigger;
+- no repair recommendation, severity ranking, or action authorisation;
+- does not prove remote freshness, branch safety, action readiness, runtime correctness, repository repair need, or completeness of supplied Omnipull reports.

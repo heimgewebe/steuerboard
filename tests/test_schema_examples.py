@@ -101,6 +101,7 @@ REQUIRED_SCHEMA_EXAMPLES = {
     "omnipull-run-indexes/minimal.json",
     "omnipull-run-indexes/multiple-runs.json",
     "operational-profiles/heim-pc.json",
+    "operator-reports/daily.json",
     "observations/clean-default-current-no-upstream.json",
     "observations/clean-default-current-tracking-behind.json",
     "observations/feature-branch-clean.json",
